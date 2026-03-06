@@ -11,7 +11,7 @@ import { defineConfig, devices } from '@playwright/test';
  *   只测试某个页面:          npx playwright test --grep "TextDemo"
  */
 export default defineConfig({
-  testDir: './tests',
+  testDir: './web-tests',
   /* 单个测试的超时时间 */
   timeout: 30_000,
   /* 整个测试套件超时 */
