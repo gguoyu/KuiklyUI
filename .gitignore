@@ -45,3 +45,6 @@ proto/**/*.kt
 .kotlin
 /compose/compose.podspec
 /core/core.podspec
+
+test-results/
+playwright-report/
