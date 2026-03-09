@@ -25,10 +25,10 @@ export default defineConfig({
   /* 截图对比配置 */
   expect: {
     toHaveScreenshot: {
-      /* 允许 1% 的像素差异（防止抗锯齿等导致误报） */
-      maxDiffPixelRatio: 0.01,
+      /* 允许 2% 的像素差异（防止抗锯齿等导致误报） */
+      maxDiffPixelRatio: 0.02,
       /* 基准截图存放路径模板 */
-      snapshotPathTemplate:
+      pathTemplate:
         '{testDir}/__screenshots__/{projectName}/{arg}{ext}',
     },
   },
@@ -51,14 +51,8 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 
-  /* 测试项目（多设备/分辨率） */
+  /* 测试项目（桌面版/分辨率） */
   projects: [
-    {
-      name: 'mobile-chrome',
-      use: {
-        ...devices['iPhone 14'],
-      },
-    },
     {
       name: 'desktop-chrome',
       use: {

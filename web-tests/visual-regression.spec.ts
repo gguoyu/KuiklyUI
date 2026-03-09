@@ -10,14 +10,14 @@ const testablePages = getTestablePages();
 async function waitForPageReady(page: Page, entry: PageEntry) {
   // 等待 root 容器下有子元素（Kuikly 渲染完成的标志）
   try {
-    await page.waitForSelector('#root > *', { timeout: 15_000 });
+    await page.waitForSelector('#root > *', { timeout: 500 });
   } catch {
     // 某些页面可能使用不同的渲染方式，继续执行
   }
 
   // 等待网络请求空闲（图片等资源加载完成）
   try {
-    await page.waitForLoadState('networkidle', { timeout: 10_000 });
+    await page.waitForLoadState('networkidle', { timeout: 2_000 });
   } catch {
     // 超时不阻塞，继续截图
   }
@@ -38,10 +38,9 @@ for (const entry of testablePages) {
     // 2. 等待渲染完成
     await waitForPageReady(page, entry);
 
-    // 3. 执行截图对比
+    // 3. 执行截图对比（截图路径和 maxDiffPixelRatio 由 playwright.config.ts 统一配置）
     await expect(page).toHaveScreenshot(`${entry.name}.png`, {
       fullPage: true,
-      maxDiffPixelRatio: 0.01,
     });
   });
 }
