@@ -20,27 +20,18 @@ export interface PageEntry {
 }
 
 export const pages: PageEntry[] = [
-  // ==================== 根目录页面 ====================
-  { name: 'borderTestPage', category: 'root' },
-  { name: 'APNGExamplePage', category: 'root' },
+  { name: 'borderTestPage', category: 'demo' },
+  { name: 'APNGExamplePage', category: 'demo' },
   // web 尚未支持
-  // { name: 'mask_demo', category: 'root' },
-  { name: 'WeatherCanvasPage', category: 'root' },
-  { name: 'line_break_margin', category: 'root' },
-  { name: 'vforlazyAdd', category: 'root', waitTime: 2000},
-
-  // ==================== App 页面 ====================
-  { name: 'AppSettingPage', category: 'app', needsInteraction: true},
-  { name: 'AppTabPage', category: 'app', needsInteraction: true},
-
-  // ==================== 图片适配器页面 ====================
-  { name: 'cmp_image_adapter', category: 'image-adapter' },
-  { name: 'ImageTintColorReusePage', category: 'image-adapter' },
-
-  // ==================== 路由页面 ====================
-  { name: 'router', category: 'router' },
-
-  // ==================== Demo 声明式页面 ====================
+  // { name: 'mask_demo', category: 'demo' },
+  { name: 'WeatherCanvasPage', category: 'demo' },
+  { name: 'line_break_margin', category: 'demo' },
+  { name: 'vforlazyAdd', category: 'demo', waitTime: 2000},
+  { name: 'AppSettingPage', category: 'demo', needsInteraction: true},
+  { name: 'AppTabPage', category: 'demo', needsInteraction: true},
+  { name: 'cmp_image_adapter', category: 'demo' },
+  { name: 'ImageTintColorReusePage', category: 'demo' },
+  { name: 'router', category: 'demo' },
   { name: 'AlertDialogDemo', category: 'demo' },
   { name: 'AnimationCancelDemo', category: 'demo', waitTime: 3000 },
   { name: 'BlurViewDemoPage', category: 'demo' },
@@ -76,12 +67,11 @@ export const pages: PageEntry[] = [
   { name: 'reactive', category: 'demo', waitTime: 15000},
   { name: 'root_size', category: 'demo' },
   // 延时不定，待优化
-  // { name: 'ScreenFrameExamplePage', category: 'demo',  },
+  // { name: 'ScreenFrameExamplePage', category: 'demo' },
   { name: 'SkewDemo', category: 'demo' },
   { name: 'SliderExamplePage', category: 'demo', needsInteraction: true },
   { name: 'SliderPageViewDemoPage', category: 'demo' },
   { name: 'SwitchExamplePage', category: 'demo', needsInteraction: true },
-
   { name: 'nestedHorizontalList', category: 'demo', needsInteraction: true },
   { name: 'ToImageExamplePage', category: 'demo', needsInteraction: true},
   { name: 'ViewBackgroundImageExamplePage', category: 'demo' },
@@ -91,36 +81,32 @@ export const pages: PageEntry[] = [
   // { name: 'vrefresh', category: 'demo' },
   { name: 'visibleArea', category: 'demo', needsInteraction: true},
   { name: 'WaterfallListDemoPage', category: 'demo', needsInteraction: true},
-
-  // ==================== Kit DeclarativeDemo 页面 ====================
-  { name: 'ActivityIndicatorExamplePage', category: 'kit' },
-  { name: 'ButtonExamplePage', category: 'kit', needsInteraction: true},
-  { name: 'FlexExamplePage', category: 'kit', needsInteraction: true},
-  { name: 'HoverExamplePage', category: 'kit', needsInteraction: true},
-  { name: 'ListExamplePage', category: 'kit', needsInteraction: true},
-  { name: 'TestNewAnimationPage1', category: 'kit', waitTime: 3000 },
-  { name: 'TestNewAnimationPage2', category: 'kit', waitTime: 3000 },
-  { name: 'TestNewAnimationPage3', category: 'kit', waitTime: 3000 },
-  { name: 'TestNewAnimationPage4', category: 'kit', waitTime: 3000 },
-  { name: 'TestNewAnimationPage5', category: 'kit', waitTime: 3000 },
-  { name: 'TestNewAnimationPage6', category: 'kit', waitTime: 3000 },
-  { name: 'TestNewAnimationPage7', category: 'kit', waitTime: 3000 },
-  { name: 'TestNewAnimationPage8', category: 'kit', waitTime: 3000 },
-  { name: 'PageListExamplePage', category: 'kit', needsInteraction: true},
-  { name: 'ScrollPickerExamplePage', category: 'kit', needsInteraction: true},
-  { name: 'ScrollViewExamplePage', category: 'kit', needsInteraction: true},
-  { name: 'TextExamplePage', category: 'kit', needsInteraction: true},
-  { name: 'TransformExamplePage', category: 'kit', needsInteraction: true},
-  { name: 'ViewExamplePage', category: 'kit' },
+  { name: 'ActivityIndicatorExamplePage', category: 'demo' },
+  { name: 'ButtonExamplePage', category: 'demo', needsInteraction: true},
+  { name: 'FlexExamplePage', category: 'demo', needsInteraction: true},
+  { name: 'HoverExamplePage', category: 'demo', needsInteraction: true},
+  { name: 'ListExamplePage', category: 'demo', needsInteraction: true},
+  { name: 'TestNewAnimationPage1', category: 'demo', waitTime: 3000 },
+  { name: 'TestNewAnimationPage2', category: 'demo', waitTime: 3000 },
+  { name: 'TestNewAnimationPage3', category: 'demo', waitTime: 3000 },
+  { name: 'TestNewAnimationPage4', category: 'demo', waitTime: 3000 },
+  { name: 'TestNewAnimationPage5', category: 'demo', waitTime: 3000 },
+  { name: 'TestNewAnimationPage6', category: 'demo', waitTime: 3000 },
+  { name: 'TestNewAnimationPage7', category: 'demo', waitTime: 3000 },
+  { name: 'TestNewAnimationPage8', category: 'demo', waitTime: 3000 },
+  { name: 'PageListExamplePage', category: 'demo', needsInteraction: true},
+  { name: 'ScrollPickerExamplePage', category: 'demo', needsInteraction: true},
+  { name: 'ScrollViewExamplePage', category: 'demo', needsInteraction: true},
+  { name: 'TextExamplePage', category: 'demo', needsInteraction: true},
+  { name: 'TransformExamplePage', category: 'demo', needsInteraction: true},
+  { name: 'ViewExamplePage', category: 'demo' },
   // 每次位置不固定，不方便测试
-  //{ name: 'ZIndexExamplePage', category: 'kit' },
-
-  // ==================== List 页面 ====================
-  { name: 'listOverlap', category: 'list' },
-  { name: 'lnest', category: 'list', needsInteraction: true },
-  { name: 'lnestRow', category: 'list', needsInteraction: true },
-  { name: 'lnestno', category: 'list', needsInteraction: true },
-  { name: 'listvv', category: 'list', needsInteraction: true },
+  //{ name: 'ZIndexExamplePage', category: 'demo' },
+  { name: 'listOverlap', category: 'demo' },
+  { name: 'lnest', category: 'demo', needsInteraction: true },
+  { name: 'lnestRow', category: 'demo', needsInteraction: true },
+  { name: 'lnestno', category: 'demo', needsInteraction: true },
+  { name: 'listvv', category: 'demo', needsInteraction: true },
 ];
 
 /** 获取所有需要测试的页面（排除 skip 的） */
@@ -135,13 +121,5 @@ export function getPagesByCategory(category: string): PageEntry[] {
 
 /** 所有分类列表 */
 export const categories = [
-  'root',
-  'app',
-  'image-adapter',
-  'network',
-  'router',
-  'compose',
   'demo',
-  'kit',
-  'list',
 ] as const;
