@@ -80,11 +80,13 @@ export const pages: PageEntry[] = [
   // { name: 'vforlazy', category: 'demo' },
   // { name: 'vrefresh', category: 'demo' },
   { name: 'visibleArea', category: 'demo', needsInteraction: true},
-  { name: 'WaterfallListDemoPage', category: 'demo', needsInteraction: true},
+  // 元素不固定，样式不固定，待优化
+  // { name: 'WaterfallListDemoPage', category: 'demo', needsInteraction: true},
   { name: 'ActivityIndicatorExamplePage', category: 'demo' },
   { name: 'ButtonExamplePage', category: 'demo', needsInteraction: true},
   { name: 'FlexExamplePage', category: 'demo', needsInteraction: true},
   { name: 'HoverExamplePage', category: 'demo', needsInteraction: true},
+  // 元素背景色不固定，待优化
   { name: 'ListExamplePage', category: 'demo', needsInteraction: true},
   { name: 'TestNewAnimationPage1', category: 'demo', waitTime: 3000 },
   { name: 'TestNewAnimationPage2', category: 'demo', waitTime: 3000 },
@@ -94,6 +96,7 @@ export const pages: PageEntry[] = [
   { name: 'TestNewAnimationPage6', category: 'demo', waitTime: 3000 },
   { name: 'TestNewAnimationPage7', category: 'demo', waitTime: 3000 },
   { name: 'TestNewAnimationPage8', category: 'demo', waitTime: 3000 },
+  // 元素背景色不固定，待优化
   { name: 'PageListExamplePage', category: 'demo', needsInteraction: true},
   { name: 'ScrollPickerExamplePage', category: 'demo', needsInteraction: true},
   { name: 'ScrollViewExamplePage', category: 'demo', needsInteraction: true},

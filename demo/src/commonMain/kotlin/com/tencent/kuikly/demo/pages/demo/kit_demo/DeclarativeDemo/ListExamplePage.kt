@@ -184,10 +184,11 @@ internal class ListExamplePage: BasePager() {
                 listedModels.clear()
             }
             var models = mutableListOf<ListExampleModel>()
+            val isPlaywrightTest = this.pagerData.params.optString("is_playwright_test") == "1"
             for (i in 0 until 20) {
                 models.add(ListExampleModel(
                     title = "${listedModels.count() + i}",
-                    color = randomColor()
+                    color = if (isPlaywrightTest) Color.GREEN else randomColor()
                 ))
             }
             listedModels.addAll(models)

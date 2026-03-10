@@ -31,7 +31,7 @@ async function waitForPageReady(page: Page, entry: PageEntry) {
 for (const entry of testablePages) {
   test(`[${entry.category}] ${entry.name}`, async ({ page }) => {
     // 1. 导航到页面
-    await page.goto(`/?page_name=${entry.name}`, {
+    await page.goto(`/?is_playwright_test=1&page_name=${entry.name}`, {
       waitUntil: 'domcontentloaded',
     });
 

@@ -37,6 +37,7 @@ internal class PageListExamplePage : BasePager() {
 
     override fun body(): ViewBuilder {
         val ctx = this
+        val isPlaywrightTest = this.pagerData.params.optString("is_playwright_test") == "1"
         return {
             attr {
 
@@ -93,7 +94,14 @@ internal class PageListExamplePage : BasePager() {
                                 attr {
                                     height(60f)
                                     allCenter()
-                                    backgroundColor(Color((0..255).random(), (0..255).random(), (0..255).random(), 1.0f))
+                                    backgroundColor(
+                                        if (isPlaywrightTest) {
+                                            Color.GREEN
+                                        } else {
+                                            Color((0..255).random(), (0..255).random(), (0..255).random(), 1.0f)
+                                        }
+                                        
+                                    )
                                 }
                                 Text {
                                     attr {

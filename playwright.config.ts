@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * KuiklyUI Web Render - 视觉回归测试配置
+ * KuiklyUI Web Render - 视觉回归测试配置，注意，跑测试用例前，一定要先将 web 的 devServer 运行起来
  *
  * 使用方式:
  *   首次运行（生成基准截图）: npx playwright test --update-snapshots
