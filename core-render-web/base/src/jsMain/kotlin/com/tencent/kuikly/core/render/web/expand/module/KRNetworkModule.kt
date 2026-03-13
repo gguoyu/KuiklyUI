@@ -181,7 +181,7 @@ class KRNetworkModule : KuiklyRenderBaseModule() {
                 // Request header information
                 headers = getRequestHeaders(if (headerStr.isNullOrEmpty()) null else JSONObject(headerStr), cookie),
                 // Request data, non-POST request passes null
-                body = body.toBlob(),
+                body = if (method == HTTP_METHOD_POST) body.toBlob() else null,
                 // Request mode is cross-domain mode
                 mode = RequestMode.CORS
             )

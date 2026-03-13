@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { getTestablePages, type PageEntry } from './page-list';
+import { runInteractionGroup } from './interaction-runner';
 
 const testablePages = getTestablePages();
 
@@ -27,20 +28,45 @@ async function waitForPageReady(page: Page, entry: PageEntry) {
   await page.waitForTimeout(waitTime);
 }
 
-// 为每个可测试页面生成一个测试用例
+/**
+ * 通用：导航到页面并等待渲染就绪
+ */
+async function navigateAndWait(page: Page, entry: PageEntry) {
+  await page.goto(`/?is_playwright_test=1&page_name=${entry.name}`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await waitForPageReady(page, entry);
+}
+
+// 为每个可测试页面生成测试用例
 for (const entry of testablePages) {
-  test(`[${entry.category}] ${entry.name}`, async ({ page }) => {
-    // 1. 导航到页面
-    await page.goto(`/?is_playwright_test=1&page_name=${entry.name}`, {
-      waitUntil: 'domcontentloaded',
+  // ─── 情况 1：有 customTest → 完全自定义 ───
+  if (entry.customTest) {
+    test(`[${entry.category}] ${entry.name}`, async ({ page }) => {
+      await entry.customTest!(page);
     });
+    continue;
+  }
 
-    // 2. 等待渲染完成
-    await waitForPageReady(page, entry);
+  // ─── 情况 2：普通页面（可能带交互组） ───
+  test(`[${entry.category}] ${entry.name}`, async ({ page }) => {
+    // 1. 导航到页面 & 等待渲染
+    await navigateAndWait(page, entry);
 
-    // 3. 执行截图对比（截图路径和 maxDiffPixelRatio 由 playwright.config.ts 统一配置）
+    // 2. 初始状态截图（所有页面都截）
     await expect(page).toHaveScreenshot(`${entry.name}.png`, {
       fullPage: true,
     });
+
+    // 3. 如果定义了交互组，依次执行并截图
+    if (entry.interactions?.length) {
+      for (const group of entry.interactions) {
+        await runInteractionGroup(page, group);
+        await expect(page).toHaveScreenshot(
+          `${entry.name}-${group.screenshotSuffix}.png`,
+          { fullPage: true },
+        );
+      }
+    }
   });
 }
