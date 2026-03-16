@@ -137,308 +137,80 @@ export const SCROLL_RIGHT: InteractionGroup = {
 };
 
 export const pages: PageEntry[] = [
-  { name: 'borderTestPage', category: 'demo' },
-  { name: 'APNGExamplePage', category: 'demo' },
-  // web 尚未支持
-  // { name: 'mask_demo', category: 'demo' },
-  { name: 'WeatherCanvasPage', category: 'demo' },
-  { name: 'line_break_margin', category: 'demo' },
-  { name: 'vforlazyAdd', category: 'demo', waitTime: 2000 },
-  { name: 'AppSettingPage', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_12"]'}],
-      waitAfter: 1000,
-    },
-    { 
-      screenshotSuffix: 'click1',
-      steps: [{ action: 'click', selector: '[id="0_14"]'}],
-      waitAfter: 1000,
-    }
-  ] },
-  { name: 'AppTabPage', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_11"]'}],
-      waitAfter: 1000,
-    },
-    { 
-      screenshotSuffix: 'click1',
-      steps: [{ action: 'click', selector: '[id="0_83"]'}],
-      waitAfter: 1000,
-    }
-  ] },
-  { name: 'cmp_image_adapter', category: 'demo' },
-  { name: 'ImageTintColorReusePage', category: 'demo' },
-  { name: 'router', category: 'demo' },
-  { name: 'AlertDialogDemo', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_24"]'}],
-      waitAfter: 1000,
-    }
-  ] },
-  { name: 'AnimationCancelDemo', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_3"]'}],
-      waitAfter: 3000,
-    },
-    { 
-      screenshotSuffix: 'click1',
-      steps: [{ action: 'click', selector: '[id="0_4"]'}],
-      waitAfter: 3000,
-    },
-  ]},
-  { name: 'BlurViewDemoPage', category: 'demo' },
-  { name: 'box_shadow', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_11"]'}],
-      waitAfter: 1500,
-    }
-  ]},
-  { name: 'CalendarModuleExamplePage', category: 'demo', interactions: [{
-    screenshotSuffix: 'click',
-    steps: [{ action: 'click', selector: '[id="0_4"]'}],
-    waitAfter: 1000,
-  }, {
-    screenshotSuffix: 'click1',
-    steps: [{ action: 'click', selector: '[id="0_8"]'}],
-    waitAfter: 1000,
-  }, {
-    screenshotSuffix: 'click2',
-    steps: [{ action: 'click', selector: '[id="0_13"]'}],
-    waitAfter: 1000,
-  }, {
-    screenshotSuffix: 'click3',
-    steps: [{ action: 'click', selector: '[id="0_15"]'}],
-    waitAfter: 1000,
-  }, {
-    screenshotSuffix: 'click4',
-    steps: [{ action: 'click', selector: '[id="0_19"]'}],
-    waitAfter: 1000,
-  }, {
-    screenshotSuffix: 'click5',
-    steps: [{ action: 'click', selector: '[id="0_23"]'}],
-    waitAfter: 1000,
-  }]},
-  { name: 'CanvasExamplePage', category: 'demo' },
-  { name: 'CanvasTestPage', category: 'demo' },
-  { name: 'CheckBoxExamplePage', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_12"]'}],
-      waitAfter: 1000,
-    }
-  ] },
-  { name: 'clip', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_85"]'}],
-      waitAfter: 1000,
-    }
-  ] },
-  { name: 'CodecTestPager', category: 'demo' },
-  { name: 'CoroutineExamplePage', category: 'demo', waitTime: 5000 },
-  { name: 'CustomPaggingListDemoPage', category: 'demo'},
-  { name: 'example', category: 'demo' },
-  // 事件输出在控制台，不方便测试，看如何优化
-  // { name: 'EventDemoPage', category: 'demo' },
-  { name: 'GalleryExamplePage', category: 'demo', interactions: [{
-    screenshotSuffix: 'swipe',
-    steps: [{ action: 'swipe', from: { x: 375 / 2, y: 812 / 2 }, to: { x: 5, y: 812 / 2 }}],
-    waitAfter: 1000,
-  }] },
-  { name: 'HelloWorldPage', category: 'demo' },
-  { name: 'image_demo', category: 'demo', waitTime: 3000 },
-  { name: 'input_measure', category: 'demo' },
-  // 初始化每次颜色不同，需要修改下demo
-  // { name: 'KuiklyPageViewDemo', category: 'demo' },
-  { name: 'ListInitContentOfffsetTestPage', category: 'demo', waitTime: 3000, interactions: [
-    { 
-      screenshotSuffix: 'scrolled',
-      steps: [{ action: 'scroll', containerSelector: '[id="0_8"]', deltaX: 0, deltaY: 600 }],
-      waitAfter: 1000,
-    }
-  ] },
-  { name: 'maxLength', category: 'demo', interactions: [{
-    screenshotSuffix: 'input',
-    steps: [{ action: 'input', selector: '[id="0_18"]', text: '1234567890a'}],
-    waitAfter: 1000,
-  }]},
-  { name: 'ModalViewDemoPage', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_14"]'}],
-      waitAfter: 1500,
-    }
-  ] },
-  { name: 'NetworkExamplePage', category: 'demo', interactions: [{
-    screenshotSuffix: 'click',
-    steps: [{ action: 'click', selector: '[id="0_9"]'}],
-    waitAfter: 4000,
-  },{
-    screenshotSuffix: 'click1',
-    steps: [{ action: 'click', selector: '[id="0_12"]'}],
-    waitAfter: 4000,
-  },{
-    screenshotSuffix: 'click2',
-    steps: [{ action: 'click', selector: '[id="0_16"]'}],
-    waitAfter: 4000,
-  },{
-    screenshotSuffix: 'click3',
-    steps: [{ action: 'click', selector: '[id="0_19"]'}],
-    waitAfter: 4000,
-  }] },
-  // 通知有问题，demo待优化
-  { name: 'NotifyToHostDemo', category: 'demo' },
-  { name: 'OverflowDemoPage', category: 'demo' },
-  { name: 'PAGViewDemoPage', category: 'demo', waitTime: 5000 },
-  // 性能数据不一定
-  // { name: 'PerformancePage', category: 'demo' },
-  { name: 'reactive', category: 'demo', waitTime: 15000 },
-  { name: 'root_size', category: 'demo' },
-  // 延时不定，待优化
-  // { name: 'ScreenFrameExamplePage', category: 'demo' },
-  { name: 'SkewDemo', category: 'demo' },
-  { name: 'SliderExamplePage', category: 'demo' },
-  { name: 'SliderPageViewDemoPage', category: 'demo', interactions: [{
-    screenshotSuffix: 'wait',
-    steps: [{ action: 'wait', duration: 4000 }],
-    waitAfter: 50,
-  }]},
-  { name: 'SwitchExamplePage', category: 'demo', interactions: [{
-    screenshotSuffix: 'click',
-    steps: [{ action: 'click', selector: '[id="0_8"]'}],
-    waitAfter: 1000,
-  }, {
-    screenshotSuffix: 'click1',
-    steps: [{ action: 'click', selector: '[id="0_11"]'}],
-    waitAfter: 1000,
-  }] },
-  { name: 'nestedHorizontalList', category: 'demo', interactions: [SCROLL_DOWN] },
-  { name: 'ToImageExamplePage', category: 'demo' },
-  { name: 'ViewBackgroundImageExamplePage', category: 'demo' },
-  { name: 'ViewDemoPage', category: 'demo', waitTime: 3000},
-  { name: 'ViewExtExamplePage', category: 'demo' },
-  // { name: 'vforlazy', category: 'demo' },
-  // { name: 'vrefresh', category: 'demo' },
-  { name: 'visibleArea', category: 'demo', interactions: [{
-    screenshotSuffix: 'scrolled',
-    steps: [{ action: 'scroll', containerSelector: '[id="0_26"]', deltaX: 0, deltaY: 300 }],
-    waitAfter: 1000,
-  }] },
-  // 元素不固定，样式不固定，待优化
-  // { name: 'WaterfallListDemoPage', category: 'demo', needsInteraction: true},
-  { name: 'ActivityIndicatorExamplePage', category: 'demo' },
-  { name: 'ButtonExamplePage', category: 'demo', interactions: [SCROLL_DOWN] },
-  { name: 'FlexExamplePage', category: 'demo', interactions: [{
-    screenshotSuffix: 'click',
-    steps: [{ action: 'click', selector: '[id="0_22"]'}],
-    waitAfter: 1000,
-  },{
-    screenshotSuffix: 'click1',
-    steps: [{ action: 'click', selector: '[id="0_40"]'}],
-    waitAfter: 1000,
-  },{
-    screenshotSuffix: 'click2',
-    steps: [{ action: 'click', selector: '[id="0_60"]'}],
-    waitAfter: 1000,
-  },{
-    screenshotSuffix: 'click3',
-    steps: [{ action: 'click', selector: '[id="0_60"]'}],
-    waitAfter: 1000,
-  }] },
-  { name: 'HoverExamplePage', category: 'demo', interactions: [{
-    screenshotSuffix: 'scrolled',
-    steps: [{ action: 'scroll', containerSelector: '[id="0_2"]', deltaX: 0, deltaY: 600 }],
-    waitAfter: 1000,
-  }] },
-  { name: 'ListExamplePage', category: 'demo', interactions: [{
-    screenshotSuffix: 'scrolled',
-    steps: [{ action: 'scroll', containerSelector: '[id="0_10"]', deltaX: 0, deltaY: 600 }],
-    waitAfter: 1000,
-  },
-  {
-    screenshotSuffix: 'click',
-    steps: [{ action: 'click', selector: '[id="0_9"]' }],
-    waitAfter: 1000,
-  }] },
-  { name: 'TestNewAnimationPage1', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_1"]'}],
-      waitAfter: 3000,
-     }
-  ] },
-  { name: 'TestNewAnimationPage2', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_1"]'}],
-      waitAfter: 4000,
-     }
-  ] },
-  { name: 'TestNewAnimationPage3', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_1"]'}],
-      waitAfter: 4000,
-     }
-  ] },
-  { name: 'TestNewAnimationPage4', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_1"]'}],
-      waitAfter: 3000,
-     }
-  ] },
-  { name: 'TestNewAnimationPage5', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_1"]'}],
-      waitAfter: 3000,
-     }
-  ] },
-  { name: 'TestNewAnimationPage6', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_1"]'}],
-      waitAfter: 3000,
-     }
-  ] },
-  { name: 'TestNewAnimationPage7', category: 'demo',interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_1"]'}],
-      waitAfter: 3000,
-     }
-  ] },
-  { name: 'TestNewAnimationPage8', category: 'demo', interactions: [
-    { 
-      screenshotSuffix: 'click',
-      steps: [{ action: 'click', selector: '[id="0_1"]'}],
-      waitAfter: 3000,
-     }
-  ] },
-  // 元素背景色不固定，待优化
-  { name: 'PageListExamplePage', category: 'demo', interactions: [{
-    screenshotSuffix: 'click',
-    steps: [{ action: 'click', selector: '[id="0_13"]' }],
-    waitAfter: 1000,
-  }] },
-  { name: 'ScrollPickerExamplePage', category: 'demo', interactions: [SCROLL_DOWN] },
-  { name: 'ScrollViewExamplePage', category: 'demo', interactions: [SCROLL_DOWN] },
-  { name: 'TextExamplePage', category: 'demo', interactions: [SCROLL_DOWN] },
-  { name: 'TransformExamplePage', category: 'demo', interactions: [SCROLL_DOWN] },
-  { name: 'ViewExamplePage', category: 'demo' },
-  // 每次位置不固定，不方便测试
-  //{ name: 'ZIndexExamplePage', category: 'demo' },
-  { name: 'listOverlap', category: 'demo' },
-  { name: 'lnest', category: 'demo', interactions: [SCROLL_DOWN] },
-  { name: 'lnestRow', category: 'demo', interactions: [SCROLL_DOWN] },
-  { name: 'lnestno', category: 'demo', interactions: [SCROLL_DOWN] },
-  { name: 'listvv', category: 'demo', interactions: [SCROLL_DOWN] },
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * render-test 分类：Web Render 全属性覆盖测试页面
+   * 共 22 个页面，覆盖全部 View 组件和 Module 模块
+   * ═══════════════════════════════════════════════════════════════════════════ */
+
+  // ─── View 组件测试页面 (13 个) ───
+
+  // 1. 通用 CSS 属性全覆盖
+  { name: 'WebRenderTestCommonProps', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 2. KRView 事件属性 (click/doubleClick/longPress/pan/touch)
+  { name: 'WebRenderTestViewEvent', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 3. KRImageView 全属性 (src/resize/tintColor/blurRadius)
+  { name: 'WebRenderTestImage', category: 'render-test', waitTime: 3000, interactions: [SCROLL_DOWN] },
+
+  // 4. KRRichTextView 全属性 (text/color/fontSize/Span)
+  { name: 'WebRenderTestRichText', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 5. KRTextFieldView 全属性 (单行输入)
+  { name: 'WebRenderTestTextField', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 6. KRTextAreaView 全属性 (多行输入)
+  { name: 'WebRenderTestTextArea', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 7. KRListView/KRScrollView 全属性 (scroll/nested/paging)
+  { name: 'WebRenderTestList', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 8. KRVideoView 全属性 (src/muted/resizeMode)
+  { name: 'WebRenderTestVideo', category: 'render-test', waitTime: 3000, interactions: [SCROLL_DOWN] },
+
+  // 9. KRCanvasView 全绘图方法 (20+)
+  { name: 'WebRenderTestCanvas', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 10. KRActivityIndicatorView (gray/white)
+  { name: 'WebRenderTestIndicator', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 11. KRBlurView (不同 blurRadius)
+  { name: 'WebRenderTestBlur', category: 'render-test', waitTime: 3000, interactions: [SCROLL_DOWN] },
+
+  // 12. KRHoverView (吸顶效果)
+  { name: 'WebRenderTestHover', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 13. KRMaskView (遮罩效果)
+  { name: 'WebRenderTestMask', category: 'render-test', waitTime: 3000, interactions: [SCROLL_DOWN] },
+
+  // ─── Module 模块测试页面 (9 个) ───
+
+  // 14. CalendarModule (时间日历)
+  { name: 'WebRenderTestCalendar', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 15. CodecModule (编解码)
+  { name: 'WebRenderTestCodec', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 16. LogModule (日志)
+  { name: 'WebRenderTestLog', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 17. MemoryCacheModule (内存缓存)
+  { name: 'WebRenderTestMemoryCache', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 18. SharedPreferencesModule (持久化存储)
+  { name: 'WebRenderTestSharedPref', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 19. NotifyModule (事件通知)
+  { name: 'WebRenderTestNotify', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 20. RouterModule (路由导航)
+  { name: 'WebRenderTestRouter', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 21. NetworkModule (网络请求)
+  { name: 'WebRenderTestNetwork', category: 'render-test', interactions: [SCROLL_DOWN] },
+
+  // 22. WindowResizeModule (窗口尺寸)
+  { name: 'WebRenderTestWindowResize', category: 'render-test', interactions: [SCROLL_DOWN] },
 ];
 
 /** 获取所有需要测试的页面（排除 skip 的） */
@@ -453,5 +225,5 @@ export function getPagesByCategory(category: string): PageEntry[] {
 
 /** 所有分类列表 */
 export const categories = [
-  'demo',
+  'render-test',
 ] as const;
