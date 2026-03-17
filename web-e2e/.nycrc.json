@@ -1,0 +1,27 @@
+{
+  "all": true,
+  "include": ["instrumented/**/*.js"],
+  "exclude": [
+    "**/*.spec.js",
+    "**/*.test.js",
+    "**/node_modules/**",
+    "**/test/**",
+    "**/tests/**"
+  ],
+  "reporter": ["text", "html", "lcov", "json"],
+  "report-dir": "reports/coverage",
+  "temp-dir": ".nyc_output",
+  "sourceMap": true,
+  "check-coverage": true,
+  "lines": 60,
+  "functions": 60,
+  "statements": 60,
+  "branches": 50,
+  "per-file": false,
+  "watermarks": {
+    "lines": [60, 80],
+    "functions": [60, 80],
+    "branches": [50, 75],
+    "statements": [60, 80]
+  }
+}

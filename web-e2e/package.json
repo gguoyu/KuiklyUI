@@ -1,0 +1,35 @@
+{
+  "name": "kuikly-web-e2e",
+  "version": "1.0.0",
+  "description": "Kuikly Web E2E Testing with Playwright",
+  "scripts": {
+    "serve": "node scripts/serve.js",
+    "serve:dev": "BUILD_TYPE=developmentExecutable node scripts/serve.js",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed",
+    "test:L0": "playwright test tests/L0-static",
+    "test:L1": "playwright test tests/L1-interaction",
+    "test:L2": "playwright test tests/L2-complex",
+    "test:update-snapshots": "playwright test --update-snapshots",
+    "test:smoke": "playwright test tests/L0-static/smoke.spec.ts",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen http://localhost:8080",
+    "install:browsers": "playwright install",
+    "verify": "node verify-phase1.mjs"
+  },
+  "keywords": [
+    "playwright",
+    "e2e",
+    "testing",
+    "kuikly"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "typescript": "^5.3.0",
+    "nyc": "^15.1.0"
+  }
+}

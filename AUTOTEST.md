@@ -16,7 +16,7 @@
   - [3.4 测试页面分类清单](#34-测试页面分类清单)
   - [3.5 测试页面生成策略](#35-测试页面生成策略)
 - [4. 渲染层改动：注入 data-kuikly-component](#4-渲染层改动注入-data-kuikly-component)
-- [5. E2E 测试目录结构](#5-e2e-测试目录结构)
+- [5. web-e2e 测试目录结构](#5-web-e2e-测试目录结构)
 - [6. 交互用例自动化设计原则](#6-交互用例自动化设计原则)
   - [6.1 核心理念：生成即完整，执行零介入](#61-核心理念生成即完整执行零介入)
   - [6.2 组件交互特征知识库](#62-组件交互特征知识库component-interaction-profile)
@@ -84,13 +84,15 @@
 ```
 web-test 测试页面 (demo/src/commonMain/kotlin/.../pages/web_test/)
        ↓ Gradle KMP 编译
-nativevue2.js (Kotlin/JS 产物 = 测试页面 + 渲染引擎代码)
-       ↓ webpack dev server 加载
-h5App (宿主页面 index.html + h5App.js)
+nativevue2.js (仅含测试页面业务代码)
+h5App.js      (含完整渲染引擎：core-render-web/base + core-render-web/h5)
+       ↓ Istanbul 插桩 → instrumented/
+       ↓ Koa 静态服务器提供插桩后的文件
+h5App 宿主页面 (index.html 加载 h5App.js + nativevue2.js)
        ↓ 浏览器渲染
 DOM (div + absolute 定位 + data-kuikly-component 属性)
        ↓ Playwright 控制浏览器
-截图对比 / DOM 断言 / 交互验证
+截图对比 / DOM 断言 / 交互验证 / window.__coverage__ 覆盖率收集
 ```
 
 ---
@@ -121,7 +123,7 @@ demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/
 │   ├── KRRichTextViewTestPage.kt  # KRRichTextView 富文本渲染验证
 │   ├── KRImageViewTestPage.kt     # KRImageView 图片加载/渲染验证
 │   ├── KRListViewTestPage.kt      # KRListView 列表渲染+滚动验证
-│   ├── KRScrollViewTestPage.kt    # KRScrollView 滚动验证
+│   ├── KRScrollContentViewTestPage.kt    # KRScrollContentView 滚动验证
 │   ├── KRInputViewTestPage.kt     # KRInputView 输入交互验证
 │   ├── KRCanvasViewTestPage.kt    # KRCanvasView 绘制验证
 │   ├── KRVideoViewTestPage.kt     # KRVideoView 视频首帧验证
@@ -225,15 +227,25 @@ demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/
 └────────────────────┬─────────────────────────────────┘
                      ▼
 ┌──────────────────────────────────────────────────────┐
-│  3. 注册路由                                           │
-│     每个测试页面注册独立路由，格式如：                   │
-│     /web-test/components/KRListView                    │
-│     /web-test/styles/border                            │
-│     /web-test/interactions/click                       │
+│  3. AI Review 生成的测试页面                            │
+│     - 读取实际组件 Kotlin 源码，核查 API 调用是否正确   │
+│     - 检查页面是否覆盖了该组件的所有关键变体            │
+│     - 对照 3.3 节设计原则检查页面结构                   │
+│     - 发现问题则自动修正，修正后重新执行本步骤           │
+│     ✅ 由 AI 完成，无需人工介入；                       │
+│        仅当 AI 无法自动修正时，才升级为人工处理          │
 └────────────────────┬─────────────────────────────────┘
                      ▼
 ┌──────────────────────────────────────────────────────┐
-│  4. 生成对应的 E2E 测试用例                             │
+│  4. 注册路由                                           │
+│     每个测试页面注册独立路由，格式如：                   │
+│     http://localhost:8080?page_name=KRListViewTestPage    │
+│     http://localhost:8080?page_name=BorderTestPage        │
+│     http://localhost:8080?page_name=ClickTestPage         │
+└────────────────────┬─────────────────────────────────┘
+                     ▼
+┌──────────────────────────────────────────────────────┐
+│  5. 生成对应的 E2E 测试用例                             │
 │     每个测试页面 → 一个或多个 .spec.ts 测试文件          │
 │     测试中通过路由访问对应的 web-test 测试页面           │
 └──────────────────────────────────────────────────────┘
@@ -314,10 +326,10 @@ const scrollViews = page.locator('[data-kuikly-component="KRScrollView"]');
 
 ---
 
-## 5. E2E 测试目录结构
+## 5. web-e2e 测试目录结构
 
 ```
-e2e/
+web-e2e/
 ├── package.json              # npm 依赖 (playwright, nyc, etc.)
 ├── playwright.config.ts      # Playwright 配置
 ├── .nycrc.json               # Istanbul/NYC 覆盖率配置
@@ -401,7 +413,7 @@ e2e/
 | `KRGradientRichTextView`          | ① 静态渲染截图（验证渐变富文本渲染正确）                                                        | L0       |
 | `KRImageView`                     | ① 等待图片加载完成 ② 截图验证（渲染正确、无白图/破图）                                           | L0       |
 | `KRListView`                      | ① 垂直/水平滚动（根据方向属性判断）→ 每步截图 ② 滚动到边界 ③ 列表项点击（如有 clickable 子元素）④ 如有 stickyHeader：验证吸顶 ⑤ 如有分页（paging）：滑动翻页→验证每页内容 | L2       |
-| `KRScrollView`                    | ① 垂直/水平滚动 → 每步截图 ② 滚动到边界验证                                                    | L2       |
+| `KRScrollContentView`             | ① 垂直/水平滚动 → 每步截图 ② 滚动到边界验证                                                    | L2       |
 | `KRTextFieldView` / `KRInputView` | ① 点击获取焦点 ② 输入文本 ③ 验证显示 ④ 清空重新输入 ⑤ 点击外部失去焦点                          | L1       |
 | `KRCanvasView`                    | ① 静态截图验证绘制正确                                                                          | L0       |
 | `KRVideoView`                     | ① 等待视频加载 ② 截图验证首帧渲染（不验证播放流程）                                              | L0       |
@@ -474,7 +486,7 @@ e2e/
 
 ```typescript
 test('SearchTestPage full interaction', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('/web-test/interactions/search');
+  await kuiklyPage.goto('?page_name=SearchTestPage');
   await kuiklyPage.waitForRenderComplete();
 
   // [L0] 初始渲染验证
@@ -540,7 +552,7 @@ type Direction = 'up' | 'down' | 'left' | 'right';
 ```typescript
 // ✅ 预编排方式：明确定位目标 + 明确验证预期
 test('Tab switching', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('/web-test/interactions/click');
+  await kuiklyPage.goto('?page_name=ClickTestPage');
   await kuiklyPage.waitForRenderComplete();
   await expect(kuiklyPage.page).toHaveScreenshot('tab-initial.png');
 
@@ -560,7 +572,7 @@ test('Tab switching', async ({ kuiklyPage }) => {
 
 ```typescript
 test('KRInputView input and display', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('/web-test/interactions/input');
+  await kuiklyPage.goto('?page_name=InputTestPage');
   await kuiklyPage.waitForRenderComplete();
 
   // 定位输入框并输入预定文本
@@ -578,7 +590,7 @@ test('KRInputView input and display', async ({ kuiklyPage }) => {
 
 ```typescript
 test('KRListView scroll reveals more items', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('/web-test/interactions/list-scroll');
+  await kuiklyPage.goto('?page_name=ListScrollTestPage');
   await kuiklyPage.waitForRenderComplete();
   await expect(kuiklyPage.page).toHaveScreenshot('list-top.png');
 
@@ -603,7 +615,7 @@ test('KRListView scroll reveals more items', async ({ kuiklyPage }) => {
 
 ```typescript
 test('Swipe gesture triggers page change', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('/web-test/interactions/gesture');
+  await kuiklyPage.goto('?page_name=GestureTestPage');
   await kuiklyPage.waitForRenderComplete();
   await expect(kuiklyPage.page).toHaveScreenshot('pager-page-1.png');
 
@@ -624,7 +636,7 @@ test('Swipe gesture triggers page change', async ({ kuiklyPage }) => {
 
 ```typescript
 test('Navigation push and pop', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('/web-test/interactions/navigation');
+  await kuiklyPage.goto('?page_name=NavigationTestPage');
   await kuiklyPage.waitForRenderComplete();
   await expect(kuiklyPage.page).toHaveScreenshot('nav-home.png');
 
@@ -644,7 +656,7 @@ test('Navigation push and pop', async ({ kuiklyPage }) => {
 
 ```typescript
 test('Search: input + click + scroll result list', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('/web-test/composite/search');
+  await kuiklyPage.goto('?page_name=SearchTestPage');
   await kuiklyPage.waitForRenderComplete();
 
   // Step 1: 输入搜索关键词
@@ -672,7 +684,7 @@ test('Search: input + click + scroll result list', async ({ kuiklyPage }) => {
 
 ```typescript
 test('Complex multi-step interaction', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('/web-test/composite/form');
+  await kuiklyPage.goto('?page_name=FormTestPage');
   await kuiklyPage.waitForRenderComplete();
 
   // 声明式描述交互流程，框架按顺序自动执行
@@ -737,7 +749,7 @@ test('Complex multi-step interaction', async ({ kuiklyPage }) => {
 
 ```typescript
 test('KRImageView renders correctly', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('/web-test/components/KRImageView');
+  await kuiklyPage.goto('?page_name=KRImageViewTestPage');
   await kuiklyPage.waitForRenderComplete();
   await expect(kuiklyPage.page).toHaveScreenshot('image-view-test.png');
 });
@@ -792,11 +804,39 @@ test('KRImageView renders correctly', async ({ kuiklyPage }) => {
 3. 终态截图 → 动画结束后对比基准截图
 ```
 
+### 8.2.1 CI 稳定性风险与备选策略
+
+> **风险：** CI 机器资源负载不稳定时，动画时序会有偏差，导致截图在不一致的帧上触发，造成误报。
+
+针对不同动画类型，提供两种策略供选择：
+
+| 动画类型 | 首选策略 | 备选策略（CI 不稳定时降级使用） |
+| -------- | -------- | ------------------------------ |
+| **CSS Transition** | 监听 `transitionend` 事件后截终态图 | `getComputedStyle` 验证属性终态值（不依赖截图时序） |
+| **KR 属性动画** | 触发 → 等待终态 → 截图 | `page.evaluate()` 读取元素最终 style 值进行断言 |
+| **JS 帧动画** | 定时截图序列验证帧间差异 | 暂停 rAF（`page.evaluate(() => cancelAnimationFrame(...))`）后截图固定帧 |
+| **PAG 动画** | 定时截图序列 | 验证 Canvas 非全透明（证明有渲染输出），不做像素精确对比 |
+
+**CSS Transition 备选策略示例：**
+
+```typescript
+// 不依赖截图时序，直接验证 CSS 属性终态
+const el = kuiklyPage.component('KRView').first();
+await trigger.click();
+await kuiklyPage.waitForTransitionEnd(el);
+
+// 用计算样式断言终态，完全不受 CI 时序影响
+const opacity = await kuiklyPage.getComputedStyles(el, ['opacity']);
+expect(opacity.opacity).toBe('1');
+```
+
+> **规则：** L2 动画测试默认使用首选策略；在 CI 环境中（`process.env.CI === 'true'`）自动降级到备选策略以提升稳定性。
+
 ### 8.3 用例示例
 
 ```typescript
 test('KRView fade-in animation', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('/web-test/animations/css-transition');
+  await kuiklyPage.goto('?page_name=CSSTransitionTestPage');
   await kuiklyPage.waitForRenderComplete();
 
   // 1. 初始状态截图
@@ -846,7 +886,7 @@ class KuiklyPage {
 
   // ==================== 导航与等待 ====================
   
-  /** 导航到指定测试页面 */
+  /** 导航到指定测试页面，使用格式：'?page_name=TestPageName' */
   async goto(pageName: string): Promise<void>;
   
   /** 等待 Kuikly 渲染完成（监听特定标志或 idle 状态） */
@@ -921,7 +961,7 @@ class KuiklyPage {
 ## 10. Playwright 配置
 
 ```typescript
-// e2e/playwright.config.ts
+// web-e2e/playwright.config.ts
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
@@ -965,31 +1005,31 @@ export default defineConfig({
 ### 11.1 脚本位置
 
 ```
-e2e/scripts/kuikly-test.mjs
+web-e2e/scripts/kuikly-test.mjs
 ```
 
 ### 11.2 命令接口
 
 ```bash
 # 完整流程（构建 + 启动 server + 测试 + 覆盖率）
-node e2e/scripts/kuikly-test.mjs --full
+node web-e2e/scripts/kuikly-test.mjs --full
 
 # 仅运行指定级别用例
-node e2e/scripts/kuikly-test.mjs --level L0
-node e2e/scripts/kuikly-test.mjs --level L1
-node e2e/scripts/kuikly-test.mjs --level L2
+node web-e2e/scripts/kuikly-test.mjs --level L0
+node web-e2e/scripts/kuikly-test.mjs --level L1
+node web-e2e/scripts/kuikly-test.mjs --level L2
 
 # 运行指定用例文件
-node e2e/scripts/kuikly-test.mjs --test tests/L0-static/components/image.spec.ts
+node web-e2e/scripts/kuikly-test.mjs --test tests/L0-static/components/image.spec.ts
 
 # 更新截图基准
-node e2e/scripts/kuikly-test.mjs --update-snapshots
+node web-e2e/scripts/kuikly-test.mjs --update-snapshots
 
 # 仅生成覆盖率报告
-node e2e/scripts/kuikly-test.mjs --coverage-only
+node web-e2e/scripts/kuikly-test.mjs --coverage-only
 
 # 跳过构建（使用已有产物）
-node e2e/scripts/kuikly-test.mjs --skip-build --level L0
+node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
 ```
 
 ### 11.3 执行流程
@@ -1000,39 +1040,60 @@ node e2e/scripts/kuikly-test.mjs --skip-build --level L0
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  2. Gradle 构建          │  --skip-build 可跳过
-│  (web-test 测试页面 + h5App 产物) │
+│  2a. Gradle 构建 demo   │  --skip-build 可跳过
+│  (:demo:jsBrowserProductionWebpack)  │
+│  产出 nativevue2.zip    │
 └──────────┬──────────────┘
            ▼
-┌─────────────────────────┐
-│  3. Istanbul 插桩        │  对 Kotlin/JS 产物插桩
-│  (nativevue2.js 等)      │
-└──────────┬──────────────┘
+┌──────────────────────────────────────┐
+│  2b. 解压 nativevue2.zip              │
+│  取出 nativevue2.js，对其 Istanbul 插桩│
+│  nyc instrument nativevue2.js        │
+│  → instrumented/nativevue2.js        │
+└──────────┬───────────────────────────┘
            ▼
 ┌─────────────────────────┐
-│  4. 启动 webpack          │
-│  dev server (port 8080)  │
+│  2c. Gradle 构建 h5App  │  --skip-build 可跳过
+│  (:h5App:jsBrowserProductionWebpack) │
+│  产出 h5App.js（含渲染引擎）          │
 └──────────┬──────────────┘
            ▼
+┌──────────────────────────────────────┐
+│  2d. 对 h5App.js 进行 Istanbul 插桩   │  核心插桩目标
+│  nyc instrument h5App.js            │
+│  → instrumented/h5App.js            │
+└──────────┬───────────────────────────┘
+           ▼
+┌──────────────────────────────────────┐
+│  3. 启动静态文件服务器（Koa）          │
+│  提供插桩后的 JS 文件：               │
+│  - instrumented/h5App.js            │
+│  - instrumented/nativevue2.js       │
+│  - index.html（h5App 宿主页）        │
+│  port: 8080                          │
+└──────────┬───────────────────────────┘
+           ▼
 ┌─────────────────────────┐
-│  5. 执行 Playwright 测试  │  按 --level 过滤
+│  4. 执行 Playwright 测试  │  按 --level 过滤
 │  npx playwright test     │
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  6. 收集覆盖率数据        │  从浏览器 __coverage__ 导出
+│  5. 收集覆盖率数据        │  从浏览器 __coverage__ 导出
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  7. NYC 生成覆盖率报告    │
+│  6. NYC 生成覆盖率报告    │
 │  + 阈值检查              │
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  8. 生成 HTML 报告        │  Playwright HTML Report
-│  关闭 dev server         │
+│  7. 生成 HTML 报告        │  Playwright HTML Report
+│  关闭静态服务器           │
 └─────────────────────────┘
 ```
+
+> **说明：** 使用 Koa 静态服务器（项目根目录已有 `static_server/`）直接提供插桩后的产物文件，**不使用 webpack dev server**。这是因为 `h5App.js` 已经是 webpack 完整打包的产物，无需再经 webpack 处理；静态服务器方案更简单且插桩内容可控。
 
 ---
 
@@ -1040,20 +1101,23 @@ node e2e/scripts/kuikly-test.mjs --skip-build --level L0
 
 ### 12.1 插桩目标
 
-| 产物文件         | 来源                                | 说明                      |
-| ---------------- | ----------------------------------- | ------------------------- |
-| `nativevue2.js`  | `demo` + `core-render-web/base` 编译 | 包含 base 层核心渲染代码 + web-test 测试页面 |
-| `h5App.js`       | `h5App` + `core-render-web/h5` 编译  | 包含 h5 平台特定实现       |
+| 产物文件         | 来源                                          | 说明                                                         | 插桩优先级 |
+| ---------------- | --------------------------------------------- | ------------------------------------------------------------ | ---------- |
+| `h5App.js`       | `h5App` + `core-render-web/base` + `core-render-web/h5` 打包 | **主要插桩目标**，包含完整渲染引擎代码（组件渲染、样式计算、事件处理、动画等核心路径） | ⭐ 必须 |
+| `nativevue2.js`  | `demo` 编译（web-test 测试页面）               | 辅助插桩目标，只包含测试页面业务代码，**不含渲染引擎**；覆盖率反映测试页面自身代码的执行情况 | 可选 |
+
+> **注意：** `core-render-web/base` 和 `core-render-web/h5` 的代码通过 Gradle 依赖被打包进 `h5App.js`，不会出现在 `nativevue2.js` 中。因此**渲染引擎覆盖率应以 `h5App.js` 为准**。
 
 ### 12.2 NYC 配置
 
 ```json
-// e2e/.nycrc.json
+// web-e2e/.nycrc.json
 {
   "all": true,
   "include": ["instrumented/**/*.js"],
   "reporter": ["text", "html", "lcov"],
   "report-dir": "reports/coverage",
+  "sourceMap": true,
   "check-coverage": true,
   "lines": 60,
   "functions": 60,
@@ -1062,12 +1126,25 @@ node e2e/scripts/kuikly-test.mjs --skip-build --level L0
 }
 ```
 
+> **`"sourceMap": true` 说明：** NYC 读取 `.js.map` 文件，将 JS 级别的覆盖数据反向映射回 Kotlin 源文件，最终报告以 `.kt` 文件维度展示覆盖率（需配合 `h5App/build.gradle.kts` 中已开启的 `sourceMap = true` 编译选项）。
+
+**分层覆盖率阈值建议：**
+
+| 代码范围 | 说明 | lines | functions | branches |
+| -------- | ---- | ----- | --------- | -------- |
+| 整体产物（初期） | 包含工具类、平台适配等边缘路径 | 60% | 60% | 50% |
+| 核心渲染路径（目标） | `expand/components/`、`css/`、`core/` 等核心目录 | 80% | 80% | 70% |
+
+> 初期以整体 60% 作为门禁，待测试用例覆盖完整后，逐步提升至核心路径 80%。
+
 ### 12.3 覆盖率收集流程
 
-1. **构建后插桩：** 用 `nyc instrument` 对 Kotlin/JS 产物进行 Istanbul 插桩
-2. **替换加载：** webpack dev server 加载插桩后的 JS 文件
-3. **运行时收集：** 浏览器中执行测试时，`window.__coverage__` 自动收集覆盖率数据
-4. **导出合并：** 测试结束后通过 `page.evaluate(() => window.__coverage__)` 导出，NYC 合并生成报告
+1. **构建产物：** `gradle :h5App:jsBrowserProductionWebpack` 产出 `h5App.js`（含 source map）；`gradle :demo:jsBrowserProductionWebpack` 解压产出 `nativevue2.js`
+2. **插桩产物：** 用 `nyc instrument --source-map=true` 分别对 `h5App.js`（必须）和 `nativevue2.js`（可选）进行 Istanbul 插桩，输出到 `instrumented/` 目录
+3. **静态服务：** Koa 静态服务器提供 `instrumented/` 目录下的插桩文件和 `index.html`，替代 webpack dev server
+4. **运行时收集：** 浏览器中执行测试时，`window.__coverage__` 自动收集 JS 执行覆盖数据
+5. **导出合并：** 测试结束后通过 `page.evaluate(() => window.__coverage__)` 导出，写入 `.nyc_output/`，NYC 合并生成报告
+6. **Source Map 映射：** NYC 读取 `.js.map`，将覆盖数据反向映射至 Kotlin 源文件，报告最终以 `.kt` 文件维度展示
 
 ---
 
@@ -1092,26 +1169,31 @@ stages:
     steps:
       - checkout
       - install Node.js 18+
-      - npm ci (e2e/)
+      - npm ci (web-e2e/)
       - npx playwright install chromium
 
   - name: "构建产物"
     steps:
-      - gradle :demo:jsBrowserProductionWebpack
-      - gradle :h5App:jsBrowserProductionWebpack
+      - gradle :demo:jsBrowserProductionWebpack         # 产出 nativevue2.zip（测试页面）
+      - gradle :h5App:jsBrowserProductionWebpack        # 产出 h5App.js（渲染引擎）
     condition: "非 --skip-build 模式"
+
+  - name: "插桩"
+    steps:
+      - 解压 nativevue2.zip → nyc instrument nativevue2.js → instrumented/nativevue2.js
+      - nyc instrument h5App.js → instrumented/h5App.js   # 核心：渲染引擎插桩
 
   - name: "执行测试"
     steps:
-      - node e2e/scripts/kuikly-test.mjs --full --level ${LEVEL}
+      - node web-e2e/scripts/kuikly-test.mjs --full --level ${LEVEL}
     env:
       CI: true
 
   - name: "收集报告"
     steps:
-      - archive e2e/reports/html/
-      - archive e2e/reports/coverage/
-      - archive e2e/snapshots/ (失败时)
+      - archive web-e2e/reports/html/
+      - archive web-e2e/reports/coverage/
+      - archive web-e2e/snapshots/ (失败时)
 
   - name: "质量门禁"
     steps:
@@ -1121,10 +1203,14 @@ stages:
 
 ### 13.3 截图基准管理
 
-- 截图基准文件存储在 `e2e/snapshots/` 目录，**纳入 Git 版本管理**
-- 首次运行或新增用例时，用 `--update-snapshots` 生成基准
+- 截图基准文件存储在 `web-e2e/snapshots/` 目录，**纳入 Git 版本管理**
 - CI 中如果截图对比失败，报告中会展示 diff 图片便于排查
-- 更新基准需要本地运行后 commit 到仓库
+- **基准生成规则：截图基准必须在 CI 环境（Linux + Chromium）中生成**，不允许使用本地（Windows/macOS）生成的截图作为正式基准。原因：不同操作系统的字体渲染、抗锯齿、subpixel rendering 存在差异，本地基准在 CI 上运行必然造成截图对比失败
+- **基准更新流程：**
+  1. 开发者本地运行 `--update-snapshots` 可预览截图变化（不 commit）
+  2. 确认无误后，在 CI 流水线中触发 `--update-snapshots` 生成正式基准
+  3. 由 CI 将新基准 commit 到仓库（或由开发者从 CI 产物中下载后 commit）
+- **基准失效处理：** 渲染层改动导致基准合理变化时，走上述更新流程；如果是误报（CI 环境波动），重跑流水线确认
 
 ---
 
@@ -1159,7 +1245,7 @@ stages:
 5. 确定测试级别：L0 / L1 / L2（取最高）
 6. 基于交互清单 + 模板，生成包含完整交互步骤的测试用例
    → 每个交互操作都包含：定位 + 操作 + 等待 + 截图验证
-7. 输出到 e2e/tests/L{N}/... 目录
+7. 输出到 web-e2e/tests/L{N}/... 目录
 ```
 
 **关键设计：** 步骤 3 是核心——通过查询知识库，AI **不可能遗漏** 某个渲染组件需要的交互操作。只要识别到页面中有 `KRListView`，就一定会生成滚动测试步骤；识别到 `KRInputView`，就一定会生成输入测试步骤。测试页面本身也是按组件类型精确组织的，确保覆盖完整。
@@ -1180,22 +1266,29 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 
 ## 15. 实施计划
 
-### Phase 1：基础设施搭建（预计 2 天）
+### Phase 1：基础设施搭建 ✅ **已完成**
 
-- [ ] 渲染层改动：`KuiklyRenderLayerHandler.kt` 注入 `data-kuikly-component`
-- [ ] 创建 `e2e/` 目录结构
-- [ ] 初始化 `package.json`、`playwright.config.ts`、`tsconfig.json`
-- [ ] 实现 `KuiklyPage` Fixture 核心方法（goto, waitForRenderComplete, component）
-- [ ] 编写 1 个 L0 冒烟测试验证流程打通
+- [x] 渲染层改动：`KuiklyRenderLayerHandler.kt` 注入 `data-kuikly-component`
+- [x] 创建 `web-e2e/` 目录结构
+- [x] 初始化 `package.json`、`playwright.config.ts`、`tsconfig.json`
+- [x] 实现 `KuiklyPage` Fixture 核心方法（goto, waitForRenderComplete, component）
+- [x] 编写 1 个 L0 冒烟测试验证流程打通
+- [x] 额外完成：创建本地测试服务器（`serve.mjs`）
+- [x] 额外完成：编写快速启动指南（`QUICKSTART.md`）
+
+**验证步骤：** 见 [web-e2e/QUICKSTART.md](./web-e2e/QUICKSTART.md)
 
 ### Phase 2：web-test 测试页面生成（预计 3 天）
 
 - [ ] 在 `demo/src/commonMain/.../pages/` 下创建 `web_test/` 目录结构
 - [ ] 生成 L0 静态渲染测试页面（components/ + styles/）
+- [ ] **AI Review L0 测试页面**：对照实际组件源码核查 API，自动修正问题
 - [ ] 生成 L1 简单交互测试页面（interactions/click, input, modal）
+- [ ] **AI Review L1 测试页面**：核查交互组件 API 正确性，自动修正
 - [ ] 生成 L2 复杂交互测试页面（interactions/list-scroll, gesture, navigation）
 - [ ] 生成动画测试页面（animations/）
 - [ ] 生成组合场景测试页面（composite/）
+- [ ] **AI Review L2/动画/组合场景测试页面**，自动修正问题
 - [ ] 注册所有测试页面路由
 
 ### Phase 3：L0 静态用例集（预计 2 天）
@@ -1236,13 +1329,13 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 请逐条确认或提出修改意见：
 
 - [ ] **渲染层改动位置**：在 `createRenderViewHandler` 中注入 `data-kuikly-component`，是否还需要在其他位置（如复用路径）也补充设置？
-- [ ] **测试页面路由**：web-test 测试页面的 URL 路由格式建议为 `http://localhost:8080/#/web-test/components/KRListView`，是否合适？
-- [ ] **webpack dev server 端口**：默认使用 8080 端口是否合适？
+- [x] **测试页面路由**：使用格式 `http://localhost:8080?page_name=TestPageName`（已确认）
+- [ ] **静态服务器端口**：默认使用 8080 端口是否合适？（使用 Koa 静态服务器，非 webpack dev server）
 - [ ] **覆盖率阈值**：初始目标 lines/functions/statements ≥ 60%、branches ≥ 50% 是否合理？
-- [ ] **截图基准更新策略**：是否需要 CI 中自动更新基准的机制（如 MR label 触发），还是始终手动更新？
+- [x] **截图基准更新策略**：手动更新 — 开发者本地运行 `--update-snapshots` 后 review 确认再 commit（已确认）
 - [ ] **浏览器范围**：当前仅配置 Chromium，是否需要后续支持 WebKit/Firefox？
 - [ ] **Skill 优先级**：Skill 是否在 Phase 7 实施即可，还是需要提前？
-- [ ] **测试页面维护**：新增渲染组件/样式时，是否由 AI 自动在 web-test 中补充测试页面？
+- [x] **测试页面维护**：新增渲染组件/样式时，由 AI 自动在 web-test 中补充测试页面（已确认）
 
 ---
 

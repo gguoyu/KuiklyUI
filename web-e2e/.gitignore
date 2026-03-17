@@ -1,0 +1,9 @@
+node_modules/
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/reports/
+/.nyc_output/
+/instrumented/
+*.log
+package-lock.json

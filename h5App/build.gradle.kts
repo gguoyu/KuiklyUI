@@ -27,10 +27,22 @@ kotlin {
             commonWebpackConfig {
                 // Do not export global objects, only export necessary entry methods
                 output?.library = null
+                // Generate source maps so Istanbul/NYC can remap JS coverage back to Kotlin source lines
+                sourceMaps = true
             }
         }
         // Package render code and h5App code together and execute directly
         binaries.executable()
+
+        // Ensure Kotlin compiler emits source maps for all compilations (IR default is on, explicit for safety)
+        compilations.all {
+            kotlinOptions {
+                sourceMap = true
+                // Reference Kotlin sources by path rather than embedding them inline,
+                // keeping the .js.map file small while still enabling coverage remapping
+                sourceMapEmbedSources = "never"
+            }
+        }
     }
     sourceSets {
         val jsMain by getting {

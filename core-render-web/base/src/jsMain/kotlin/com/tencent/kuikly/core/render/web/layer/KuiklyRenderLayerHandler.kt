@@ -369,6 +369,8 @@ class KuiklyRenderLayerHandler : IKuiklyRenderLayerHandler {
             // If element id is empty, set id to instanceId_tag, e.g. 1_1, unique for different instance
             renderViewHandler.viewExport.ele.id = "${instanceId}_${tag}"
         }
+        // Set data-kuikly-component attribute for E2E testing
+        renderViewHandler.viewExport.ele.setAttribute("data-kuikly-component", viewName)
         // Save render context
         renderViewHandler.viewExport.kuiklyRenderContext = renderView.kuiklyRenderContext
         // After successful creation, cache created renderView handler internally
