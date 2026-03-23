@@ -45,3 +45,7 @@ proto/**/*.kt
 .kotlin
 /compose/compose.podspec
 /core/core.podspec
+
+## Claude Code
+.claude/settings.local.json
+/kuikly-web-autotest/

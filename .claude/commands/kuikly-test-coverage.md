@@ -1,38 +1,28 @@
-请收集并展示 KuiklyUI Web E2E 覆盖率摘要（对应 `.codebuddy/rules/kuikly-test.md` 第九节定义的 coverage 指令）。
+请收集并展示 Kuikly Web E2E 覆盖率摘要。
 
 ---
 
 **执行步骤：**
 
-1. **检查 `web-e2e/.nyc_output/` 目录**：
-   - 若**不存在或为空**，说明尚未以插桩模式运行过测试，自动执行以下步骤收集数据：
+1. 检查 `test-e2e-init/.nyc_output/` 是否存在
+   - 若不存在或为空，先执行覆盖率收集：
      ```bash
-     cd web-e2e
+     cd test-e2e-init
      npm run instrument
-     node scripts/serve-instrumented.mjs &
-     # 等待服务器就绪后
+     node kuikly-web-autotest/scripts/serve-instrumented.mjs &
      npm test
      ```
-   - 若已有数据，直接生成报告
 
-2. **生成覆盖率报告**：
+2. 生成报告：
    ```bash
-   cd web-e2e && npm run coverage
+   cd test-e2e-init && npm run coverage
    ```
 
-3. **检查阈值**：
+3. 检查阈值：
    ```bash
-   cd web-e2e && npm run coverage:check
+   cd test-e2e-init && npm run coverage:check
    ```
 
-4. **展示摘要**，格式如下：
-   ```
-   【覆盖率摘要】
-   Statements : XX%  （阈值 ≥70%）✅/❌
-   Branches   : XX%  （阈值 ≥55%）✅/❌
-   Functions  : XX%  （阈值 ≥70%）✅/❌
-   Lines      : XX%  （阈值 ≥70%）✅/❌
-   报告路径：web-e2e/reports/coverage/index.html
-   ```
+4. 展示 lines / functions / statements / branches 覆盖率数值
 
-详细行为规范见 `.codebuddy/rules/kuikly-test.md` 第九节（9.1～9.3）。
+详细规范见 `.claude/rules/kuikly-test-rules.md` 第八节。
