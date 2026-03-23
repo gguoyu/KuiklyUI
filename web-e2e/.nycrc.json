@@ -13,15 +13,15 @@
   "temp-dir": ".nyc_output",
   "sourceMap": true,
   "check-coverage": true,
-  "lines": 60,
-  "functions": 60,
-  "statements": 60,
-  "branches": 50,
+  "lines": 70,
+  "functions": 70,
+  "statements": 70,
+  "branches": 55,
   "per-file": false,
   "watermarks": {
-    "lines": [60, 80],
-    "functions": [60, 80],
-    "branches": [50, 75],
-    "statements": [60, 80]
+    "lines": [70, 80],
+    "functions": [70, 80],
+    "branches": [55, 75],
+    "statements": [70, 80]
   }
 }

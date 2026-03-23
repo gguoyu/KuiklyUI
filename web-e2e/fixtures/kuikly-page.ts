@@ -241,6 +241,43 @@ export class KuiklyPage {
       return result;
     }, properties);
   }
+
+  // ==================== Frame Diff Utilities ====================
+
+  /**
+   * Compare two screenshot buffers and decide if they visually differ.
+   * Uses a simple byte-level comparison; for production use a pixel-diff
+   * library (e.g. pixelmatch), but this is sufficient for CI gate checks.
+   *
+   * @param a - First screenshot buffer
+   * @param b - Second screenshot buffer
+   * @param options - threshold: min fraction of bytes that must differ (default 0.001)
+   */
+  framesDiffer(a: Buffer, b: Buffer, options: { threshold?: number } = {}): boolean {
+    const threshold = options.threshold ?? 0.001;
+    if (a.length !== b.length) return true;
+    let diffBytes = 0;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) diffBytes++;
+    }
+    return diffBytes / a.length > threshold;
+  }
+
+  /**
+   * Count how many consecutive frame-pairs in a sequence visually differ.
+   * e.g. for frames [A, B, C, D]: compares A↔B, B↔C, C↔D → returns count of differing pairs.
+   *
+   * @param frames - Array of screenshot buffers captured during animation
+   * @param options - threshold passed through to framesDiffer
+   */
+  countFrameDiffs(frames: Buffer[], options: { threshold?: number } = {}): number {
+    if (frames.length < 2) return 0;
+    let count = 0;
+    for (let i = 1; i < frames.length; i++) {
+      if (this.framesDiffer(frames[i - 1], frames[i], options)) count++;
+    }
+    return count;
+  }
 }
 
 /**

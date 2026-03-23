@@ -1,7 +1,29 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs basename:*)"
+      "Bash(xargs basename:*)",
+      "Bash(node:*)",
+      "Bash(Start-Sleep:*)",
+      "Bash(npx playwright:*)",
+      "Bash(ls:*)",
+      "Bash(dir C:\\\\workspace\\\\git\\\\gguoyu\\\\KuiklyUI\\\\demo\\\\build\\\\dist\\\\js\\\\developmentExecutable:*)",
+      "Bash(dir C:\\\\workspace\\\\git\\\\gguoyu\\\\KuiklyUI\\\\demo\\\\src\\\\commonMain\\\\kotlin\\\\com\\\\tencent\\\\kuikly\\\\demo\\\\pages\\\\web_test\\\\animations:*)",
+      "Bash(./gradlew :demo:jsBrowserDevelopmentWebpack:*)",
+      "Bash(dir C:\\\\workspace\\\\git\\\\gguoyu\\\\KuiklyUI\\\\core\\\\src\\\\commonMain\\\\kotlin\\\\com\\\\tencent\\\\kuikly\\\\core\\\\views:*)",
+      "Bash(xargs grep:*)",
+      "Bash(git:*)",
+      "Bash(./gradlew :demo:kspKotlinJs:*)",
+      "Bash(./gradlew :demo:compileKotlinJs:*)",
+      "Bash(grep:*)",
+      "Bash(./gradlew :demo:compileDevelopmentExecutableKotlinJs:*)",
+      "Bash(dir:*)",
+      "Bash(find C:/workspace/git/gguoyu/KuiklyUI/demo/build -name *.js -not -path */node_modules/*)",
+      "Bash(find C:/workspace/git/gguoyu/KuiklyUI/demo/build -name nativevue2*)",
+      "Bash(head -5 find C:/workspace/git/gguoyu/KuiklyUI -maxdepth 3 -name *.js -path */webpack*)",
+      "Bash(node -e \":*)",
+      "Bash(wc -c C:/workspace/git/gguoyu/KuiklyUI/web-e2e/instrumented/h5App.js)",
+      "Bash(find C:/workspace/git/gguoyu/KuiklyUI -name NavigationTestPage.kt -o -name NavigationTestPage*.kt)",
+      "Bash(find . -path */pages/web_test -type d)"
     ]
   }
 }

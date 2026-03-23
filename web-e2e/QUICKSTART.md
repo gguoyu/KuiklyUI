@@ -1,231 +1,192 @@
-# 🚀 Kuikly Web E2E 快速启动指南
+# 🚀 Kuikly Web E2E 快速上手指南
 
-## 📋 Phase 1 成果验证
-
-本文档帮助你快速验证 Phase 1 基础设施搭建是否成功。
-
-**💡 首次使用？** 强烈建议先阅读 [环境准备指南 ENVIRONMENT-SETUP.md](./ENVIRONMENT-SETUP.md) 了解详细的三步骤流程和常见问题排查。
+5 分钟跑通第一个测试。
 
 ---
 
-## 🔧 环境准备
-
-### 1. 安装 E2E 测试依赖
-
-进入 `web-e2e` 目录：
+## 第一步：安装依赖
 
 ```bash
 cd web-e2e
-
-# 安装 npm 依赖
 npm install
-
-# 安装 Playwright 浏览器
-npm run install:browsers
+npx playwright install chromium
 ```
 
 ---
 
-## 🧪 运行 L0 冒烟测试
+## 第二步：运行测试
 
-### 步骤 1：启动本地服务器
-
-在 `web-e2e` 目录，打开**第一个终端**：
+Playwright 会**自动启动**本地服务器（端口 8080），无需手动操作。
 
 ```bash
-npm run serve
-```
-
-你应该看到：
-```
-🚀 Kuikly Web E2E 测试服务器已启动
-
-   构建类型: productionExecutable
-   端口: 8081
-   访问地址: http://localhost:8081/
-```
-
----
-
-### 步骤 2：构建 JS Bundle（本地调试包）
-
-在项目根目录，打开**第二个终端**：
-
-```bash
-# 打包本地调试 Bundle（必须先执行）
-./gradlew :demo:packLocalJSBundleDebug
-```
-
-这会生成 `nativevue2.js` 等必要的 JS 文件到本地目录。
-
----
-
-### 步骤 3：启动 h5App 开发构建（持续监听）
-
-保持第二个终端，继续运行：
-
-```bash
-# 启动 h5App 开发构建（-t 参数开启持续监听）
-./gradlew :h5App:jsBrowserDevelopmentRun -t
-```
-
-**⚠️ 重要提示**:
-- `-t` 参数会持续监听文件变化并自动重新构建
-- 这个命令会持续运行，不要关闭该终端
-- 首次构建可能需要 5-15 分钟
-
-**验证构建成功：**
-- 第二个终端显示 "BUILD SUCCESSFUL"
-- 浏览器访问 http://localhost:8081/ 应该看到 Kuikly H5 应用正常加载
-- 检查浏览器控制台没有 JS 加载错误
-
----
-
-### 步骤 4：运行冒烟测试
-
-保持前两个终端运行，打开**第三个终端**，在 `web-e2e` 目录运行：
-
-```bash
-# 运行 L0 冒烟测试
+# 冒烟测试（最快，约 10s）
 npm run test:smoke
 
-# 或者运行所有 L0 测试
-npm run test:L0
+# 全量测试
+npm test
 
-# 带 UI 界面运行（推荐，方便调试）
-npm run test:ui
+# 指定级别
+npm run test:L0    # L0 静态渲染截图（72 tests）
+npm run test:L1    # L1 简单交互（15 tests）
+npm run test:L2    # L2 复杂交互 + 动画（70 tests）
 ```
 
----
-
-## ✅ 验证成功标准
-
-冒烟测试应该通过以下检查点：
-
-1. **✅ 页面加载成功**
-   - `应该成功加载 ComposeRoutePager 页面` - PASSED
-
-2. **✅ data-kuikly-component 属性注入成功**
-   - `应该正确注入 data-kuikly-component 属性` - PASSED
-   - 终端输出：找到 N 个 Kuikly 组件
-
-3. **✅ 组件选择器工作正常**
-   - `应该支持组件选择器定位元素` - PASSED
-   - 终端输出：通过 component() 找到 N 个 KRView 组件
-
-4. **✅ 视觉回归测试可用**
-   - `视觉回归：ComposeRoutePager 页面截图` - PASSED
-   - 首次运行会生成基准截图
-
-5. **✅ 组件层级分析可用**
-   - `应该能够获取组件层级结构` - PASSED
-   - 终端输出：组件层级结构 JSON
+看到 `X passed` 即说明环境正常。
 
 ---
 
-## 📊 查看测试报告
-
-测试完成后，查看详细报告：
+## 第三步：查看报告
 
 ```bash
-npm run report
+npx playwright show-report reports/html
 ```
 
-这会打开一个交互式 HTML 报告，包含：
-- 每个测试的执行时间
-- 失败原因（如有）
-- 截图和视频录制
-- 追踪日志
+会在浏览器打开交互式报告，包含每个用例的截图、视频、错误详情。
 
 ---
 
-## 🐛 常见问题排查
+## 常用操作速查
 
-### 问题 1：服务器启动失败
+### 调试某个测试
 
-**症状：**
+```bash
+# 有界面运行，可以看到浏览器操作过程
+npx playwright test tests/L1-simple/click.spec.ts --headed
+
+# Playwright UI 模式（推荐，可单步执行、时间旅行）
+npm run test:ui
+
+# 单步调试
+npx playwright test tests/L1-simple/click.spec.ts --debug
 ```
-Error: ENOENT: no such file or directory
+
+### 截图基准管理
+
+截图基准存储在各 spec 文件同级的 `*.spec.ts-snapshots/` 目录下。
+
+```bash
+# 更新全部截图基准（改动 UI 后需要执行）
+npx playwright test --update-snapshots
+
+# 只更新某个文件的基准
+npx playwright test tests/L0-static/components/krview.spec.ts --update-snapshots
 ```
 
-**解决：**
-1. 确认已构建 h5App：`./gradlew :h5App:jsBrowserProductionWebpack`
-2. 检查构建产物路径是否存在
+> ⚠️ 更新基准前务必肉眼确认截图变化符合预期，再 commit。
+
+### 覆盖率模式
+
+需要另开一个终端运行插桩版服务器：
+
+```bash
+# 终端 1：插桩 + 启动插桩服务器
+npm run instrument
+npm run serve:instrumented
+
+# 终端 2：运行测试并收集覆盖率
+npm test
+npm run coverage          # 生成报告（reports/coverage/index.html）
+npm run coverage:check    # 检查是否达到阈值（lines/functions/statements ≥ 70%，branches ≥ 55%）
+```
+
+### 使用 CLI 统一入口
+
+```bash
+# 跳过构建，只跑 L1 测试
+node scripts/kuikly-test.mjs --level L1 --skip-build
+
+# 全流程（构建 → 插桩 → 测试 → 覆盖率）
+node scripts/kuikly-test.mjs --full
+
+# 仅生成覆盖率报告（基于已有 .nyc_output 数据）
+node scripts/kuikly-test.mjs --coverage-only
+```
+
+### 用 AI 生成新测试用例
+
+```bash
+# 分析测试页面源码，自动生成对应 spec 文件
+@skill kuikly-test generate KRListViewTestPage
+
+# 生成后，运行并生成初始截图基准
+npx playwright test tests/L0-static/components/krlist.spec.ts --update-snapshots
+```
 
 ---
 
-### 问题 2：测试找不到元素
+## 常见问题
 
-**症状：**
+### 测试失败：截图对比不通过
+
+```
+Error: Screenshot comparison failed
+N pixels (ratio X) are different.
+```
+
+**原因**：页面渲染结果与截图基准不一致。
+
+**处理**：
+1. 先用 `npx playwright show-report reports/html` 查看差异图
+2. 若是预期内的 UI 变更，运行 `--update-snapshots` 更新基准
+3. 若是 Bug，修复渲染问题后再次运行
+
+---
+
+### 测试失败：找不到元素
+
 ```
 Error: locator.click: Timeout 30000ms exceeded
 ```
 
-**解决：**
-1. 确认服务器在 http://localhost:8081 运行
-2. 手动访问该 URL，检查页面是否正常
-3. 检查渲染层代码是否正确注入 `data-kuikly-component` 属性
+**原因**：服务器未响应，或页面中组件未正确渲染。
+
+**处理**：
+1. 手动访问 `http://localhost:8080/?page_name=<TestPageName>` 确认页面可以加载
+2. 打开浏览器控制台，检查是否有 JS 错误
+3. 确认 `data-kuikly-component` 属性已注入（右键 → 检查元素）
 
 ---
 
-### 问题 3：视觉回归测试失败
+### 运行报错：找不到截图基准
 
-**症状：**
 ```
-Error: Screenshot comparison failed
-```
-
-**解决：**
-1. 首次运行：执行 `npm run test:update-snapshots` 生成基准截图
-2. 有意改动：检查差异是否符合预期
-3. 环境差异：不同操作系统/浏览器可能产生轻微差异（调整 `maxDiffPixels`）
-
----
-
-### 问题 4：找不到 data-kuikly-component 属性
-
-**症状：**
-```
-expect(received).toBeGreaterThan(expected)
-Expected: > 0
-Received: 0
+Error: A snapshot doesn't exist at ...
 ```
 
-**解决：**
-1. 确认渲染层代码已修改（KuiklyRenderLayerHandler.kt）
-2. 重新构建 h5App
-3. 刷新浏览器，检查元素是否有该属性
+**原因**：首次运行，还没有生成截图基准。
+
+**处理**：
+```bash
+npx playwright test --update-snapshots
+```
 
 ---
 
-## 🎯 下一步
+### 覆盖率报告为空 / 没有数据
 
-Phase 1 验证通过后，可以开始：
+**原因**：未使用插桩版服务器运行测试。
 
-1. **Phase 2：核心用例覆盖**
-   - 编写 L1 交互测试（点击、滚动、输入）
-   - 编写 L2 复杂场景测试
-
-2. **Phase 3：CI/CD 集成**
-   - 编写 Jenkins/GitHub Actions 配置
-   - 设置定时任务和触发规则
-
-3. **Phase 4：覆盖率分析**
-   - 集成 Istanbul/NYC
-   - 生成覆盖率报告
+**处理**：确保按顺序执行：`instrument` → `serve:instrumented`（另开终端）→ `npm test` → `coverage`。
 
 ---
 
-## 📚 更多资源
+## 运行环境说明
 
-- **Playwright 官方文档**: https://playwright.dev/
-- **Kuikly E2E 完整文档**: 见 `AUTOTEST.md`
-- **测试用例模板**: 见 `tests/` 目录
+| 参数 | 值 |
+|------|----|
+| 浏览器 | Chromium |
+| Viewport | 375 × 812（iPhone X） |
+| 服务器端口 | 8080 |
+| 用例超时 | 60s |
+| 失败重试 | 本地 1 次，CI 2 次 |
+
+> ⚠️ 截图基准与 viewport 尺寸强绑定，请勿修改 `playwright.config.js` 中的 viewport 配置。
 
 ---
 
-## ❓ 获取帮助
+## 更多资料
 
-如有问题，请联系：
-- 项目负责人: [你的名字]
-- 问题追踪: [Issue Tracker 链接]
+- [README.md](./README.md) — 完整功能说明（目录结构、API、CLI 参数等）
+- [../AUTOTEST.md](../AUTOTEST.md) — 测试方案设计文档
+- [../.codebuddy/rules/kuikly-test.md](../.codebuddy/rules/kuikly-test.md) — CodeBuddy Skill 定义
+- [Playwright 文档](https://playwright.dev)

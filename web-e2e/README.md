@@ -1,177 +1,311 @@
-# Kuikly Web E2E Testing
+# Kuikly Web E2E 测试
 
-端到端测试框架，基于 Playwright，用于验证 Kuikly Web 渲染层的正确性。
+基于 Playwright 的端到端测试框架，覆盖 KuiklyUI Web 渲染层（`core-render-web` + `h5App`）的组件渲染、样式、交互、动画全流程验证。
 
-## 📍 当前状态
+## 📊 当前状态
 
-✅ **Phase 1: 基础设施搭建（已完成）**
-- ✅ 渲染层注入 `data-kuikly-component` 属性
-- ✅ 创建 `web-e2e/` 目录结构
-- ✅ 实现 `KuiklyPage` Fixture
-- ✅ 编写 L0 冒烟测试
-- ✅ 本地测试服务器
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| Phase 1 | 基础设施（KuiklyPage Fixture、本地服务器） | ✅ 完成 |
+| Phase 2 | web-test 专用测试页面（21 个 Kotlin 页面） | ✅ 完成 |
+| Phase 3 | L0 静态用例（72 tests，截图基准已生成） | ✅ 完成 |
+| Phase 4 | L1/L2 交互用例（63 tests） | ✅ 完成 |
+| Phase 5 | 动画测试（22 tests，PAG 占位 skip） | ✅ 完成 |
+| Phase 6 | 覆盖率 + CLI 统一入口 | ✅ 完成 |
 
-**🎯 立即开始验证？请查看 [快速启动指南 QUICKSTART.md](./QUICKSTART.md)**
+**当前测试总量：157 tests**（不含 skip）
 
 ---
 
 ## 🚀 快速开始
 
-### 1. 安装依赖
+> 首次使用请先阅读 [QUICKSTART.md](./QUICKSTART.md)
 
 ```bash
 cd web-e2e
-npm install
-npx playwright install chromium
-```
 
-### 2. 准备测试环境（3 个终端）
+# 安装依赖（首次）
+npm install && npx playwright install chromium
 
-**终端 1 - 启动测试服务器：**
-```bash
-cd web-e2e
-npm run serve
-```
-
-**终端 2 - 构建 JS Bundle：**
-```bash
-# 在项目根目录
-
-# Step 1: 打包本地调试 Bundle
-./gradlew :demo:packLocalJSBundleDebug
-
-# Step 2: 启动 h5App 开发构建（持续监听）
-./gradlew :h5App:jsBrowserDevelopmentRun -t
-```
-
-**终端 3 - 运行测试：**
-```bash
-cd web-e2e
-
-# 运行所有测试
+# 运行全量测试（Playwright 自动启动服务器）
 npm test
 
-# 运行指定级别的测试
-npm run test:L0    # L0 静态渲染测试
-npm run test:L1    # L1 基础交互测试
-npm run test:L2    # L2 复杂交互测试
-
-# 更新截图基准
-npm run test:update-snapshots
+# 运行指定级别
+npm run test:L0    # L0 静态渲染（72 tests）
+npm run test:L1    # L1 简单交互（15 tests）
+npm run test:L2    # L2 复杂交互 + 动画（70 tests）
 ```
 
-**⚠️ 重要提示:**
-- 三个步骤必须按顺序执行
-- 终端 1 和终端 2 需要持续运行
-- 首次构建可能需要 5-15 分钟
+---
 
 ## 📁 目录结构
 
 ```
 web-e2e/
-├── package.json              # npm 依赖配置
-├── playwright.config.ts      # Playwright 配置
-├── tsconfig.json             # TypeScript 配置
-├── .nycrc.json              # 覆盖率配置
 ├── fixtures/
-│   ├── kuikly-page.ts       # KuiklyPage 核心工具类
-│   └── test-base.ts         # 扩展的 test 对象
-├── scripts/
-│   └── kuikly-test.mjs      # CLI 统一入口
+│   ├── kuikly-page.ts          # KuiklyPage 核心工具类
+│   ├── test-base.ts            # 扩展 test 对象（注入 kuiklyPage fixture）
+│   └── coverage.ts             # 覆盖率收集工具
 ├── tests/
-│   ├── L0-static/           # L0 静态测试
-│   ├── L1-interaction/      # L1 交互测试
-│   └── L2-complex/          # L2 复杂测试
-└── reports/                 # 测试报告输出
+│   ├── L0-static/
+│   │   ├── smoke.spec.ts       # 冒烟测试（基础设施验证）
+│   │   ├── components/         # 组件静态渲染（krview、krtext、krlist 等，8 spec）
+│   │   └── styles/             # CSS 样式（border、shadow、gradient 等，7 spec）
+│   ├── L1-simple/              # 简单交互（click、input、modal，3 spec）
+│   └── L2-complex/
+│       ├── listscroll.spec.ts  # 列表滚动
+│       ├── gesture.spec.ts     # 手势
+│       ├── navigation.spec.ts  # 页面跳转
+│       ├── search.spec.ts      # 组合场景（搜索）
+│       ├── form.spec.ts        # 组合场景（表单）
+│       └── animations/         # 动画（css-transition、property-anim、js-frame-anim、pag-anim）
+├── scripts/
+│   ├── kuikly-test.mjs         # CLI 统一入口
+│   ├── serve.js                # 普通测试服务器（port 8080）
+│   ├── serve-instrumented.mjs  # 插桩版服务器（覆盖率用）
+│   └── instrument.mjs          # Istanbul 插桩脚本
+├── playwright.config.js        # Playwright 配置（viewport: 375×812，Chromium）
+├── .nycrc.json                 # 覆盖率阈值配置
+└── package.json
 ```
+
+---
 
 ## 🧪 测试级别
 
-### L0 - 静态渲染测试
-- 验证组件和样式的静态渲染结果
-- 纯截图对比，无交互操作
-- 快速执行，适合冒烟测试
+### L0 — 静态渲染
+验证组件和样式的首屏渲染结果，纯截图对比，无交互操作。
 
-### L1 - 基础交互测试
-- 点击、输入、弹窗等基础交互
-- 验证交互后的视觉变化
-- 覆盖常见用户操作场景
+```bash
+npm run test:L0
+# 或只跑冒烟
+npm run test:smoke
+```
 
-### L2 - 复杂交互测试
-- 滚动、手势、动画、页面跳转
-- 多步骤交互流程
-- 性能和动画流畅度验证
+### L1 — 简单交互
+验证点击、文本输入、弹窗等基础交互后的视觉变化。
+
+```bash
+npm run test:L1
+```
+
+### L2 — 复杂交互 + 动画
+验证列表滚动、手势、页面跳转、CSS Transition、属性动画、JS 帧动画等。
+
+```bash
+npm run test:L2
+```
+
+---
 
 ## 📝 编写测试用例
 
-使用 `KuiklyPage` Fixture：
+所有用例通过 `KuiklyPage` Fixture 操作页面：
 
 ```typescript
-import { test, expect } from '../fixtures/test-base';
+import { test, expect } from '../../fixtures/test-base';
 
-test('KRView renders correctly', async ({ kuiklyPage }) => {
-  // 导航到测试页面
-  await kuiklyPage.goto('?page_name=KRViewTestPage');
-  
-  // 等待渲染完成
-  await kuiklyPage.waitForRenderComplete();
-  
-  // 截图验证
-  await expect(kuiklyPage.page).toHaveScreenshot('kr-view-initial.png');
-  
-  // 定位 Kuikly 组件
-  const view = kuiklyPage.component('KRView').first();
-  await view.click();
-  
-  await kuiklyPage.waitForRenderComplete();
-  await expect(kuiklyPage.page).toHaveScreenshot('kr-view-clicked.png');
+test.describe('KRListView 列表滚动测试', () => {
+  test('列表应支持垂直滚动', async ({ kuiklyPage }) => {
+    // 导航到测试页面
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    // L0：初始截图
+    await expect(kuiklyPage.page).toHaveScreenshot('list-initial.png', {
+      maxDiffPixels: 100,
+    });
+
+    // L2：滚动操作
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 300 });
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page).toHaveScreenshot('list-scrolled.png', {
+      maxDiffPixels: 100,
+    });
+  });
 });
 ```
 
-## 🔧 KuiklyPage API
+### 导入路径规则
+
+| 文件位置 | 导入路径 |
+|----------|----------|
+| `tests/L0-static/smoke.spec.ts` | `'../../fixtures/test-base'` |
+| `tests/L0-static/components/*.spec.ts` | `'../../../fixtures/test-base'` |
+| `tests/L0-static/styles/*.spec.ts` | `'../../../fixtures/test-base'` |
+| `tests/L1-simple/*.spec.ts` | `'../../fixtures/test-base'` |
+| `tests/L2-complex/*.spec.ts` | `'../../fixtures/test-base'` |
+| `tests/L2-complex/animations/*.spec.ts` | `'../../../fixtures/test-base'` |
+
+---
+
+## 🔧 KuiklyPage Fixture API
 
 ### 导航与等待
-- `goto(pageName)` - 导航到测试页面
-- `waitForRenderComplete()` - 等待渲染完成
+
+```typescript
+await kuiklyPage.goto('TestPageName');
+// 等价于 page.goto('?page_name=TestPageName')
+
+await kuiklyPage.waitForRenderComplete();
+// 等待网络 idle + 100ms 渲染稳定，默认 timeout 30s
+```
 
 ### 组件定位
-- `component(type)` - 通过 `data-kuikly-component` 定位
-- `getComponentTree()` - 获取组件树（调试用）
 
-### 滚动操作
-- `scrollInContainer(container, options)` - 容器内滚动
-- `swipeInContainer(container, options)` - 滑动手势
+```typescript
+// 通过 data-kuikly-component 定位（返回 Locator，可链式调用）
+const list  = kuiklyPage.component('KRListView').first();
+const input = kuiklyPage.component('KRInputView').nth(1);
 
-### 动画操作
-- `captureAnimationFrames(options)` - 采集动画帧
-- `waitForAnimationEnd()` - 等待动画结束
-- `getComputedStyles(locator, props)` - 获取计算样式
+// 获取所有同类型组件（返回 Locator[]）
+const allViews = await kuiklyPage.components('KRView');
+
+// 获取组件树（调试用）
+const tree = await kuiklyPage.getComponentTree();
+```
+
+### 滚动 / 手势
+
+```typescript
+await kuiklyPage.scrollInContainer(locator, { deltaX?, deltaY?, smooth? });
+await kuiklyPage.swipeInContainer(locator, { direction: 'up'|'down'|'left'|'right', distance });
+```
+
+### 动画
+
+```typescript
+const frames = await kuiklyPage.captureAnimationFrames({ interval: 100, maxDuration: 2000 });
+await kuiklyPage.waitForAnimationEnd();
+await kuiklyPage.waitForTransitionEnd(locator);
+const styles = await kuiklyPage.getComputedStyles(locator, ['opacity', 'transform']);
+
+// 帧差异分析
+kuiklyPage.framesDiffer(frameA, frameB, { threshold? });   // boolean
+kuiklyPage.countFrameDiffs(frames, { threshold? });         // number
+```
+
+---
 
 ## 📊 覆盖率报告
 
-覆盖率报告使用 NYC (Istanbul) 生成：
+覆盖率模式需要先插桩，再以插桩版服务器运行测试：
 
 ```bash
-# 查看覆盖率报告
-open reports/coverage/index.html
+# Step 1：插桩
+npm run instrument
+
+# Step 2：启动插桩版服务器（另开一个终端）
+npm run serve:instrumented
+
+# Step 3：运行测试（覆盖率数据写入 .nyc_output/）
+npm test
+
+# Step 4：生成报告
+npm run coverage
+# 报告路径：reports/coverage/index.html
+
+# Step 5：检查是否达标
+npm run coverage:check
 ```
 
-## 🤖 AI 生成测试
+### 覆盖率阈值（`.nycrc.json`）
 
-测试用例可以由 AI 自动生成：
+| 指标 | 阈值 |
+|------|------|
+| lines / functions / statements | ≥ 70% |
+| branches | ≥ 55% |
 
-1. AI 读取 `demo/src/commonMain/.../pages/web_test/` 中的测试页面代码
-2. 分析渲染组件类型（通过 `data-kuikly-component`）
-3. 根据组件交互特征知识库生成测试用例
-4. 输出到对应的 L0/L1/L2 目录
+---
 
-详见 [AUTOTEST.md](../AUTOTEST.md)。
+## 🖥️ CLI 统一入口
+
+`scripts/kuikly-test.mjs` 封装了完整流程：
+
+```bash
+# 直接运行测试（跳过构建，最常用）
+node scripts/kuikly-test.mjs --level L0 --skip-build
+
+# 全流程：构建 → 插桩 → 测试 → 覆盖率报告
+node scripts/kuikly-test.mjs --full
+
+# 其他选项
+--level L0|L1|L2        只运行指定级别
+--test <file>           只运行指定文件
+--update-snapshots      更新截图基准
+--coverage-only         仅生成覆盖率报告（基于已有 .nyc_output）
+--instrument            仅执行插桩
+--with-native           插桩时同时处理 nativevue2.js
+--headed                有界面模式
+--debug                 调试模式
+```
+
+---
+
+## 🤖 AI 辅助（CodeBuddy Skill）
+
+```bash
+# 分析测试页面源码，自动生成完整测试用例
+@skill kuikly-test generate <TestPageName>
+
+# 一键运行测试
+@skill kuikly-test run [--level L0|L1|L2]
+
+# 查看覆盖率摘要
+@skill kuikly-test coverage
+
+# 查看用例编写规范和 Fixture API
+@skill kuikly-test guide
+```
+
+Skill 定义文件：`.codebuddy/rules/kuikly-test.md`
+
+---
+
+## 🐛 常见问题
+
+**Q: 截图对比失败？**
+
+打开可视化报告，直接对比实际/期望/差异截图：
+```bash
+npx playwright show-report reports/html
+```
+若差异符合预期，更新基准：
+```bash
+npx playwright test --update-snapshots
+```
+
+**Q: 端口 8080 被占用？**
+
+配置了 `reuseExistingServer: true`，已有服务器会被直接复用。如需修改端口，同步更新 `playwright.config.js` 中的 `webServer.port` 和 `use.baseURL`。
+
+**Q: 如何只运行单个测试文件？**
+```bash
+npx playwright test tests/L1-simple/click.spec.ts
+```
+
+**Q: 如何以有界面模式调试？**
+```bash
+npm run test:headed   # 有界面运行
+npm run test:ui       # Playwright UI 模式（推荐）
+npm run test:debug    # 单步调试模式
+```
+
+**Q: 新增组件后如何添加测试？**
+
+1. 在 `demo/.../pages/web_test/` 中创建 Kotlin 测试页面
+2. 用 `@skill kuikly-test generate <TestPageName>` 自动生成用例
+3. 运行 `npx playwright test --update-snapshots` 生成初始截图基准
+
+---
 
 ## 📚 相关文档
 
-- [ENVIRONMENT-SETUP.md](./ENVIRONMENT-SETUP.md) - 环境准备详细指南（⭐ 首次必读）
-- [QUICKSTART.md](./QUICKSTART.md) - 快速启动指南
-- [VERIFICATION-RESULT.md](./VERIFICATION-RESULT.md) - Phase 1 验证结果
-- [AUTOTEST.md](../AUTOTEST.md) - 完整测试方案
-- [Playwright Documentation](https://playwright.dev)
-- [NYC Documentation](https://github.com/istanbuljs/nyc)
+| 文档 | 说明 |
+|------|------|
+| [QUICKSTART.md](./QUICKSTART.md) | 新人快速上手（5 分钟跑通第一个测试） |
+| [../AUTOTEST.md](../AUTOTEST.md) | 完整测试方案设计（架构 / 规范 / 实施计划） |
+| [../.codebuddy/rules/kuikly-test.md](../.codebuddy/rules/kuikly-test.md) | CodeBuddy Skill 定义 |
+| [Playwright 文档](https://playwright.dev) | Playwright 官方文档 |
