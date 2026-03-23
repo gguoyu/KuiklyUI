@@ -62,7 +62,7 @@ npm run serve
 # 在项目根目录
 
 # Step 1: 打包本地调试 Bundle
-./gradlew :demo:packLocalJSBundleDebug
+./gradlew :demo:packLocalJSBundleDebug "-Pkuikly.useLocalKsp=false"
 
 # Step 2: 启动 h5App 开发构建（-t 参数持续监听）
 ./gradlew :h5App:jsBrowserDevelopmentRun -t

@@ -331,7 +331,7 @@ const scrollViews = page.locator('[data-kuikly-component="KRScrollView"]');
 ```
 web-e2e/
 ├── package.json              # npm 依赖 (playwright, nyc, etc.)
-├── playwright.config.ts      # Playwright 配置
+├── playwright.config.js      # Playwright 配置（CommonJS 格式）
 ├── .nycrc.json               # Istanbul/NYC 覆盖率配置
 ├── tsconfig.json             # TypeScript 配置
 │
@@ -344,28 +344,30 @@ web-e2e/
 │
 ├── tests/
 │   ├── L0-static/            # L0 级别：静态渲染截图对比
-│   │   ├── components/       # 渲染组件验证 (KRView, KRImageView, KRTextView, ...)
-│   │   └── styles/           # CSS 样式渲染 (border, shadow, gradient, ...)
+│   │   ├── smoke.spec.ts     # 冒烟测试（基础设施验证）
+│   │   ├── components/       # 渲染组件验证（krview、krtext、krlist 等，8 spec）
+│   │   └── styles/           # CSS 样式渲染（border、shadow、gradient 等，7 spec）
 │   │
-│   ├── L1-simple/            # L1 级别：简单交互
-│   │   ├── click/            # 点击事件
-│   │   ├── input/            # 输入框交互
-│   │   └── toggle/           # 开关/切换
+│   ├── L1-simple/            # L1 级别：简单交互（3 spec）
+│   │   ├── click.spec.ts     # 点击事件
+│   │   ├── input.spec.ts     # 输入框交互
+│   │   └── modal.spec.ts     # 弹窗交互
 │   │
-│   ├── L2-complex/           # L2 级别：复杂交互
-│   │   ├── scroll/           # 列表滚动
-│   │   ├── gesture/          # 手势操作
-│   │   ├── animation/        # 动画验证
-│   │   └── navigation/       # 页面跳转
-│   │
-│   └── unit/                 # 可选：纯逻辑的单元测试
-│       ├── modules/          # Module 逻辑测试
-│       └── utils/            # 工具方法测试
+│   └── L2-complex/           # L2 级别：复杂交互
+│       ├── listscroll.spec.ts # 列表滚动
+│       ├── gesture.spec.ts   # 手势操作
+│       ├── navigation.spec.ts # 页面跳转
+│       ├── search.spec.ts    # 组合场景（搜索）
+│       ├── form.spec.ts      # 组合场景（表单）
+│       └── animations/       # 动画验证（4 spec）
+│           ├── css-transition.spec.ts
+│           ├── property-anim.spec.ts
+│           ├── js-frame-anim.spec.ts
+│           └── pag-anim.spec.ts  # PAG 动画（全部 skip，待 SDK 集成）
 │
 ├── snapshots/                # 截图基准文件（git 跟踪）
-│   ├── L0-static/
-│   ├── L1-simple/
-│   └── L2-complex/
+│   │                         # 实际存储在各 spec 文件同级的 *.spec.ts-snapshots/ 目录下
+│   │                         # 命名格式：{name}-chromium-win32.png
 │
 └── reports/                  # 生成的报告（.gitignore）
     ├── html/                 # Playwright HTML 报告
@@ -893,11 +895,14 @@ class KuiklyPage {
   async waitForRenderComplete(timeout?: number): Promise<void>;
 
   // ==================== 组件定位 ====================
-  
-  /** 通过 data-kuikly-component 属性定位组件 */
+
+  /** 通过 data-kuikly-component 属性定位组件，返回 Locator（可链式调用） */
   component(type: string): Locator;
   // 用法: kuiklyPage.component('KRListView').first()
-  
+
+  /** 获取所有同类型组件，返回 Locator[]（可遍历） */
+  async components(type: string): Promise<Locator[]>;
+
   /** 获取当前页面的组件树结构（调试用） */
   async getComponentTree(): Promise<ComponentNode[]>;
 
@@ -931,9 +936,8 @@ class KuiklyPage {
   
   /** 等待指定元素的 transitionend 事件 */
   async waitForTransitionEnd(locator: Locator): Promise<void>;
-  
-  /** 等待页面中任意元素的 transitionend 事件 */
-  async waitForAnyTransitionEnd(): Promise<void>;
+
+  // 注意：waitForAnyTransitionEnd() 暂未实现，如需可使用 waitForAnimationEnd() 替代
   
   /** 获取元素的计算样式 */
   async getComputedStyles(
@@ -947,12 +951,10 @@ class KuiklyPage {
   /** 统计帧序列中相邻帧的差异数量 */
   countFrameDiffs(frames: Buffer[], options?: { threshold?: number }): number;
 
-  // ==================== 批量交互执行 ====================
-  
-  /** 按预定义步骤序列自动执行交互（声明式，零人工介入） */
-  async runSteps(steps: InteractionStep[]): Promise<void>;
-  // 支持的步骤类型: click, input, scroll, swipe, drag, longPress,
-  //                 wait, waitForRender, snapshot, assert
+  // ==================== 批量交互执行（预留扩展）====================
+
+  // runSteps() 方法暂未实现，作为后续扩展预留。
+  // 当前请使用逐步调用各操作方法（click / scroll / swipe 等）的方式编写用例。
 }
 ```
 
@@ -960,15 +962,15 @@ class KuiklyPage {
 
 ## 10. Playwright 配置
 
-```typescript
-// web-e2e/playwright.config.ts
-import { defineConfig, devices } from '@playwright/test';
+```javascript
+// web-e2e/playwright.config.js（CommonJS 格式）
+const { defineConfig, devices } = require('@playwright/test');
 
-export default defineConfig({
+module.exports = defineConfig({
   testDir: './tests',
   timeout: 60_000,
-  retries: 1,
-  
+  retries: process.env.CI ? 2 : 1,
+
   // 截图对比配置
   expect: {
     toHaveScreenshot: {
@@ -988,13 +990,19 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 812 } },
     },
     // Kuikly Web 主要面向移动端 H5，暂只用 Chromium
   ],
 
-  // dev server 由 CLI 脚本管理，不在此配置
-  // webServer: { ... }
+  // webServer 已配置：Playwright 自动启动 node scripts/serve.js（port 8080）
+  // reuseExistingServer: true，已有服务器会被直接复用
+  webServer: {
+    command: 'node scripts/serve.js',
+    port: 8080,
+    reuseExistingServer: true,
+    timeout: 30000,
+  },
 });
 ```
 
@@ -1011,7 +1019,10 @@ web-e2e/scripts/kuikly-test.mjs
 ### 11.2 命令接口
 
 ```bash
-# 完整流程（构建 + 启动 server + 测试 + 覆盖率）
+# 完整流程（构建 → 插桩 → 测试 → 覆盖率）
+# 注意：--full 模式下，插桩服务器需手动在另一个终端启动：
+#   npm run serve:instrumented
+# CLI 执行至插桩后会打印提示，等待手动确认后再继续测试
 node web-e2e/scripts/kuikly-test.mjs --full
 
 # 仅运行指定级别用例
@@ -1115,7 +1126,14 @@ node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
 {
   "all": true,
   "include": ["instrumented/**/*.js"],
-  "reporter": ["text", "html", "lcov"],
+  "exclude": [
+    "**/*.spec.js",
+    "**/*.test.js",
+    "**/node_modules/**",
+    "**/test/**",
+    "**/tests/**"
+  ],
+  "reporter": ["text", "html", "lcov", "json"],
   "report-dir": "reports/coverage",
   "sourceMap": true,
   "check-coverage": true,
@@ -1270,7 +1288,7 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 
 - [x] 渲染层改动：`KuiklyRenderLayerHandler.kt` 注入 `data-kuikly-component`
 - [x] 创建 `web-e2e/` 目录结构
-- [x] 初始化 `package.json`、`playwright.config.ts`、`tsconfig.json`
+- [x] 初始化 `package.json`、`playwright.config.js`、`tsconfig.json`
 - [x] 实现 `KuiklyPage` Fixture 核心方法（goto, waitForRenderComplete, component）
 - [x] 编写 1 个 L0 冒烟测试验证流程打通
 - [x] 额外完成：创建本地测试服务器（`serve.mjs`）
@@ -1338,9 +1356,9 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 
 请逐条确认或提出修改意见：
 
-- [ ] **渲染层改动位置**：在 `createRenderViewHandler` 中注入 `data-kuikly-component`，是否还需要在其他位置（如复用路径）也补充设置？
+- [x] **渲染层改动位置**：在 `createRenderViewHandler` 中注入 `data-kuikly-component`，已在 Phase 1 实现；复用路径无需额外处理（已确认）
 - [x] **测试页面路由**：使用格式 `http://localhost:8080?page_name=TestPageName`（已确认）
-- [ ] **静态服务器端口**：默认使用 8080 端口是否合适？（使用 Koa 静态服务器，非 webpack dev server）
+- [x] **静态服务器端口**：使用 8080 端口，已在 `playwright.config.js` 的 `webServer` 中配置并固定（已确认）
 - [x] **覆盖率阈值**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%，比初期 60%/50% 适度提升但不过于激进；核心渲染路径长期目标 80%/70%（已确认）
 - [x] **截图基准更新策略**：手动更新 — 开发者本地运行 `--update-snapshots` 后 review 确认再 commit（已确认）
 - [x] **浏览器范围**：当前及近期仅配置 Chromium，暂不扩展 WebKit/Firefox（已确认）
@@ -1349,4 +1367,4 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 
 ---
 
-> **下一步：** 请审阅以上方案，确认或提出修改意见。确认后我将从 Phase 1 开始实施。
+> **当前状态：** Phase 1-6 全部完成，Phase 7（CI/CD + Skill）进行中，蓝盾 Pipeline 配置待推进。

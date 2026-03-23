@@ -385,7 +385,7 @@ test.describe('KRListView 静态渲染测试', () => {
 
 ```bash
 # 1. 构建 demo（包含新的测试页面）
-./gradlew :demo:packLocalJSBundleDebug -Pkuikly.useLocalKsp=false
+./gradlew :demo:packLocalJSBundleDebug "-Pkuikly.useLocalKsp=false"
 
 # 2. 构建 h5App
 ./gradlew :h5App:jsBrowserDevelopmentWebpack

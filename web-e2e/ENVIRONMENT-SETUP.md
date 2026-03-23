@@ -24,7 +24,7 @@
 │  终端 1: npm run serve                              │
 │  ↓ 提供静态文件服务 (index.html)                    │
 ├─────────────────────────────────────────────────────┤
-│  终端 2: ./gradlew :demo:packLocalJSBundleDebug     │
+│  终端 2: ./gradlew :demo:packLocalJSBundleDebug "-Pkuikly.useLocalKsp=false"    │
 │          ./gradlew :h5App:jsBrowserDevelopmentRun -t│
 │  ↓ 构建并监听 JS Bundle (h5App.js, nativevue2.js)   │
 ├─────────────────────────────────────────────────────┤
@@ -77,7 +77,7 @@ npm run serve
 
 ```bash
 # Step 1: 打包本地调试 Bundle（一次性命令）
-./gradlew :demo:packLocalJSBundleDebug
+./gradlew :demo:packLocalJSBundleDebug "-Pkuikly.useLocalKsp=false"
 
 # Step 2: 启动 h5App 开发构建（持续监听）
 ./gradlew :h5App:jsBrowserDevelopmentRun -t
@@ -85,7 +85,7 @@ npm run serve
 
 **期望输出：**
 ```
-> Task :demo:packLocalJSBundleDebug
+> Task :demo:packLocalJSBundleDebug "-Pkuikly.useLocalKsp=false"
 BUILD SUCCESSFUL in 10s
 
 > Task :h5App:jsBrowserDevelopmentRun
@@ -187,11 +187,11 @@ GET http://localhost:8081/nativevue2.js 404 (Not Found)
 ```
 
 **原因：**
-- 未执行 `./gradlew :demo:packLocalJSBundleDebug`
+- 未执行 `./gradlew :demo:packLocalJSBundleDebug "-Pkuikly.useLocalKsp=false"`
 
 **解决：**
 ```bash
-./gradlew :demo:packLocalJSBundleDebug
+./gradlew :demo:packLocalJSBundleDebug "-Pkuikly.useLocalKsp=false"
 ```
 
 ---
