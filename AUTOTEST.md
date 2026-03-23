@@ -1124,8 +1124,7 @@ node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
 ```json
 // web-e2e/.nycrc.json
 {
-  "all": true,
-  "include": ["instrumented/**/*.js"],
+  "all": false,
   "exclude": [
     "**/*.spec.js",
     "**/*.test.js",
@@ -1135,6 +1134,7 @@ node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
   ],
   "reporter": ["text", "html", "lcov", "json"],
   "report-dir": "reports/coverage",
+  "temp-dir": ".nyc_output",
   "sourceMap": true,
   "check-coverage": true,
   "lines": 70,
@@ -1157,12 +1157,12 @@ node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
 
 ### 12.3 覆盖率收集流程
 
-1. **构建产物：** `gradle :h5App:jsBrowserProductionWebpack` 产出 `h5App.js`（含 source map）；`gradle :demo:jsBrowserProductionWebpack` 解压产出 `nativevue2.js`
-2. **插桩产物：** 用 `nyc instrument --source-map=true` 分别对 `h5App.js`（必须）和 `nativevue2.js`（可选）进行 Istanbul 插桩，输出到 `instrumented/` 目录
-3. **静态服务：** Koa 静态服务器提供 `instrumented/` 目录下的插桩文件和 `index.html`，替代 webpack dev server
+1. **构建产物：** `gradle :h5App:jsBrowserDevelopmentWebpack` 产出 `h5App.js`（含 source map）
+2. **插桩产物：** `npm run instrument` 对 `h5App.js` 进行 Istanbul 插桩，输出到 `instrumented/` 目录
+3. **静态服务：** `node scripts/serve-instrumented.mjs &`（后台启动），Playwright 的 `reuseExistingServer: true` 自动复用该服务器，**无需两个终端**
 4. **运行时收集：** 浏览器中执行测试时，`window.__coverage__` 自动收集 JS 执行覆盖数据
-5. **导出合并：** 测试结束后通过 `page.evaluate(() => window.__coverage__)` 导出，写入 `.nyc_output/`，NYC 合并生成报告
-6. **Source Map 映射：** NYC 读取 `.js.map`，将覆盖数据反向映射至 Kotlin 源文件，报告最终以 `.kt` 文件维度展示
+5. **自动导出：** `test-base.ts` fixture teardown 自动调用 `collectCoverage()`，每个测试结束后将 `window.__coverage__` 写入 `.nyc_output/<test-title>.json`，NYC 合并生成报告；若未使用插桩服务器则静默跳过
+6. **生成报告：** `npm run coverage` 调用 `scripts/coverage-report.mjs`，以项目根目录为 `--cwd` 正确解析绝对路径，生成 HTML/text/lcov 报告至 `reports/coverage/`
 
 ---
 

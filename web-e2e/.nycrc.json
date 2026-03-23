@@ -1,6 +1,5 @@
 {
-  "all": true,
-  "include": ["instrumented/**/*.js"],
+  "all": false,
   "exclude": [
     "**/*.spec.js",
     "**/*.test.js",

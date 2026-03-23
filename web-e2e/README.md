@@ -63,7 +63,8 @@ web-e2e/
 │   ├── kuikly-test.mjs         # CLI 统一入口
 │   ├── serve.js                # 普通测试服务器（port 8080）
 │   ├── serve-instrumented.mjs  # 插桩版服务器（覆盖率用）
-│   └── instrument.mjs          # Istanbul 插桩脚本
+│   ├── instrument.mjs          # Istanbul 插桩脚本
+│   └── coverage-report.mjs     # 覆盖率报告生成（跨平台路径封装）
 ├── playwright.config.js        # Playwright 配置（viewport: 375×812，Chromium）
 ├── .nycrc.json                 # 覆盖率阈值配置
 └── package.json
@@ -191,16 +192,16 @@ kuiklyPage.countFrameDiffs(frames, { threshold? });         // number
 
 ## 📊 覆盖率报告
 
-覆盖率模式需要先插桩，再以插桩版服务器运行测试：
+覆盖率收集已集成在测试 fixture 中，**每个测试结束后自动将 `window.__coverage__` 写入 `.nyc_output/`**，无需手动导出，无需两个终端。
 
 ```bash
 # Step 1：插桩
 npm run instrument
 
-# Step 2：启动插桩版服务器（另开一个终端）
-npm run serve:instrumented
+# Step 2：后台启动插桩版服务器（Playwright 会自动复用已有服务器）
+node scripts/serve-instrumented.mjs &
 
-# Step 3：运行测试（覆盖率数据写入 .nyc_output/）
+# Step 3：运行测试（覆盖率数据自动写入 .nyc_output/）
 npm test
 
 # Step 4：生成报告
@@ -210,6 +211,8 @@ npm run coverage
 # Step 5：检查是否达标
 npm run coverage:check
 ```
+
+> 💡 也可以用 CLI 一键执行全流程：`node scripts/kuikly-test.mjs --full`
 
 ### 覆盖率阈值（`.nycrc.json`）
 

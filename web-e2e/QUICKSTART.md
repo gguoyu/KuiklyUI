@@ -76,14 +76,14 @@ npx playwright test tests/L0-static/components/krview.spec.ts --update-snapshots
 
 ### 覆盖率模式
 
-需要另开一个终端运行插桩版服务器：
+覆盖率收集已集成在 fixture 中，**无需两个终端**。只需后台启动插桩服务器，再运行测试即可：
 
 ```bash
-# 终端 1：插桩 + 启动插桩服务器
+# 插桩 + 后台启动插桩服务器
 npm run instrument
-npm run serve:instrumented
+node scripts/serve-instrumented.mjs &
 
-# 终端 2：运行测试并收集覆盖率
+# 运行测试并收集覆盖率数据（自动写入 .nyc_output/）
 npm test
 npm run coverage          # 生成报告（reports/coverage/index.html）
 npm run coverage:check    # 检查是否达到阈值（lines/functions/statements ≥ 70%，branches ≥ 55%）
@@ -164,9 +164,15 @@ npx playwright test --update-snapshots
 
 ### 覆盖率报告为空 / 没有数据
 
-**原因**：未使用插桩版服务器运行测试。
+**原因**：未使用插桩版服务器运行测试，`window.__coverage__` 不存在，fixture 静默跳过了收集。
 
-**处理**：确保按顺序执行：`instrument` → `serve:instrumented`（另开终端）→ `npm test` → `coverage`。
+**处理**：确保按顺序执行：
+```bash
+npm run instrument
+node scripts/serve-instrumented.mjs &   # 后台启动，无需另开终端
+npm test
+npm run coverage
+```
 
 ---
 

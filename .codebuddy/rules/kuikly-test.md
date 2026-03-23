@@ -9,6 +9,7 @@
 
 | 指令 | 说明 |
 |------|------|
+| `@skill kuikly-test auto` | **全自动闭环**：运行 → 分析 → 修复/补用例 → 覆盖率检查，循环直到全部达标 |
 | `@skill kuikly-test run [--level L0\|L1\|L2]` | 一键运行指定级别（或全量）E2E 测试 |
 | `@skill kuikly-test generate <TestPageName>` | 分析测试页面源码，AI 自动生成完整测试用例 |
 | `@skill kuikly-test guide` | 输出用例编写模板、Fixture API 说明、最佳实践 |
@@ -137,11 +138,12 @@ npm run test:L2          # 运行 L2 复杂交互测试
 npm test                 # 运行全量测试
 npm run test:smoke       # 运行冒烟测试（快速验证）
 
-# 覆盖率模式
-npm run instrument       # Istanbul 插桩
-npm run serve:instrumented  # 启动插桩版服务器
-npm run coverage         # 生成覆盖率报告
-npm run coverage:check   # 检查覆盖率是否达标
+# 覆盖率模式（无需两个终端，后台启动插桩服务器）
+npm run instrument                    # Istanbul 插桩
+node scripts/serve-instrumented.mjs & # 后台启动插桩版服务器
+npm test                              # 运行测试，覆盖率数据自动写入 .nyc_output/
+npm run coverage                      # 生成覆盖率报告
+npm run coverage:check                # 检查覆盖率是否达标
 
 # CLI 统一入口
 node scripts/kuikly-test.mjs --level L0 --skip-build
@@ -578,20 +580,22 @@ test.describe('KRListView 列表滚动测试', () => {
 当用户触发 `coverage` 指令时：
 
 1. **检查 `.nyc_output/` 目录**：
-   - 若不存在，提示用户先以插桩模式运行测试：
+   - 若不存在或为空，说明未以插桩模式运行过测试，**自动执行以下步骤收集数据**：
      ```bash
      cd web-e2e
-     npm run instrument           # Step 1: 插桩
-     npm run serve:instrumented   # Step 2: 启动插桩服务器（另开终端）
-     npm test                     # Step 3: 运行测试收集覆盖率数据
+     npm run instrument                    # Step 1: 插桩
+     node scripts/serve-instrumented.mjs & # Step 2: 后台启动插桩服务器
+     sleep 2                               # 等待服务器就绪
+     npm test                              # Step 3: 运行全量测试，自动收集覆盖率数据
      ```
+   - 若已有数据，跳过上述步骤，直接生成报告
 2. **生成报告**：
    ```bash
-   cd web-e2e && npx nyc report
+   cd web-e2e && npm run coverage
    ```
 3. **检查阈值**：
    ```bash
-   cd web-e2e && npx nyc check-coverage
+   cd web-e2e && npm run coverage:check
    ```
 4. **展示摘要**：输出 lines / functions / statements / branches 覆盖率数值
 
@@ -641,3 +645,352 @@ A: `cd web-e2e && npx playwright test tests/L1-simple/click.spec.ts`
 
 **Q: 如何以有界面模式调试？**
 A: `cd web-e2e && npx playwright test --headed --debug`，或 `npm run test:ui` 打开 Playwright UI 模式。
+
+---
+
+## 十一、全自动闭环（auto 指令）
+
+### 11.1 指令格式
+
+```bash
+@skill kuikly-test auto
+```
+
+触发后 AI **全程自主执行**，无需人工介入，直到所有测试通过且覆盖率达标，最后输出一份完整的执行报告。
+
+---
+
+### 11.2 完整执行流程
+
+```
+Phase A：用例完整性检查
+       ↓
+Phase B：运行全量测试
+       ↓
+Phase C：失败用例修复（循环直到通过）
+       ↓
+Phase D：覆盖率检查与补充（循环直到达标）
+       ↓
+Phase E：输出最终报告
+```
+
+---
+
+### 11.3 Phase A — 用例完整性检查
+
+**目标：** 确保每个 web_test 测试页面都有对应的 spec 文件，不遗漏任何组件/场景。
+
+**Step A1：扫描所有 web_test 页面**
+
+读取目录 `demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/` 下的全部 `.kt` 文件，建立「页面清单」：
+
+```
+当前已知的 25 个测试页面（基准，如有新增则自动追加）：
+
+components/（L0）
+  KRCanvasViewTestPage   → web-e2e/tests/L0-static/components/krcanvas.spec.ts
+  KRGradientRichTextTestPage → web-e2e/tests/L0-static/components/krgradientrichtext.spec.ts
+  KRImageViewTestPage    → web-e2e/tests/L0-static/components/krimage.spec.ts
+  KRListViewTestPage     → web-e2e/tests/L0-static/components/krlist.spec.ts
+  KRRichTextViewTestPage → web-e2e/tests/L0-static/components/krrichtext.spec.ts
+  KRScrollContentViewTestPage → web-e2e/tests/L0-static/components/krscrollcontent.spec.ts
+  KRTextViewTestPage     → web-e2e/tests/L0-static/components/krtext.spec.ts
+  KRViewTestPage         → web-e2e/tests/L0-static/components/krview.spec.ts
+
+styles/（L0）
+  BorderTestPage         → web-e2e/tests/L0-static/styles/border.spec.ts
+  GradientTestPage       → web-e2e/tests/L0-static/styles/gradient.spec.ts
+  OpacityTestPage        → web-e2e/tests/L0-static/styles/opacity.spec.ts
+  OverflowTestPage       → web-e2e/tests/L0-static/styles/overflow.spec.ts
+  ShadowTestPage         → web-e2e/tests/L0-static/styles/shadow.spec.ts
+  TransformTestPage      → web-e2e/tests/L0-static/styles/transform.spec.ts
+
+interactions/（L1/L2）
+  ClickTestPage          → web-e2e/tests/L1-simple/click.spec.ts
+  InputTestPage          → web-e2e/tests/L1-simple/input.spec.ts
+  ModalTestPage          → web-e2e/tests/L1-simple/modal.spec.ts
+  ListScrollTestPage     → web-e2e/tests/L2-complex/listscroll.spec.ts
+  GestureTestPage        → web-e2e/tests/L2-complex/gesture.spec.ts
+  NavigationTestPage     → web-e2e/tests/L2-complex/navigation.spec.ts
+
+animations/（L2）
+  CSSTransitionTestPage  → web-e2e/tests/L2-complex/animations/css-transition.spec.ts
+  JSFrameAnimTestPage    → web-e2e/tests/L2-complex/animations/js-frame-anim.spec.ts
+  PropertyAnimTestPage   → web-e2e/tests/L2-complex/animations/property-anim.spec.ts
+
+composite/（L1/L2）
+  SearchTestPage         → web-e2e/tests/L2-complex/search.spec.ts
+  FormTestPage           → web-e2e/tests/L2-complex/form.spec.ts
+```
+
+**Step A2：检查每个页面是否有对应 spec 文件**
+
+对比「页面清单」与实际 `web-e2e/tests/` 中存在的 spec 文件：
+
+- 若 spec 文件**存在** → 标记为 ✅，继续
+- 若 spec 文件**不存在** → 标记为 ❌ 缺失，进入 **Step A3**
+
+**Step A3：自动补生成缺失的 spec 文件**
+
+对每个 ❌ 缺失的页面，执行与 `generate` 指令完全相同的流程（见第四节）：
+1. 读取对应 `.kt` 源码
+2. 查询第五节「组件交互特征知识库」
+3. 生成完整 `.spec.ts` 文件并写入正确路径
+4. 记录"已补生成"列表，供最终报告使用
+
+**Step A4：为新生成的 spec 文件建立截图基准**
+
+新 spec 文件中有 `toHaveScreenshot()` 调用，首次运行前需要生成基准：
+
+```bash
+cd web-e2e
+npx playwright test <新生成的spec文件路径> --update-snapshots
+```
+
+对每个新生成的文件依次执行，确保基准就绪后再进入 Phase B。
+
+---
+
+### 11.4 Phase B — 运行全量测试
+
+**Step B1：执行全量测试，收集原始结果**
+
+```bash
+cd web-e2e
+npx playwright test --reporter=json > /tmp/pw-results.json
+```
+
+同时用 `list` reporter 输出到控制台，供 AI 实时解析。
+
+**Step B2：解析结果，按失败类型分类**
+
+从测试输出中提取所有失败用例，按以下类型归类：
+
+| 类型代码 | 判断依据 | 含义 |
+|----------|---------|------|
+| `SCREENSHOT_DIFF` | 错误信息含 `pixels are different` 或 `Screenshot comparison failed` | 截图与基准不符 |
+| `ELEMENT_NOT_FOUND` | 错误信息含 `Timeout` + `locator` 或 `waiting for` | 元素定位失败 |
+| `ASSERTION_FAILED` | 错误信息含 `expect(` + `toBe` / `toHaveText` 等 | 断言值与预期不符 |
+| `PAGE_CRASH` | 错误信息含 `crashed` 或 `net::ERR` | 页面加载/崩溃错误 |
+| `UNKNOWN` | 其他 | 未知错误 |
+
+**Step B3：若全部通过 → 跳转 Phase D（覆盖率检查）**
+
+**Step B4：若有失败 → 进入 Phase C（失败修复）**
+
+---
+
+### 11.5 Phase C — 失败用例修复
+
+对 Phase B 分类出的每种失败类型，采用对应的修复策略，**修复后重新运行该 spec 文件**验证是否通过，通过才算完成修复。
+
+#### C1：SCREENSHOT_DIFF — 截图差异
+
+**判断逻辑：**
+
+首先判断截图差异的来源：
+
+1. **读取该 spec 文件对应的测试页面 `.kt` 源码**，检查页面内容是否发生了变化（组件新增/删除/样式调整）
+2. **检查 git 状态**（`git diff` 或 `git log`），判断该 `.kt` 文件或相关渲染代码是否有近期改动
+
+**修复策略：**
+
+| 情况 | 操作 |
+|------|------|
+| 页面/渲染代码**有改动**，截图差异属于**预期变化** | 更新截图基准：`npx playwright test <spec文件> --update-snapshots` |
+| 页面/渲染代码**无改动**，截图差异是**意外变化** | 不更新基准，将此用例加入「待人工确认」列表，继续处理其他问题 |
+
+#### C2：ELEMENT_NOT_FOUND — 元素定位失败
+
+**判断逻辑：**
+
+1. 读取失败用例代码，提取定位表达式（`component()`、`getByText()` 等）
+2. 读取对应测试页面的 `.kt` 源码，检查该元素是否仍然存在于页面结构中
+
+**修复策略：**
+
+| 情况 | 操作 |
+|------|------|
+| 页面中**已删除或重命名**该元素 | 更新 spec 文件：修改定位表达式或移除已失效的用例块 |
+| 页面中**存在该元素**，但定位不精确 | 更新 spec 文件：参照第六节「元素定位优先级」改写定位方式 |
+| 页面内容**未发生变化**，疑似渲染时序问题 | 在该步骤前增加 `await kuiklyPage.waitForRenderComplete()` |
+
+#### C3：ASSERTION_FAILED — 断言值不符
+
+**判断逻辑：**
+
+1. 提取失败断言的期望值（`expected`）和实际值（`received`）
+2. 读取对应测试页面 `.kt` 源码，确认页面当前实际输出的文本/状态
+
+**修复策略：**
+
+| 情况 | 操作 |
+|------|------|
+| 页面文本/逻辑已**有意修改** | 更新 spec 文件中的期望值 |
+| 期望值写错了（spec 文件 bug） | 修正 spec 文件中的期望值 |
+| 实际值是**渲染 Bug** | 将此用例加入「待人工确认」列表，记录详细的实际值 vs 期望值 |
+
+#### C4：PAGE_CRASH — 页面崩溃
+
+**修复策略：**
+
+1. 用 `kuiklyPage.goto()` 单独访问该测试页面的 URL
+2. 检查 Playwright 控制台错误输出（`page.on('console')`）
+3. 若是已知的测试页面 URL 格式错误，修正 spec 文件中的 `goto()` 参数
+4. 若无法自动定位原因，加入「待人工确认」列表
+
+#### C5：循环验证
+
+每种类型修复完成后，单独重新运行该 spec 文件：
+
+```bash
+cd web-e2e
+npx playwright test <修复的spec文件>
+```
+
+- 通过 → 标记为已修复，继续处理下一个
+- 仍失败 → 最多重试修复 **2 次**，2 次后加入「待人工确认」列表，继续处理其他问题
+
+**「待人工确认」列表不阻塞后续流程**，AI 继续处理其他失败用例和覆盖率检查，最终在报告中统一呈现。
+
+---
+
+### 11.6 Phase D — 覆盖率检查与补充
+
+**覆盖率收集完全自动化**：`test-base.ts` fixture teardown 已在每个测试结束后自动调用 `collectCoverage()`，将 `window.__coverage__` 写入 `.nyc_output/`。AI 只需按以下步骤操作，**无需手动干预，无需两个终端**。
+
+---
+
+**Step D1：停止普通服务器（若已在运行），插桩并启动插桩服务器**
+
+```bash
+# 1. 检查 8080 端口是否被占用（普通服务器）
+#    Windows：
+powershell -Command "Get-Process -Id (Get-NetTCPConnection -LocalPort 8080 -State Listen).OwningProcess | Select-Object Id,ProcessName"
+#    macOS/Linux：
+lsof -ti:8080
+
+# 2. 如有进程占用 8080，停止它
+#    Windows：
+powershell -Command "Stop-Process -Id <PID> -Force"
+#    macOS/Linux：
+kill -9 <PID>
+
+# 3. 执行插桩
+cd web-e2e
+npm run instrument
+
+# 4. 后台启动插桩服务器（Playwright 的 reuseExistingServer: true 会自动复用它）
+#    Windows Git Bash / macOS / Linux：
+node scripts/serve-instrumented.mjs &
+
+# 等待服务器启动（验证 200 响应）
+sleep 2
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/
+```
+
+**Step D2：运行全量测试，收集覆盖率数据**
+
+```bash
+cd web-e2e
+npx playwright test --reporter=list
+```
+
+覆盖率数据自动写入 `.nyc_output/*.json`（每个测试一个文件，共 159 个）。
+
+**Step D3：生成覆盖率报告并检查阈值**
+
+```bash
+cd web-e2e
+npm run coverage          # 生成 HTML/text 报告
+npm run coverage:check    # 检查阈值（lines/functions/statements ≥ 70%，branches ≥ 55%）
+```
+
+读取 text 报告输出，提取各指标数值：
+
+```
+File      | % Stmts | % Branch | % Funcs | % Lines
+h5App.js  |  87.5   |   50.0   |  100.0  |  91.3
+```
+
+**Step D4：若全部达标 → 进入 Phase E（输出报告）**
+
+**Step D5：若有指标不达标 → 定位覆盖率低的区域**
+
+从 `reports/coverage/index.html` 或 `.nyc_output/*.json` 文件中，找出覆盖率最低的函数区域：
+
+1. 读取 `.nyc_output/` 下任意一个 JSON 文件（所有文件记录相同文件，只是计数器不同，nyc 会合并）
+2. 找出 `f`（function）计数器中值为 0 的函数，即未执行的代码路径
+3. 对照 `fnMap` 找到对应的函数名和行号，判断属于哪个渲染组件
+
+**Step D6：针对低覆盖区域补充用例**
+
+对识别出的低覆盖组件，检查该组件的测试页面中是否存在**未被现有 spec 覆盖的场景**：
+
+1. 读取该组件对应的 `web_test` 页面 `.kt` 源码
+2. 对照「组件交互特征知识库」（第五节），检查是否有必须验证的交互操作在现有 spec 中**缺失**
+3. 若发现缺失场景 → 在现有 spec 文件中**追加对应的 test 块**
+4. 追加后重新执行 Step D2～D3，更新覆盖率数据
+
+**Step D7：循环检查，直到达标**
+
+- 达标 → 进入 Phase E
+- 仍不达标 → 重复 Step D5~D6，最多循环 **3 次**
+- 3 次后仍不达标 → 在报告中说明剩余缺口，列入「待人工处理」
+
+---
+
+### 11.7 Phase E — 输出最终报告
+
+所有 Phase 执行完毕后，输出如下结构的报告：
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Kuikly Web E2E 自动化运行报告
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【用例完整性】Phase A
+  扫描 web_test 页面：25 个
+  ✅ 已有 spec 文件：25 个
+  🆕 本次新补生成：0 个（或列出新生成文件名）
+
+【测试运行结果】Phase B/C
+  初始运行：XX passed / XX failed
+  自动修复：XX 个用例（列出每个修复动作）
+  最终结果：XX passed / 0 failed ✅
+  待人工确认：X 个（若有，列出用例名 + 失败原因摘要）
+
+【覆盖率】Phase D
+  lines:      XX%  ✅（≥70%）
+  functions:  XX%  ✅（≥70%）
+  statements: XX%  ✅（≥70%）
+  branches:   XX%  ✅（≥55%）
+  本次新增用例：X 个（列出追加的 test 块）
+
+【变更文件汇总】
+  修改：
+    - web-e2e/tests/xxx/xxx.spec.ts（修改原因）
+  新增：
+    - web-e2e/tests/xxx/xxx.spec.ts（新增原因）
+  截图基准更新：
+    - tests/xxx/xxx.spec.ts-snapshots/xxx.png
+
+【需要人工处理的项目】（若有）
+  1. [用例名]：[原因] — [AI 的判断依据]
+  2. ...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+### 11.8 执行约束与边界条件
+
+| 约束 | 说明 |
+|------|------|
+| **截图基准更新须有依据** | 只有在确认页面或渲染代码有改动时才更新基准，不得无理由更新 |
+| **不删除现有测试** | 即使用例失败，也不删除用例，只修改或追加，删除操作须人工确认 |
+| **修复重试上限** | 每个失败用例最多自动修复 2 次，超限进入「待人工确认」列表 |
+| **覆盖率补充循环上限** | 最多循环 3 次，避免无限追加 |
+| **新生成用例须通过验证** | 补生成或追加的用例必须实际运行通过后才计入「已修复」 |
+| **PAG 动画用例保持 skip** | `pag-anim.spec.ts` 中的全部 skip 用例不处理，不计入失败 |

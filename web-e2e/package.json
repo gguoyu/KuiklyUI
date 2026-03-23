@@ -21,8 +21,8 @@
     "verify": "node verify-phase1.mjs",
     "instrument": "node scripts/instrument.mjs",
     "instrument:with-native": "node scripts/instrument.mjs --with-native",
-    "coverage": "nyc report",
-    "coverage:check": "nyc check-coverage",
+    "coverage": "node scripts/coverage-report.mjs",
+    "coverage:check": "node scripts/coverage-report.mjs --check",
     "kuikly-test": "node scripts/kuikly-test.mjs"
   },
   "keywords": [

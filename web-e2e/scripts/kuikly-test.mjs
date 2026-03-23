@@ -140,7 +140,7 @@ async function generateCoverageReport() {
   }
 
   console.log('\n📊 生成覆盖率报告...');
-  await execCommand('npx nyc report', e2eRoot);
+  await execCommand('node scripts/coverage-report.mjs', e2eRoot);
   console.log('✅ 覆盖率报告已生成');
   console.log(`📄 查看报告: ${join(e2eRoot, 'reports/coverage/index.html')}`);
 }
@@ -149,7 +149,7 @@ async function generateCoverageReport() {
 async function checkCoverageThresholds() {
   console.log('\n🎯 检查覆盖率阈值（基于 .nycrc.json 配置）...');
   try {
-    await execCommand('npx nyc check-coverage', e2eRoot);
+    await execCommand('node scripts/coverage-report.mjs --check', e2eRoot);
     console.log('✅ 覆盖率达标');
   } catch {
     console.error('❌ 覆盖率未达到阈值（lines/functions/statements ≥ 70%，branches ≥ 55%）');

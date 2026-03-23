@@ -1,22 +1,23 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 
 /**
  * 覆盖率收集工具
  *
- * 使用方式：在测试文件末尾（teardown 阶段）调用 collectCoverage()。
- *
  * 工作原理：
  * 1. 测试执行期间，Istanbul 插桩代码将执行路径写入 window.__coverage__
- * 2. teardown 时，通过 page.evaluate() 将 __coverage__ 导出为 JSON
- * 3. 写入 .nyc_output/<uuid>.json，NYC 合并时会读取此目录
+ * 2. 每个 test teardown 时，通过 page.evaluate() 将 __coverage__ 导出为 JSON
+ * 3. 写入 .nyc_output/<title>.json，NYC 合并时会读取此目录
  *
  * 前置条件：
  * - 测试服务器必须提供插桩版 h5App.js（通过 npm run serve:instrumented）
  * - 若 window.__coverage__ 不存在（普通服务器），函数静默跳过
+ *
+ * 自动收集：已在 test-base.ts fixture teardown 中自动调用，无需手动调用。
  */
 
-const NYC_OUTPUT_DIR = join(import.meta.dirname, '..', '.nyc_output');
+// coverage.ts 位于 web-e2e/fixtures/，.nyc_output 位于 web-e2e/
+const NYC_OUTPUT_DIR = resolve(__dirname, '..', '.nyc_output');
 
 /**
  * 从当前页面收集 window.__coverage__，追加写入 .nyc_output/
