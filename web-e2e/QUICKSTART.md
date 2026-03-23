@@ -74,6 +74,45 @@ npx playwright test tests/L0-static/components/krview.spec.ts --update-snapshots
 
 > ⚠️ 更新基准前务必肉眼确认截图变化符合预期，再 commit。
 
+---
+
+### 截图对比与平台一致性（Docker 模式）
+
+**核心问题：** 截图在不同操作系统（Windows/Mac/Linux）因字体渲染、抗锯齿差异，会产生像素级不同。如果直接用 `npm test` 在 Windows/Mac 本地跑，截图可能和 CI（Linux）生成的基准对不上，出现误报。
+
+**两种本地运行模式的区别：**
+
+| 命令 | 适用场景 | 截图对比是否权威 |
+|------|----------|-----------------|
+| `npm test` | 开发调试、快速验证逻辑 | ❌ 可能因平台差异误报截图 diff |
+| `npm run docker:test` | 提交前最终验证 / CI 等价 | ✅ 与 CI 完全一致 |
+
+**首次使用 Docker 模式（需要先安装 Docker Desktop）：**
+
+```bash
+# 构建镜像（首次或 Playwright 版本升级后执行一次）
+npm run docker:build
+
+# 在容器内运行测试（与 CI 结果完全等价）
+npm run docker:test
+```
+
+**更新基准截图的正确姿势：**
+
+```bash
+# 1. 在容器内生成截图，结果自动写回宿主机
+npm run docker:update-snapshots
+
+# 2. 肉眼 review 截图变化
+git diff tests/
+
+# 3. 确认无误后提交
+git add tests/ && git commit -m "chore: update snapshots"
+```
+
+> ⚠️ **不要**用 `npm test -- --update-snapshots`（本地直接运行）更新截图，
+> 否则生成的基准是宿主机平台的截图，CI 上比对时会持续误报。
+
 ### 覆盖率模式
 
 覆盖率收集已集成在 fixture 中，**无需两个终端**。只需后台启动插桩服务器，再运行测试即可：
@@ -123,12 +162,19 @@ Error: Screenshot comparison failed
 N pixels (ratio X) are different.
 ```
 
-**原因**：页面渲染结果与截图基准不一致。
+**原因 1：页面渲染结果与截图基准不一致（真正的 UI 变更或 Bug）。**
 
-**处理**：
+处理：
 1. 先用 `npx playwright show-report reports/html` 查看差异图
-2. 若是预期内的 UI 变更，运行 `--update-snapshots` 更新基准
+2. 若是预期内的 UI 变更，用 `npm run docker:update-snapshots` 更新基准后 commit
 3. 若是 Bug，修复渲染问题后再次运行
+
+**原因 2：在 Windows/Mac 本地直接跑 `npm test`，与 Linux CI 环境存在字体渲染差异。**
+
+处理：改用 Docker 模式运行，消除平台差异：
+```bash
+npm run docker:test
+```
 
 ---
 

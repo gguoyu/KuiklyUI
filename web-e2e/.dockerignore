@@ -1,0 +1,28 @@
+# Docker build context 排除规则
+# 避免将无关文件打入镜像，加快 build 速度
+
+# 依赖目录（容器内单独 npm ci 安装）
+node_modules/
+
+# 运行时生成的文件
+test-results/
+playwright-report/
+reports/
+.nyc_output/
+instrumented/
+
+# 截图基准（通过 volume 挂载共享，不需要打入镜像）
+tests/**/__snapshots__/
+
+# 日志
+*.log
+
+# 本地调试产物
+debug-screenshot.png
+
+# 版本控制
+.git/
+
+# 构建产物（通过 volume 从宿主机挂载）
+../h5App/build/
+../demo/build/

@@ -1349,6 +1349,42 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 - [x] 编写 CodeBuddy Skill 定义文件（`.codebuddy/rules/kuikly-test.md`，十章节，含 6 处问题修复）
 - [x] 端到端验证完整流程（Skill 文件核查通过；README / QUICKSTART 文档已对齐实际代码）
 - [x] 编写使用说明文档（重写 `web-e2e/README.md` + `web-e2e/QUICKSTART.md`，淘汰 Phase 1 旧内容）
+- [x] 落地 Docker 统一运行环境（见下方「截图基准一致性方案」）
+
+#### 截图基准一致性方案（方案 E：Docker 统一环境）
+
+**核心问题：** 视觉回归截图在不同操作系统（Windows/Mac/Linux）因字体渲染、抗锯齿差异，会产生像素级不同，导致 CI 误报。
+
+**解决思路：** 本地和 CI 使用同一个 Docker 镜像生成截图，彻底消除环境差异，截图更新仍由开发者本地完成并 commit，CI 只做比对。
+
+**落地文件：**
+
+| 文件 | 说明 |
+|------|------|
+| `web-e2e/Dockerfile` | 基于 `mcr.microsoft.com/playwright:v1.58.2-jammy` |
+| `web-e2e/docker-compose.yml` | `e2e`（运行测试）/ `update`（更新截图）两个 service |
+| `web-e2e/.dockerignore` | 排除 node_modules、构建产物等 |
+
+**工作流：**
+
+```bash
+# 首次构建镜像（或 Playwright 版本升级后）
+npm run docker:build
+
+# 日常：在容器内运行测试（与 CI 环境完全一致）
+npm run docker:test
+
+# 需要更新截图时：在容器内生成，写回宿主机
+npm run docker:update-snapshots
+# → git diff tests/   （review 截图变更）
+# → git add tests/ && git commit -m "chore: update snapshots"
+```
+
+**关键设计：**
+- `node_modules` 使用 named volume（`e2e_node_modules`），与宿主机隔离，避免 Windows/Mac 二进制污染 Linux 容器
+- 构建产物（`h5App/`、`demo/`）以只读 volume 挂载，容器内无需重新构建
+- 测试结果和截图通过 volume 映射实时写回宿主机，`git diff` 直接可见变更
+- CI 蓝盾流水线直接使用同一个 Docker 镜像，截图比对 100% 一致
 
 ---
 
@@ -1360,7 +1396,7 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 - [x] **测试页面路由**：使用格式 `http://localhost:8080?page_name=TestPageName`（已确认）
 - [x] **静态服务器端口**：使用 8080 端口，已在 `playwright.config.js` 的 `webServer` 中配置并固定（已确认）
 - [x] **覆盖率阈值**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%；webpack UMD 包装分支通过在插桩前注入 `/* istanbul ignore next */` 排除，不影响阈值；核心渲染路径长期目标 80%/70%（已确认）
-- [x] **截图基准更新策略**：手动更新 — 开发者本地运行 `--update-snapshots` 后 review 确认再 commit（已确认）
+- [x] **截图基准更新策略**：Docker 统一环境方案（方案 E）— 开发者在容器内运行 `npm run docker:update-snapshots` 生成截图，与 CI 环境（同一镜像）像素级一致，review 后 git commit（已落地）
 - [x] **浏览器范围**：当前及近期仅配置 Chromium，暂不扩展 WebKit/Firefox（已确认）
 - [x] **Skill 优先级**：Skill 在 Phase 7 实施即可（已确认）
 - [x] **测试页面维护**：新增渲染组件/样式时，由 AI 自动在 web-test 中补充测试页面（已确认）

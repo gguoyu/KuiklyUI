@@ -1,0 +1,48 @@
+# ============================================================
+# Kuikly Web E2E — Docker Compose
+#
+# 两个 service：
+#   e2e            → 运行全量测试（比对模式，截图不变）
+#   update         → 更新基准截图（--update-snapshots）
+#
+# 快速开始：
+#   docker compose build              # 首次构建镜像（或依赖更新后）
+#   docker compose run --rm e2e       # 运行测试
+#   docker compose run --rm update    # 更新截图后 git diff 确认再 commit
+# ============================================================
+
+services:
+  # ── 运行全量测试（正常 CI / 本地验证）──────────────────────
+  e2e:
+    build: .
+    # 将宿主机源码挂载进容器，测试结果（test-results/、reports/）实时写回本地
+    volumes:
+      - .:/app/web-e2e
+      # 构建产物（只读）：serve.js 从这两个目录读取 h5App/demo 产物
+      - ../h5App:/app/h5App:ro
+      - ../demo:/app/demo:ro
+      # 用 named volume 隔离容器内的 node_modules，
+      # 避免宿主机（Windows/Mac）的 node_modules 污染 Linux 容器
+      - e2e_node_modules:/app/web-e2e/node_modules
+    command: npm test
+
+  # ── 更新基准截图 ─────────────────────────────────────────
+  # 在同一 Linux 容器环境中生成截图，与 CI 比对环境完全一致，
+  # 彻底消除跨平台（Windows/Mac vs Linux）像素差异。
+  #
+  # 使用方式：
+  #   docker compose run --rm update
+  #   git diff tests/          # review 截图变更
+  #   git add tests/ && git commit -m "chore: update snapshots"
+  update:
+    build: .
+    volumes:
+      - .:/app/web-e2e
+      - ../h5App:/app/h5App:ro
+      - ../demo:/app/demo:ro
+      - e2e_node_modules:/app/web-e2e/node_modules
+    command: npm run test:update-snapshots
+
+volumes:
+  # node_modules 独立 volume，不与宿主机共享，保持 Linux 二进制兼容
+  e2e_node_modules:
