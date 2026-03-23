@@ -33,7 +33,9 @@
       "Bash(powershell -Command \"Get-Process -Id \\(Get-NetTCPConnection -LocalPort 8080 -State Listen\\).OwningProcess | Select-Object Id,ProcessName\")",
       "Bash(npx nyc:*)",
       "Bash(npm run:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(sort find:*)",
+      "Bash(powershell -Command \"Get-Process -Id \\(Get-NetTCPConnection -LocalPort 8080 -State Listen\\).OwningProcess | Select-Object -ExpandProperty Id\")"
     ]
   },
   "hooks": {

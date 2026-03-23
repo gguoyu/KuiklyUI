@@ -21,6 +21,7 @@ const e2eRoot     = join(__dirname, '..');            // web-e2e/
 const projectRoot = join(e2eRoot, '..');              // KuiklyUI/ (where h5App.js paths are anchored)
 const nycOutput   = join(e2eRoot, '.nyc_output');
 const reportDir   = join(e2eRoot, 'reports', 'coverage');
+const nycrcPath   = join(e2eRoot, '.nycrc.json');
 
 const checkOnly = process.argv.includes('--check');
 
@@ -32,9 +33,12 @@ if (!existsSync(nycOutput)) {
   process.exit(1);
 }
 
+// --cwd 指向项目根目录，使 NYC 能正确解析覆盖率数据中的绝对路径
+// --nycrc-path 明确指向 web-e2e/.nycrc.json，避免 --cwd 改变后读不到配置
 const baseFlags = [
   `--cwd "${projectRoot}"`,
   `--temp-dir "${nycOutput}"`,
+  `--nycrc-path "${nycrcPath}"`,
 ].join(' ');
 
 if (checkOnly) {
@@ -43,6 +47,7 @@ if (checkOnly) {
   console.log('✅ 覆盖率达标');
 } else {
   console.log('📊 生成覆盖率报告...');
-  execSync(`npx nyc report ${baseFlags} --report-dir "${reportDir}"`, { cwd: e2eRoot, stdio: 'inherit' });
+  // --no-check-coverage：仅生成报告，不触发阈值检查（阈值检查由 --check 模式单独执行）
+  execSync(`npx nyc report ${baseFlags} --report-dir "${reportDir}" --no-check-coverage`, { cwd: e2eRoot, stdio: 'inherit' });
   console.log(`✅ 报告已生成：${reportDir}/index.html`);
 }

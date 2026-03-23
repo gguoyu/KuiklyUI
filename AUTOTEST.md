@@ -1359,7 +1359,7 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 - [x] **渲染层改动位置**：在 `createRenderViewHandler` 中注入 `data-kuikly-component`，已在 Phase 1 实现；复用路径无需额外处理（已确认）
 - [x] **测试页面路由**：使用格式 `http://localhost:8080?page_name=TestPageName`（已确认）
 - [x] **静态服务器端口**：使用 8080 端口，已在 `playwright.config.js` 的 `webServer` 中配置并固定（已确认）
-- [x] **覆盖率阈值**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%，比初期 60%/50% 适度提升但不过于激进；核心渲染路径长期目标 80%/70%（已确认）
+- [x] **覆盖率阈值**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%；webpack UMD 包装分支通过在插桩前注入 `/* istanbul ignore next */` 排除，不影响阈值；核心渲染路径长期目标 80%/70%（已确认）
 - [x] **截图基准更新策略**：手动更新 — 开发者本地运行 `--update-snapshots` 后 review 确认再 commit（已确认）
 - [x] **浏览器范围**：当前及近期仅配置 Chromium，暂不扩展 WebKit/Firefox（已确认）
 - [x] **Skill 优先级**：Skill 在 Phase 7 实施即可（已确认）
