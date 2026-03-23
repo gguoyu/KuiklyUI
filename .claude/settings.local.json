@@ -23,7 +23,10 @@
       "Bash(node -e \":*)",
       "Bash(wc -c C:/workspace/git/gguoyu/KuiklyUI/web-e2e/instrumented/h5App.js)",
       "Bash(find C:/workspace/git/gguoyu/KuiklyUI -name NavigationTestPage.kt -o -name NavigationTestPage*.kt)",
-      "Bash(find . -path */pages/web_test -type d)"
+      "Bash(find . -path */pages/web_test -type d)",
+      "Bash(rm -f e2e-all.log e2e-click.log e2e-input.log e2e-input2.log e2e-input3.log e2e-input4.log e2e-modal.log e2e-output.log serve.log serve-new.log debug-screenshot.png test-path.js verify-phase1.mjs verify-phase1.bat PHASE1-SUMMARY.md PHASE1-VERIFICATION-REPORT.md PHASE2-PLAN.md VERIFICATION-CHECKLIST.md VERIFICATION-RESULT.md ENVIRONMENT-SETUP.md TEST-RESULTS.md)",
+      "Bash(rmdir tests/L1-interaction)",
+      "Bash(rm -rf tests/L1-interaction)"
     ]
   }
 }
