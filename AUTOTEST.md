@@ -1223,12 +1223,13 @@ stages:
 
 - 截图基准文件存储在 `web-e2e/snapshots/` 目录，**纳入 Git 版本管理**
 - CI 中如果截图对比失败，报告中会展示 diff 图片便于排查
-- **基准生成规则：截图基准必须在 CI 环境（Linux + Chromium）中生成**，不允许使用本地（Windows/macOS）生成的截图作为正式基准。原因：不同操作系统的字体渲染、抗锯齿、subpixel rendering 存在差异，本地基准在 CI 上运行必然造成截图对比失败
+- **基准生成规则：** 开发者本地执行 `npm run test:update-snapshots` 生成基准并 commit。通过 Chrome 启动参数（方案一）+ 内嵌 Web Font（方案二）消除跨平台字体渲染差异，无需在 CI 或 Docker 中专门生成
 - **基准更新流程：**
-  1. 开发者本地运行 `--update-snapshots` 可预览截图变化（不 commit）
-  2. 确认无误后，在 CI 流水线中触发 `--update-snapshots` 生成正式基准
-  3. 由 CI 将新基准 commit 到仓库（或由开发者从 CI 产物中下载后 commit）
-- **基准失效处理：** 渲染层改动导致基准合理变化时，走上述更新流程；如果是误报（CI 环境波动），重跑流水线确认
+  1. 执行 `npm run setup` 确认字体已下载（消除字体差异）
+  2. 本地运行 `npm run test:update-snapshots` 生成截图
+  3. 肉眼 review `git diff tests/` 确认截图变化符合预期
+  4. `git add tests/ && git commit -m "chore: update snapshots"`
+- **基准失效处理：** 渲染层改动导致基准合理变化时，走上述更新流程；如果是误报，检查 `maxDiffPixelRatio`（当前 `0.02`）是否需要调整
 
 ---
 
@@ -1349,42 +1350,44 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 - [x] 编写 CodeBuddy Skill 定义文件（`.codebuddy/rules/kuikly-test.md`，十章节，含 6 处问题修复）
 - [x] 端到端验证完整流程（Skill 文件核查通过；README / QUICKSTART 文档已对齐实际代码）
 - [x] 编写使用说明文档（重写 `web-e2e/README.md` + `web-e2e/QUICKSTART.md`，淘汰 Phase 1 旧内容）
-- [x] 落地 Docker 统一运行环境（见下方「截图基准一致性方案」）
+- [x] 落地截图基准一致性方案（见下方「截图基准一致性方案」）
 
-#### 截图基准一致性方案（方案 E：Docker 统一环境）
+#### 截图基准一致性方案（方案 F：Chrome 参数 + 内嵌 Web Font）
 
 **核心问题：** 视觉回归截图在不同操作系统（Windows/Mac/Linux）因字体渲染、抗锯齿差异，会产生像素级不同，导致 CI 误报。
 
-**解决思路：** 本地和 CI 使用同一个 Docker 镜像生成截图，彻底消除环境差异，截图更新仍由开发者本地完成并 commit，CI 只做比对。
+**解决思路：** 通过两个轻量手段从源头消除差异，完全不需要 Docker：
+
+| 方案 | 手段 | 说明 |
+|------|------|------|
+| 方案一 | Chrome 启动参数 | `--font-render-hinting=none`、`--disable-font-subpixel-positioning`、`--force-device-scale-factor=1`，禁用字体 Hinting 和次像素定位，减少大部分字体像素差异 |
+| 方案二 | 内嵌 Web Font | serve.js 向 index.html 注入 NotoSansSC WOFF2 字体，将文字渲染与系统字体解耦；`npm run setup` 下载字体文件（约 1 分钟，只需一次） |
 
 **落地文件：**
 
 | 文件 | 说明 |
 |------|------|
-| `web-e2e/Dockerfile` | 基于 `mcr.microsoft.com/playwright:v1.58.2-jammy` |
-| `web-e2e/docker-compose.yml` | `e2e`（运行测试）/ `update`（更新截图）两个 service |
-| `web-e2e/.dockerignore` | 排除 node_modules、构建产物等 |
+| `web-e2e/playwright.config.js` | `launchOptions.args` 注入 3 个 Chrome 参数；`maxDiffPixelRatio` 调整为 `0.02` |
+| `web-e2e/scripts/setup-fonts.mjs` | 下载 Noto Sans SC WOFF2 到 `fonts/` 目录 |
+| `web-e2e/scripts/serve.js` | 向 HTML 注入字体 CSS；新增 `/fonts/*` 路由 |
+| `web-e2e/scripts/serve-instrumented.mjs` | 同上注入逻辑 |
 
 **工作流：**
 
 ```bash
-# 首次构建镜像（或 Playwright 版本升级后）
-npm run docker:build
+# 首次：下载字体（约 1 分钟，只需一次）
+npm run setup
 
-# 日常：在容器内运行测试（与 CI 环境完全一致）
-npm run docker:test
+# 日常：直接运行测试
+npm test
 
-# 需要更新截图时：在容器内生成，写回宿主机
-npm run docker:update-snapshots
+# 需要更新截图时：本地生成，review 后 commit
+npm run test:update-snapshots
 # → git diff tests/   （review 截图变更）
 # → git add tests/ && git commit -m "chore: update snapshots"
 ```
 
-**关键设计：**
-- `node_modules` 使用 named volume（`e2e_node_modules`），与宿主机隔离，避免 Windows/Mac 二进制污染 Linux 容器
-- 构建产物（`h5App/`、`demo/`）以只读 volume 挂载，容器内无需重新构建
-- 测试结果和截图通过 volume 映射实时写回宿主机，`git diff` 直接可见变更
-- CI 蓝盾流水线直接使用同一个 Docker 镜像，截图比对 100% 一致
+**降级策略：** 若未执行 `npm run setup`（无字体文件），Chrome 参数仍生效（方案一保底），字体注入静默跳过，`maxDiffPixelRatio: 0.02` 兜底。
 
 ---
 
@@ -1396,7 +1399,7 @@ npm run docker:update-snapshots
 - [x] **测试页面路由**：使用格式 `http://localhost:8080?page_name=TestPageName`（已确认）
 - [x] **静态服务器端口**：使用 8080 端口，已在 `playwright.config.js` 的 `webServer` 中配置并固定（已确认）
 - [x] **覆盖率阈值**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%；webpack UMD 包装分支通过在插桩前注入 `/* istanbul ignore next */` 排除，不影响阈值；核心渲染路径长期目标 80%/70%（已确认）
-- [x] **截图基准更新策略**：Docker 统一环境方案（方案 E）— 开发者在容器内运行 `npm run docker:update-snapshots` 生成截图，与 CI 环境（同一镜像）像素级一致，review 后 git commit（已落地）
+- [x] **截图基准更新策略**：Chrome 参数 + 内嵌 Web Font 方案（方案 F）— 开发者本地运行 `npm run setup`（下载字体）后执行 `npm run test:update-snapshots` 生成截图，跨平台差异通过技术手段消除，无需 Docker，review 后 git commit（已落地）
 - [x] **浏览器范围**：当前及近期仅配置 Chromium，暂不扩展 WebKit/Firefox（已确认）
 - [x] **Skill 优先级**：Skill 在 Phase 7 实施即可（已确认）
 - [x] **测试页面维护**：新增渲染组件/样式时，由 AI 自动在 web-test 中补充测试页面（已确认）

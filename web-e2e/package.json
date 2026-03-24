@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Kuikly Web E2E Testing with Playwright",
   "scripts": {
+    "setup": "node scripts/setup-fonts.mjs",
     "serve": "node scripts/serve.js",
     "serve:dev": "BUILD_TYPE=developmentExecutable node scripts/serve.js",
     "serve:instrumented": "node scripts/serve-instrumented.mjs",
@@ -14,9 +15,6 @@
     "test:L1": "playwright test tests/L1-simple",
     "test:L2": "playwright test tests/L2-complex",
     "test:update-snapshots": "playwright test --update-snapshots",
-    "docker:build": "docker compose build",
-    "docker:test": "docker compose run --rm e2e",
-    "docker:update-snapshots": "docker compose run --rm update",
     "test:smoke": "playwright test tests/L0-static/smoke.spec.ts",
     "report": "playwright show-report",
     "codegen": "playwright codegen http://localhost:8080",

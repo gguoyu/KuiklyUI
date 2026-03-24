@@ -14,7 +14,19 @@ npx playwright install chromium
 
 ---
 
-## 第二步：运行测试
+## 第二步：下载字体（首次，约 1 分钟）
+
+```bash
+npm run setup
+```
+
+此命令从 Google Fonts 下载 Noto Sans SC WOFF2 字体到 `fonts/` 目录，用于统一测试页面的文字渲染，消除跨平台字体差异。字体文件不入库，只需下载一次。
+
+> 💡 若网络无法访问 Google Fonts，可跳过此步骤。测试仍可正常运行，截图对比会依靠 Chrome 参数（`--font-render-hinting=none`）来减少平台差异。
+
+---
+
+## 第三步：运行测试
 
 Playwright 会**自动启动**本地服务器（端口 8080），无需手动操作。
 
@@ -35,7 +47,7 @@ npm run test:L2    # L2 复杂交互 + 动画（70 tests）
 
 ---
 
-## 第三步：查看报告
+## 第四步：查看报告
 
 ```bash
 npx playwright show-report reports/html
@@ -76,32 +88,22 @@ npx playwright test tests/L0-static/components/krview.spec.ts --update-snapshots
 
 ---
 
-### 截图对比与平台一致性（Docker 模式）
+### 截图对比与平台一致性
 
-**核心问题：** 截图在不同操作系统（Windows/Mac/Linux）因字体渲染、抗锯齿差异，会产生像素级不同。如果直接用 `npm test` 在 Windows/Mac 本地跑，截图可能和 CI（Linux）生成的基准对不上，出现误报。
+**核心问题：** 截图在不同操作系统（Windows/Mac/Linux）因字体渲染差异，可能产生像素级不同。
 
-**两种本地运行模式的区别：**
+**本项目通过以下两个手段消除差异，无需 Docker：**
 
-| 命令 | 适用场景 | 截图对比是否权威 |
-|------|----------|-----------------|
-| `npm test` | 开发调试、快速验证逻辑 | ❌ 可能因平台差异误报截图 diff |
-| `npm run docker:test` | 提交前最终验证 / CI 等价 | ✅ 与 CI 完全一致 |
+| 手段 | 说明 |
+|------|------|
+| **Chrome 参数** | `--font-render-hinting=none` 等参数禁用字体 Hinting，减少像素差异 |
+| **内嵌 Web Font** | serve.js 向页面注入 NotoSansSC 字体，将文字渲染与系统字体解耦 |
 
-**首次使用 Docker 模式（需要先安装 Docker Desktop）：**
-
-```bash
-# 构建镜像（首次或 Playwright 版本升级后执行一次）
-npm run docker:build
-
-# 在容器内运行测试（与 CI 结果完全等价）
-npm run docker:test
-```
-
-**更新基准截图的正确姿势：**
+**更新截图基准的正确姿势：**
 
 ```bash
-# 1. 在容器内生成截图，结果自动写回宿主机
-npm run docker:update-snapshots
+# 1. 在本地生成/更新截图基准
+npm run test:update-snapshots
 
 # 2. 肉眼 review 截图变化
 git diff tests/
@@ -110,8 +112,7 @@ git diff tests/
 git add tests/ && git commit -m "chore: update snapshots"
 ```
 
-> ⚠️ **不要**用 `npm test -- --update-snapshots`（本地直接运行）更新截图，
-> 否则生成的基准是宿主机平台的截图，CI 上比对时会持续误报。
+> ⚠️ 更新基准前务必肉眼确认截图变化符合预期，再 commit。
 
 ### 覆盖率模式
 
@@ -166,15 +167,12 @@ N pixels (ratio X) are different.
 
 处理：
 1. 先用 `npx playwright show-report reports/html` 查看差异图
-2. 若是预期内的 UI 变更，用 `npm run docker:update-snapshots` 更新基准后 commit
+2. 若是预期内的 UI 变更，用 `npm run test:update-snapshots` 更新基准后 commit
 3. 若是 Bug，修复渲染问题后再次运行
 
-**原因 2：在 Windows/Mac 本地直接跑 `npm test`，与 Linux CI 环境存在字体渲染差异。**
+**原因 2：在 Windows/Mac 本地跑，与其他平台存在轻微字体渲染差异。**
 
-处理：改用 Docker 模式运行，消除平台差异：
-```bash
-npm run docker:test
-```
+处理：确认已执行 `npm run setup` 下载 Web Font（可消除大部分差异）；若差异仍超出容差，可适当调整 `playwright.config.js` 中的 `maxDiffPixelRatio`（当前为 `0.02`）。
 
 ---
 

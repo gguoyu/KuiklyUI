@@ -29,6 +29,7 @@ const E2E_ROOT       = join(__dirname, '..');
 const INSTRUMENTED_DIR = join(E2E_ROOT, 'instrumented');
 const BUILD_DIR        = join(PROJECT_ROOT, 'h5App', 'build', 'processedResources', 'js', 'main');
 const NATIVE_DIST_DIR  = join(PROJECT_ROOT, 'demo', 'build', 'dist', 'js', 'developmentExecutable');
+const FONTS_DIR        = join(E2E_ROOT, 'fonts');
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -43,10 +44,30 @@ const MIME_TYPES = {
   '.webp': 'image/webp',
   '.wasm': 'application/wasm',
   '.map':  'application/json',
+  '.woff2': 'font/woff2',
 };
 
 function getMimeType(filePath) {
   return MIME_TYPES[extname(filePath).toLowerCase()] || 'application/octet-stream';
+}
+
+/**
+ * 生成 Web Font 注入 CSS。
+ * 若 fonts/NotoSansSC-Regular.woff2 不存在则返回空字符串（静默降级）。
+ */
+function buildFontInjection() {
+  const fontFile = join(FONTS_DIR, 'NotoSansSC-Regular.woff2');
+  if (!existsSync(fontFile)) {
+    return '';
+  }
+  return `<style>
+  @font-face {
+    font-family: 'KuiklyTestFont';
+    src: url('/fonts/NotoSansSC-Regular.woff2') format('woff2');
+    font-display: block;
+  }
+  * { font-family: 'KuiklyTestFont', sans-serif !important; }
+</style>`;
 }
 
 function isFile(p) { return existsSync(p) && statSync(p).isFile(); }
@@ -62,6 +83,13 @@ function findFile(requestPath) {
   }
 
   const clean = requestPath.replace(/^\//, '');
+
+  // /fonts/* 路由 — 提供 web-e2e/fonts/ 目录下的字体文件
+  if (clean.startsWith('fonts/')) {
+    const fontPath = join(FONTS_DIR, clean.slice('fonts/'.length));
+    if (isFile(fontPath)) return fontPath;
+    return null;
+  }
 
   // instrumented/ 目录优先（h5App.js、nativevue2.js、source maps）
   const ip = join(INSTRUMENTED_DIR, clean);
@@ -100,8 +128,19 @@ const server = createServer((req, res) => {
   }
 
   try {
-    const content  = readFileSync(filePath);
+    let content  = readFileSync(filePath);
     const mimeType = getMimeType(filePath);
+
+    // 如果是 index.html，注入 Web Font CSS（若字体文件存在）
+    if (filePath.endsWith('index.html')) {
+      let html = content.toString('utf-8');
+      const fontInjection = buildFontInjection();
+      if (fontInjection) {
+        html = html.replace('</head>', `${fontInjection}\n</head>`);
+        content = Buffer.from(html, 'utf-8');
+      }
+    }
+
     res.writeHead(200, { 'Content-Type': mimeType });
     res.end(content);
     console.log(`✅ ${requestPath} → ${filePath.replace(PROJECT_ROOT, '')}`);

@@ -27,6 +27,9 @@ cd web-e2e
 # 安装依赖（首次）
 npm install && npx playwright install chromium
 
+# 下载字体（首次，约 1 分钟）
+npm run setup
+
 # 运行全量测试（Playwright 自动启动服务器）
 npm test
 
@@ -277,8 +280,9 @@ npx playwright show-report reports/html
 ```
 若差异符合预期，更新基准：
 ```bash
-npx playwright test --update-snapshots
+npm run test:update-snapshots
 ```
+若在不同平台间存在轻微差异，确认已执行 `npm run setup` 下载 Web Font；当前 `maxDiffPixelRatio` 为 `0.02`，可在 `playwright.config.js` 中适当调整。
 
 **Q: 端口 8080 被占用？**
 
