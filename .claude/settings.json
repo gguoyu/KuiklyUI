@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run setup*)",
+      "Bash(npm run instrument*)",
+      "Bash(npm run coverage*)",
+      "Bash(npm run coverage:check*)",
+      "Bash(npm run serve*)",
+      "Bash(npm run test*)",
+      "Bash(npm test*)",
+      "Bash(npx playwright test*)",
+      "Bash(npx playwright install*)",
+      "Bash(node scripts/serve.js*)",
+      "Bash(node scripts/serve-instrumented.mjs*)",
+      "Bash(node scripts/setup-fonts.mjs*)",
+      "Bash(node scripts/instrument.mjs*)",
+      "Bash(node scripts/coverage-report.mjs*)",
+      "Bash(node scripts/kuikly-test.mjs*)"
+    ]
+  }
+}

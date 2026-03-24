@@ -2,10 +2,11 @@
 /**
  * 插桩版本测试服务器
  *
- * 与 serve.mjs 的区别：
+ * 与 serve.js 的区别：
  * - 优先从 instrumented/ 目录提供文件（插桩版 h5App.js / nativevue2.js）
+ * - 新增 /modules/* 路由：提供 instrumented/modules/ 下的插桩 Kotlin 模块文件
+ * - 新增 /kotlin-modules/* 路由：提供 compileSync 目录下的原版运行时模块（stdlib 等）
  * - 若 instrumented/ 中无对应文件，回退到原始 BUILD_DIR
- * - 服务 index.html 时优先使用 instrumented/index.html（路径已修正）
  *
  * 使用方法：
  *   npm run serve:instrumented            # 默认端口 8080
@@ -25,25 +26,29 @@ const PORT           = process.env.PORT || 8080;
 const PROJECT_ROOT   = join(__dirname, '..', '..');
 const E2E_ROOT       = join(__dirname, '..');
 
-// 目录优先级（从高到低）
-const INSTRUMENTED_DIR = join(E2E_ROOT, 'instrumented');
-const BUILD_DIR        = join(PROJECT_ROOT, 'h5App', 'build', 'processedResources', 'js', 'main');
-const NATIVE_DIST_DIR  = join(PROJECT_ROOT, 'demo', 'build', 'dist', 'js', 'developmentExecutable');
-const FONTS_DIR        = join(E2E_ROOT, 'fonts');
+// 目录映射
+const INSTRUMENTED_DIR  = join(E2E_ROOT, 'instrumented');
+const MODULES_DIR       = join(INSTRUMENTED_DIR, 'modules');        // 插桩版 Kotlin 模块
+const KOTLIN_MODULES_DIR = join(                                     // 原版运行时模块（stdlib 等）
+  PROJECT_ROOT, 'h5App', 'build', 'compileSync', 'js', 'main', 'developmentExecutable', 'kotlin'
+);
+const BUILD_DIR         = join(PROJECT_ROOT, 'h5App', 'build', 'processedResources', 'js', 'main');
+const NATIVE_DIST_DIR   = join(PROJECT_ROOT, 'demo', 'build', 'dist', 'js', 'developmentExecutable');
+const FONTS_DIR         = join(E2E_ROOT, 'fonts');
 
 const MIME_TYPES = {
-  '.html': 'text/html',
-  '.js':   'application/javascript',
-  '.json': 'application/json',
-  '.css':  'text/css',
-  '.png':  'image/png',
-  '.jpg':  'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif':  'image/gif',
-  '.svg':  'image/svg+xml',
-  '.webp': 'image/webp',
-  '.wasm': 'application/wasm',
-  '.map':  'application/json',
+  '.html':  'text/html',
+  '.js':    'application/javascript',
+  '.json':  'application/json',
+  '.css':   'text/css',
+  '.png':   'image/png',
+  '.jpg':   'image/jpeg',
+  '.jpeg':  'image/jpeg',
+  '.gif':   'image/gif',
+  '.svg':   'image/svg+xml',
+  '.webp':  'image/webp',
+  '.wasm':  'application/wasm',
+  '.map':   'application/json',
   '.woff2': 'font/woff2',
 };
 
@@ -74,7 +79,6 @@ function isFile(p) { return existsSync(p) && statSync(p).isFile(); }
 
 function findFile(requestPath) {
   if (requestPath === '/' || requestPath === '') {
-    // index.html：优先 instrumented/
     const ii = join(INSTRUMENTED_DIR, 'index.html');
     if (isFile(ii)) return ii;
     const bi = join(BUILD_DIR, 'index.html');
@@ -84,18 +88,32 @@ function findFile(requestPath) {
 
   const clean = requestPath.replace(/^\//, '');
 
-  // /fonts/* 路由 — 提供 web-e2e/fonts/ 目录下的字体文件
+  // /fonts/* — Web Font 文件
   if (clean.startsWith('fonts/')) {
     const fontPath = join(FONTS_DIR, clean.slice('fonts/'.length));
     if (isFile(fontPath)) return fontPath;
     return null;
   }
 
-  // instrumented/ 目录优先（h5App.js、nativevue2.js、source maps）
+  // /modules/* — 插桩版 Kotlin 模块文件（Istanbul 已注入计数器）
+  if (clean.startsWith('modules/')) {
+    const modPath = join(MODULES_DIR, clean.slice('modules/'.length));
+    if (isFile(modPath)) return modPath;
+    return null;
+  }
+
+  // /kotlin-modules/* — 原版运行时模块（kotlin-stdlib 等，不插桩）
+  if (clean.startsWith('kotlin-modules/')) {
+    const modPath = join(KOTLIN_MODULES_DIR, clean.slice('kotlin-modules/'.length));
+    if (isFile(modPath)) return modPath;
+    return null;
+  }
+
+  // instrumented/ 目录优先（h5App.js loader、nativevue2.js、source maps）
   const ip = join(INSTRUMENTED_DIR, clean);
   if (isFile(ip)) return ip;
 
-  // h5App 构建产物
+  // h5App 构建产物（index.html、assets 等）
   const bp = join(BUILD_DIR, clean);
   if (isFile(bp)) return bp;
 
@@ -131,14 +149,18 @@ const server = createServer((req, res) => {
     let content  = readFileSync(filePath);
     const mimeType = getMimeType(filePath);
 
-    // 如果是 index.html，注入 Web Font CSS（若字体文件存在）
+    // 如果是 index.html，重写 nativevue2.js 远程 URL，并注入 Web Font CSS
     if (filePath.endsWith('index.html')) {
       let html = content.toString('utf-8');
+      html = html.replace(
+        /src="http:\/\/127\.0\.0\.1:8083\/nativevue2\.js"/g,
+        'src="nativevue2.js"'
+      );
       const fontInjection = buildFontInjection();
       if (fontInjection) {
         html = html.replace('</head>', `${fontInjection}\n</head>`);
-        content = Buffer.from(html, 'utf-8');
       }
+      content = Buffer.from(html, 'utf-8');
     }
 
     res.writeHead(200, { 'Content-Type': mimeType });
@@ -152,11 +174,14 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
+  const hasLoader  = isFile(join(INSTRUMENTED_DIR, 'h5App.js'));
+  const hasModules = isFile(join(MODULES_DIR, 'KuiklyCore-render-web-base.js'));
   console.log('\n🔬 Kuikly 插桩测试服务器已启动 (Coverage Mode)\n');
   console.log(`   端口            : ${PORT}`);
   console.log(`   访问地址        : http://localhost:${PORT}/`);
   console.log(`   插桩目录        : ${INSTRUMENTED_DIR}`);
-  console.log(`   存在插桩文件    : ${isFile(join(INSTRUMENTED_DIR, 'h5App.js')) ? '✅ h5App.js' : '❌ h5App.js (需先运行 npm run instrument)'}`);
+  console.log(`   h5App.js loader : ${hasLoader  ? '✅' : '❌ (需先运行 npm run instrument)'}`);
+  console.log(`   插桩模块        : ${hasModules ? '✅ modules/' : '❌ (需先运行 npm run instrument)'}`);
   console.log('\n按 Ctrl+C 停止服务器\n');
 });
 
@@ -164,3 +189,4 @@ process.on('SIGINT', () => {
   console.log('\n👋 正在关闭服务器...');
   server.close(() => { console.log('✅ 已关闭'); process.exit(0); });
 });
+
