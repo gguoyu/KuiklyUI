@@ -1162,7 +1162,12 @@ node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
 3. **静态服务：** `node scripts/serve-instrumented.mjs &`（后台启动），Playwright 的 `reuseExistingServer: true` 自动复用该服务器，**无需两个终端**
 4. **运行时收集：** 浏览器中执行测试时，`window.__coverage__` 自动收集 JS 执行覆盖数据
 5. **自动导出：** `test-base.ts` fixture teardown 自动调用 `collectCoverage()`，每个测试结束后将 `window.__coverage__` 写入 `.nyc_output/<test-title>.json`，NYC 合并生成报告；若未使用插桩服务器则静默跳过
-6. **生成报告：** `npm run coverage` 调用 `scripts/coverage-report.mjs`，以项目根目录为 `--cwd` 正确解析绝对路径，生成 HTML/text/lcov 报告至 `reports/coverage/`
+6. **生成报告：**
+   - `npm run coverage` — JS 文件级摘要（快速查看 statements/functions/branches）
+   - `npm run coverage:kotlin` — **Kotlin 源文件级报告**（通过 source map 反映射，按 `.kt` 文件维度展示覆盖率，推荐使用）
+   - `npm run coverage:check` — 阈值检查（Kotlin 行覆盖率 ≥ 70% 则退出码 0，否则 1）
+
+   > 以上命令直接从 `.nyc_output/*.json` 读取并通过 `source-map` 包反映射，绕过 nyc 在 Git Bash/Windows 环境下无法解析 `C:\` 绝对路径的问题。当前实测覆盖率：整体 **57%**（Kotlin 行），已完成 Source Map 反映射基础设施建设。
 
 ---
 

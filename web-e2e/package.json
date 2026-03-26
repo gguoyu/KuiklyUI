@@ -14,6 +14,7 @@
     "test:L0": "playwright test tests/L0-static",
     "test:L1": "playwright test tests/L1-simple",
     "test:L2": "playwright test tests/L2-complex",
+    "test:modules": "playwright test tests/L1-simple/modules",
     "test:update-snapshots": "playwright test --update-snapshots",
     "test:smoke": "playwright test tests/L0-static/smoke.spec.ts",
     "report": "playwright show-report",
@@ -22,8 +23,9 @@
     "verify": "node verify-phase1.mjs",
     "instrument": "node scripts/instrument.mjs",
     "instrument:with-native": "node scripts/instrument.mjs --with-native",
-    "coverage": "node scripts/coverage-report.mjs",
-    "coverage:check": "node scripts/coverage-report.mjs --check",
+    "coverage": "node scripts/coverage-summary.js",
+    "coverage:kotlin": "node scripts/coverage-summary.js --kotlin",
+    "coverage:check": "node scripts/coverage-summary.js --kotlin --check",
     "kuikly-test": "node scripts/kuikly-test.mjs"
   },
   "keywords": [
