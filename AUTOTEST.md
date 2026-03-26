@@ -48,9 +48,9 @@
 | **功能覆盖**   | 覆盖全部 Web 渲染组件、CSS 样式、Module 的渲染与交互验证             |
 | **分级体系**   | L0（无交互截图） / L1（点击输入） / L2（滑动手势动画跳转）三级用例   |
 | **截图对比**   | 像素级截图对比（Playwright `toHaveScreenshot()`），不禁用动画         |
-| **覆盖率**     | Istanbul 插桩 `core-render-web/base` + `core-render-web/h5` 的 Kotlin/JS 产物 |
-| **运行方式**   | CLI 本地一键运行 + 腾讯蓝盾 CI/CD 自动化                             |
-| **AI 辅助**    | CodeBuddy Skill 支持一键运行、用例编写指导、AI 自动生成单测          |
+| **覆盖率**     | 以 NYC 官方覆盖率结果为准：对 `h5App.js` 等 Kotlin/JS 产物插桩，并通过 source map 反向映射为 Kotlin 源文件覆盖率 |
+| **运行方式**   | CLI 本地一键闭环执行（构建 → 插桩 → 启动插桩服务 → 执行用例 → 收集覆盖率 → 生成/检查报告）+ 腾讯蓝盾 CI/CD 自动化 |
+| **AI 辅助**    | CodeBuddy Skill 支持一键运行、用例编写指导、AI 自动生成 E2E 用例     |
 
 ---
 
@@ -1010,19 +1010,20 @@ module.exports = defineConfig({
 
 ## 11. CLI 统一入口
 
-### 11.1 脚本位置
+### 11.1 设计目标
+
+CLI 必须满足“本地一键运行”原则：开发者执行一条命令后，由脚本自行完成构建、插桩、启动插桩服务器、执行 Playwright、收集覆盖率、生成报告与阈值检查，不要求用户手动再开第二个终端，也不依赖人工确认中间步骤。
+
+### 11.2 脚本位置
 
 ```
 web-e2e/scripts/kuikly-test.mjs
 ```
 
-### 11.2 命令接口
+### 11.3 命令接口
 
 ```bash
-# 完整流程（构建 → 插桩 → 测试 → 覆盖率）
-# 注意：--full 模式下，插桩服务器需手动在另一个终端启动：
-#   npm run serve:instrumented
-# CLI 执行至插桩后会打印提示，等待手动确认后再继续测试
+# 完整流程：构建 → 插桩 → 启动插桩服务 → 测试 → 覆盖率 → 阈值检查
 node web-e2e/scripts/kuikly-test.mjs --full
 
 # 仅运行指定级别用例
@@ -1039,11 +1040,14 @@ node web-e2e/scripts/kuikly-test.mjs --update-snapshots
 # 仅生成覆盖率报告
 node web-e2e/scripts/kuikly-test.mjs --coverage-only
 
+# 仅执行插桩
+node web-e2e/scripts/kuikly-test.mjs --instrument
+
 # 跳过构建（使用已有产物）
 node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
 ```
 
-### 11.3 执行流程
+### 11.4 执行流程
 
 ```
 ┌─────────────────────────┐
@@ -1051,75 +1055,63 @@ node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  2a. Gradle 构建 demo   │  --skip-build 可跳过
-│  (:demo:jsBrowserProductionWebpack)  │
-│  产出 nativevue2.zip    │
-└──────────┬──────────────┘
-           ▼
-┌──────────────────────────────────────┐
-│  2b. 解压 nativevue2.zip              │
-│  取出 nativevue2.js，对其 Istanbul 插桩│
-│  nyc instrument nativevue2.js        │
-│  → instrumented/nativevue2.js        │
-└──────────┬───────────────────────────┘
-           ▼
-┌─────────────────────────┐
-│  2c. Gradle 构建 h5App  │  --skip-build 可跳过
-│  (:h5App:jsBrowserProductionWebpack) │
-│  产出 h5App.js（含渲染引擎）          │
-└──────────┬──────────────┘
-           ▼
-┌──────────────────────────────────────┐
-│  2d. 对 h5App.js 进行 Istanbul 插桩   │  核心插桩目标
-│  nyc instrument h5App.js            │
-│  → instrumented/h5App.js            │
-└──────────┬───────────────────────────┘
-           ▼
-┌──────────────────────────────────────┐
-│  3. 启动静态文件服务器（Koa）          │
-│  提供插桩后的 JS 文件：               │
-│  - instrumented/h5App.js            │
-│  - instrumented/nativevue2.js       │
-│  - index.html（h5App 宿主页）        │
-│  port: 8080                          │
-└──────────┬───────────────────────────┘
-           ▼
-┌─────────────────────────┐
-│  4. 执行 Playwright 测试  │  按 --level 过滤
-│  npx playwright test     │
+│  2. Gradle 构建产物      │  --skip-build 可跳过
+│  demo + h5App           │
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  5. 收集覆盖率数据        │  从浏览器 __coverage__ 导出
+│  3. Istanbul 插桩        │
+│  h5App.js / nativevue2.js│
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  6. NYC 生成覆盖率报告    │
-│  + 阈值检查              │
+│  4. 启动插桩静态服务      │
+│  自动拉起/复用 8080 端口  │
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  7. 生成 HTML 报告        │  Playwright HTML Report
-│  关闭静态服务器           │
+│  5. 执行 Playwright 测试  │  按 --level / --test 过滤
+└──────────┬──────────────┘
+           ▼
+┌─────────────────────────┐
+│  6. 收集 __coverage__    │  fixture 自动导出到 .nyc_output/
+└──────────┬──────────────┘
+           ▼
+┌─────────────────────────┐
+│  7. 生成 NYC 官方报告     │
+│  并执行阈值检查           │
+└──────────┬──────────────┘
+           ▼
+┌─────────────────────────┐
+│  8. 输出测试与覆盖率报告   │
 └─────────────────────────┘
 ```
 
-> **说明：** 使用 Koa 静态服务器（项目根目录已有 `static_server/`）直接提供插桩后的产物文件，**不使用 webpack dev server**。这是因为 `h5App.js` 已经是 webpack 完整打包的产物，无需再经 webpack 处理；静态服务器方案更简单且插桩内容可控。
+> **说明：** CLI 编排应始终围绕“零手工介入”设计；如果需要插桩服务器，必须由 CLI 自行启动或可靠复用，而不是要求使用者手动准备环境。
 
 ---
 
 ## 12. 代码覆盖率
 
-### 12.1 插桩目标
+### 12.1 覆盖率口径
+
+本方案的覆盖率口径统一为：**以 NYC 官方覆盖率结果作为唯一准出标准，并以 Kotlin 源文件维度解读结果**。
+
+- 插桩对象仍然是 Kotlin/JS 编译产物，主要是 `h5App.js`，必要时可包含 `nativevue2.js`。
+- 覆盖率采集来源仍然是浏览器运行期间的 `window.__coverage__`。
+- 最终用于门禁、文档、CI 展示的结果，统一表述为“NYC 基于 source map 反映射后的 Kotlin 覆盖率”。
+- 辅助脚本若存在，只作为兼容层或排障工具，不单独定义为正式覆盖率口径。
+
+### 12.2 插桩目标
 
 | 产物文件         | 来源                                          | 说明                                                         | 插桩优先级 |
 | ---------------- | --------------------------------------------- | ------------------------------------------------------------ | ---------- |
 | `h5App.js`       | `h5App` + `core-render-web/base` + `core-render-web/h5` 打包 | **主要插桩目标**，包含完整渲染引擎代码（组件渲染、样式计算、事件处理、动画等核心路径） | ⭐ 必须 |
-| `nativevue2.js`  | `demo` 编译（web-test 测试页面）               | 辅助插桩目标，只包含测试页面业务代码，**不含渲染引擎**；覆盖率反映测试页面自身代码的执行情况 | 可选 |
+| `nativevue2.js`  | `demo` 编译（web-test 测试页面）               | 辅助插桩目标，只包含测试页面业务代码，**不含渲染引擎**；可用于补充观测测试页面逻辑，但不作为渲染引擎覆盖率主口径 | 可选 |
 
-> **注意：** `core-render-web/base` 和 `core-render-web/h5` 的代码通过 Gradle 依赖被打包进 `h5App.js`，不会出现在 `nativevue2.js` 中。因此**渲染引擎覆盖率应以 `h5App.js` 为准**。
+> **注意：** `core-render-web/base` 和 `core-render-web/h5` 的代码通过 Gradle 依赖被打包进 `h5App.js`，不会出现在 `nativevue2.js` 中。因此渲染引擎覆盖率的主口径必须以 `h5App.js` 对应的 NYC 报告为准。
 
-### 12.2 NYC 配置
+### 12.3 NYC 配置
 
 ```json
 // web-e2e/.nycrc.json
@@ -1144,30 +1136,36 @@ node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
 }
 ```
 
-> **`"sourceMap": true` 说明：** NYC 读取 `.js.map` 文件，将 JS 级别的覆盖数据反向映射回 Kotlin 源文件，最终报告以 `.kt` 文件维度展示覆盖率（需配合 `h5App/build.gradle.kts` 中已开启的 `sourceMap = true` 编译选项）。
+> **`"sourceMap": true` 说明：** NYC 读取 `.js.map` 文件，将 JS 级别的覆盖数据反向映射回 Kotlin 源文件，最终以 Kotlin 源文件维度解释覆盖率。
 
-**分层覆盖率阈值建议：**
+### 12.4 覆盖率阈值
 
-| 代码范围 | 说明 | lines | functions | branches |
-| -------- | ---- | ----- | --------- | -------- |
-| 整体产物（初期） | 包含工具类、平台适配等边缘路径 | 60% | 60% | 50% |
-| 核心渲染路径（目标） | `expand/components/`、`css/`、`core/` 等核心目录 | 80% | 80% | 70% |
+当前统一门禁阈值：
 
-> 初期以整体 60% 作为门禁，待测试用例覆盖完整后，逐步提升至核心路径 80%。
+| 指标 | 阈值 |
+| ---- | ---- |
+| lines | 70% |
+| functions | 70% |
+| statements | 70% |
+| branches | 55% |
 
-### 12.3 覆盖率收集流程
+长期目标：在核心渲染路径上继续提高阈值，但文档中的正式门禁口径以当前 `.nycrc.json` 实际配置为准。
 
-1. **构建产物：** `gradle :h5App:jsBrowserDevelopmentWebpack` 产出 `h5App.js`（含 source map）
-2. **插桩产物：** `npm run instrument` 对 `h5App.js` 进行 Istanbul 插桩，输出到 `instrumented/` 目录
-3. **静态服务：** `node scripts/serve-instrumented.mjs &`（后台启动），Playwright 的 `reuseExistingServer: true` 自动复用该服务器，**无需两个终端**
-4. **运行时收集：** 浏览器中执行测试时，`window.__coverage__` 自动收集 JS 执行覆盖数据
-5. **自动导出：** `test-base.ts` fixture teardown 自动调用 `collectCoverage()`，每个测试结束后将 `window.__coverage__` 写入 `.nyc_output/<test-title>.json`，NYC 合并生成报告；若未使用插桩服务器则静默跳过
-6. **生成报告：**
-   - `npm run coverage` — JS 文件级摘要（快速查看 statements/functions/branches）
-   - `npm run coverage:kotlin` — **Kotlin 源文件级报告**（通过 source map 反映射，按 `.kt` 文件维度展示覆盖率，推荐使用）
-   - `npm run coverage:check` — 阈值检查（Kotlin 行覆盖率 ≥ 70% 则退出码 0，否则 1）
+### 12.5 覆盖率收集流程
 
-   > 以上命令直接从 `.nyc_output/*.json` 读取并通过 `source-map` 包反映射，绕过 nyc 在 Git Bash/Windows 环境下无法解析 `C:\` 绝对路径的问题。当前实测覆盖率：整体 **57%**（Kotlin 行），已完成 Source Map 反映射基础设施建设。
+1. **构建产物：** CLI 调用 Gradle 构建 `h5App.js` 及其 source map。
+2. **插桩产物：** CLI 调用插桩脚本，对 `h5App.js` 执行 Istanbul 插桩；必要时可同时处理 `nativevue2.js`，统一输出到 `instrumented/` 目录。
+3. **启动插桩服务：** CLI 自动启动或复用插桩版静态服务，对外提供 `instrumented/` 中的产物文件。
+4. **运行时收集：** 浏览器执行测试时，插桩代码持续写入 `window.__coverage__`。
+5. **自动导出：** `test-base.ts` fixture teardown 自动调用 `collectCoverage()`，将每个测试的覆盖率数据写入 `.nyc_output/`。
+6. **生成官方报告：** 由 NYC 基于 `.nyc_output/` 和 source map 生成 HTML/text/lcov/json 报告到 `reports/coverage/`。
+7. **阈值检查：** 由 NYC 基于 `.nycrc.json` 进行覆盖率门禁检查。
+
+### 12.6 输出约定
+
+- `npm run coverage` 与 CLI 覆盖率步骤的目标应指向 NYC 官方报告。
+- 文档、CI 报表、Skill 输出中的“覆盖率”默认均指 NYC 官方结果，不再混用“JS 摘要”“自定义 Kotlin 汇总”“NYC 官方报告”三套说法。
+- 若为兼容 Windows 路径问题而保留辅助脚本，应明确其职责是“为 NYC 官方流程服务的兼容封装”，而不是替代 NYC 口径。
 
 ---
 
@@ -1195,18 +1193,7 @@ stages:
       - npm ci (web-e2e/)
       - npx playwright install chromium
 
-  - name: "构建产物"
-    steps:
-      - gradle :demo:jsBrowserProductionWebpack         # 产出 nativevue2.zip（测试页面）
-      - gradle :h5App:jsBrowserProductionWebpack        # 产出 h5App.js（渲染引擎）
-    condition: "非 --skip-build 模式"
-
-  - name: "插桩"
-    steps:
-      - 解压 nativevue2.zip → nyc instrument nativevue2.js → instrumented/nativevue2.js
-      - nyc instrument h5App.js → instrumented/h5App.js   # 核心：渲染引擎插桩
-
-  - name: "执行测试"
+  - name: "执行自动化测试"
     steps:
       - node web-e2e/scripts/kuikly-test.mjs --full --level ${LEVEL}
     env:
@@ -1220,9 +1207,11 @@ stages:
 
   - name: "质量门禁"
     steps:
-      - 覆盖率阈值检查
+      - 以 NYC 官方覆盖率结果执行阈值检查
       - 截图对比失败数 == 0
 ```
+
+> **要求：** CI 应尽量复用与本地一致的 CLI 一键入口，避免再在流水线中拆分出与本地行为不一致的“构建/插桩/起服务/测试”手工步骤，防止本地与 CI 两套流程逐步漂移。
 
 ### 13.3 截图基准管理
 
@@ -1246,8 +1235,8 @@ stages:
 | ---------------- | ------------------------------------------------------------------------- |
 | **一键运行**     | `@skill kuikly-test run [--level L0/L1/L2]`，自动执行 CLI 流程            |
 | **编写指导**     | `@skill kuikly-test guide`，输出用例编写模板、Fixture API 说明、最佳实践    |
-| **AI 自动生成**  | `@skill kuikly-test generate <TestPage>`，分析 web-test 测试页面源码自动生成对应测试 |
-| **覆盖率查看**   | `@skill kuikly-test coverage`，展示当前覆盖率摘要                          |
+| **AI 自动生成**  | `@skill kuikly-test generate <TestPage>`，分析 web-test 测试页面源码自动生成对应 E2E 测试 |
+| **覆盖率查看**   | `@skill kuikly-test coverage`，展示 NYC 官方 Kotlin 覆盖率摘要             |
 
 ### 14.2 AI 自动生成流程
 
@@ -1345,13 +1334,14 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 - [x] 实现插桩版测试服务器（`scripts/serve-instrumented.mjs`，优先提供 instrumented/ 目录文件）
 - [x] 实现覆盖率收集工具（`fixtures/coverage.ts`，导出 `collectCoverage()` 函数）
 - [x] 配置 NYC 覆盖率阈值（`.nycrc.json`：lines/functions/statements ≥ 70%，branches ≥ 55%）
-- [x] 实现 `kuikly-test.mjs` CLI 脚本（支持 `--full / --level / --instrument / --coverage-only` 等参数）
+- [x] 统一覆盖率方案口径：以 NYC 官方报告 + source map 反映射的 Kotlin 文件覆盖率作为正式结果
+- [x] 实现 `kuikly-test.mjs` CLI 脚本（支持 `--full / --level / --instrument / --coverage-only` 等参数，并以本地一键闭环执行为目标）
 - [x] 补充 `package.json` 脚本（`instrument` / `instrument:with-native` / `coverage` / `coverage:check` / `serve:instrumented` / `kuikly-test`）
 - [x] 修正 `package.json` 中 `test:L1` 路径（`L1-interaction` → `L1-simple`）
 
 ### Phase 7：CI/CD 与 Skill（预计 2 天）
 
-- [ ] 配置蓝盾 Pipeline
+- [ ] 配置蓝盾 Pipeline，并明确在 CI 中复用与本地一致的 CLI 一键执行入口
 - [x] 编写 CodeBuddy Skill 定义文件（`.codebuddy/rules/kuikly-test.md`，十章节，含 6 处问题修复）
 - [x] 端到端验证完整流程（Skill 文件核查通过；README / QUICKSTART 文档已对齐实际代码）
 - [x] 编写使用说明文档（重写 `web-e2e/README.md` + `web-e2e/QUICKSTART.md`，淘汰 Phase 1 旧内容）
@@ -1403,7 +1393,7 @@ npm run test:update-snapshots
 - [x] **渲染层改动位置**：在 `createRenderViewHandler` 中注入 `data-kuikly-component`，已在 Phase 1 实现；复用路径无需额外处理（已确认）
 - [x] **测试页面路由**：使用格式 `http://localhost:8080?page_name=TestPageName`（已确认）
 - [x] **静态服务器端口**：使用 8080 端口，已在 `playwright.config.js` 的 `webServer` 中配置并固定（已确认）
-- [x] **覆盖率阈值**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%；webpack UMD 包装分支通过在插桩前注入 `/* istanbul ignore next */` 排除，不影响阈值；核心渲染路径长期目标 80%/70%（已确认）
+- [x] **覆盖率阈值与口径**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%；覆盖率结果统一以 NYC 官方报告为准，并通过 source map 反向映射为 Kotlin 源文件维度解读；webpack UMD 包装分支通过在插桩前注入 `/* istanbul ignore next */` 排除，不影响阈值（已确认）
 - [x] **截图基准更新策略**：Chrome 参数 + 内嵌 Web Font 方案（方案 F）— 开发者本地运行 `npm run setup`（下载字体）后执行 `npm run test:update-snapshots` 生成截图，跨平台差异通过技术手段消除，无需 Docker，review 后 git commit（已落地）
 - [x] **浏览器范围**：当前及近期仅配置 Chromium，暂不扩展 WebKit/Firefox（已确认）
 - [x] **Skill 优先级**：Skill 在 Phase 7 实施即可（已确认）
@@ -1411,4 +1401,4 @@ npm run test:update-snapshots
 
 ---
 
-> **当前状态：** Phase 1-6 全部完成，Phase 7（CI/CD + Skill）进行中，蓝盾 Pipeline 配置待推进。
+> **当前状态：** Phase 1-6 已完成并进入收口阶段；当前文档需要继续与实现对齐，重点是统一 NYC Kotlin 覆盖率口径、确保 CLI 真正本地一键运行，以及清理与 AI 自动化测试目标不一致的旧描述。Phase 7 中蓝盾 Pipeline 仍待推进。
