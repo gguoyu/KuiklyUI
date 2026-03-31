@@ -33,6 +33,8 @@ const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '../..');
 const e2eRoot = join(__dirname, '..');
 const defaultPort = process.env.KUIKLY_PORT || '8080';
+const gradleWrapper = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
+const gradleBuildArgs = ':demo:packLocalJSBundleDebug -Pkuikly.useLocalKsp=false';
 
 const args = process.argv.slice(2);
 
@@ -85,6 +87,34 @@ function execCommand(command, cwd = projectRoot, extraEnv = {}) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function waitForChildExit(child, timeoutMs) {
+  return new Promise((resolve) => {
+    if (!child || child.exitCode !== null) {
+      resolve(true);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve(false);
+    }, timeoutMs);
+
+    const handleExit = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      child.off('exit', handleExit);
+      child.off('close', handleExit);
+    };
+
+    child.once('exit', handleExit);
+    child.once('close', handleExit);
+  });
 }
 
 function waitForHttpReady(port, timeoutMs, child) {
@@ -159,18 +189,30 @@ async function stopInstrumentedServer(child) {
   }
 
   console.log('\n🛑 关闭插桩版测试服务器...');
-  child.kill('SIGINT');
 
-  for (let i = 0; i < 20; i += 1) {
-    if (child.exitCode !== null) {
+  if (process.platform === 'win32') {
+    const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    await new Promise((resolve) => killer.on('close', resolve));
+    const exited = await waitForChildExit(child, 5_000);
+    if (exited) {
       console.log('✅ 插桩服务器已关闭');
       return;
     }
-    await sleep(250);
+  } else {
+    child.kill('SIGINT');
+    const exited = await waitForChildExit(child, 5_000);
+    if (exited) {
+      console.log('✅ 插桩服务器已关闭');
+      return;
+    }
   }
 
   child.kill();
-  console.log('⚠️  插桩服务器已强制关闭');
+  const exited = await waitForChildExit(child, 3_000);
+  console.log(exited ? '✅ 插桩服务器已关闭' : '⚠️  插桩服务器已强制关闭');
 }
 
 function clearCoverageOutput() {
@@ -187,8 +229,8 @@ async function buildProject() {
     return;
   }
 
-  console.log('\n🔨 构建 Kotlin/JS 项目（开发模式，含 source map）...');
-  await execCommand('./gradlew :demo:jsBrowserDevelopmentWebpack :h5App:jsBrowserDevelopmentWebpack');
+  console.log('\n🔨 构建测试产物（demo 走 :demo:packLocalJSBundleDebug）...');
+  await execCommand(`${gradleWrapper} ${gradleBuildArgs}`);
   console.log('✅ 构建完成');
 }
 
@@ -267,6 +309,8 @@ async function main() {
       clearCoverageOutput();
       serverProcess = await startInstrumentedServer(defaultPort);
       await runTests({ instrumented: true });
+      await stopInstrumentedServer(serverProcess);
+      serverProcess = null;
       await generateCoverageReport();
       await checkCoverageThresholds();
     } else {
