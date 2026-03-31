@@ -7,9 +7,10 @@ import { collectCoverage } from './coverage';
  * All test cases should import and use this test object
  *
  * Coverage collection is automatic:
- * - When using instrumented server (npm run serve:instrumented),
+ * - In the standard CLI flow (`node scripts/kuikly-test.mjs --full`),
  *   window.__coverage__ is read after each test and written to .nyc_output/
- * - When using normal server, collectCoverage() silently skips (no __coverage__ on window)
+ * - When using the normal server for local debugging, collectCoverage() silently skips
+ *   because window.__coverage__ is absent
  */
 export const test = base.extend<{ kuiklyPage: KuiklyPage }>({
   kuiklyPage: async ({ page }, use, testInfo) => {

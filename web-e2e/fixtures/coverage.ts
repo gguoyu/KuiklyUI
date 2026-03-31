@@ -7,10 +7,11 @@ import { join, resolve } from 'path';
  * 工作原理：
  * 1. 测试执行期间，Istanbul 插桩代码将执行路径写入 window.__coverage__
  * 2. 每个 test teardown 时，通过 page.evaluate() 将 __coverage__ 导出为 JSON
- * 3. 写入 .nyc_output/<title>.json，NYC 合并时会读取此目录
+ * 3. 写入 .nyc_output/<title>.json，后续由 NYC 官方命令合并并生成 Kotlin 文件维度报告
  *
  * 前置条件：
- * - 测试服务器必须提供插桩版 h5App.js（通过 npm run serve:instrumented）
+ * - 正式覆盖率流程应通过 `node scripts/kuikly-test.mjs --full` 触发，由 CLI 自动启动插桩版服务器
+ * - 若仅做本地排障，也可显式使用插桩版服务器
  * - 若 window.__coverage__ 不存在（普通服务器），函数静默跳过
  *
  * 自动收集：已在 test-base.ts fixture teardown 中自动调用，无需手动调用。

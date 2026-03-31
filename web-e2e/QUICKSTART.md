@@ -28,19 +28,20 @@ npm run setup
 
 ## 第三步：运行测试
 
-Playwright 会**自动启动**本地服务器（端口 8080），无需手动操作。
+标准入口是 CLI 本地一键命令。它会自动完成构建、插桩、启动插桩服务器、执行测试、生成 NYC 官方 Kotlin 文件覆盖率报告并检查阈值，无需手动准备第二个终端。
 
 ```bash
-# 冒烟测试（最快，约 10s）
-npm run test:smoke
+# 标准入口：本地一键完整闭环
+node scripts/kuikly-test.mjs --full
 
-# 全量测试
+# 仅在本地调试单轮用例时，可直接运行 Playwright（不生成正式覆盖率报告）
+npm run test:smoke
 npm test
 
 # 指定级别
-npm run test:L0    # L0 静态渲染截图（72 tests）
-npm run test:L1    # L1 简单交互（15 tests）
-npm run test:L2    # L2 复杂交互 + 动画（70 tests）
+npm run test:L0    # L0 静态渲染截图
+npm run test:L1    # L1 简单交互
+npm run test:L2    # L2 复杂交互 + 动画
 ```
 
 看到 `X passed` 即说明环境正常。
@@ -116,36 +117,36 @@ git add tests/ && git commit -m "chore: update snapshots"
 
 ### 覆盖率模式
 
-覆盖率收集已集成在 fixture 中，**无需两个终端**。只需后台启动插桩服务器，再运行测试即可：
+覆盖率收集已集成在 fixture 中。覆盖率的唯一门禁与对外展示口径统一为 **NYC 官方 Kotlin 文件覆盖率结果**。
 
 ```bash
-# 插桩 + 后台启动插桩服务器
-npm run instrument
-node scripts/serve-instrumented.mjs &
+# 标准入口：CLI 一键完成构建、插桩、启动插桩服务器、测试、生成 NYC 官方 Kotlin 文件覆盖率报告、阈值检查
+node scripts/kuikly-test.mjs --full
 
-# 运行测试并收集覆盖率数据（自动写入 .nyc_output/）
-npm test
-npm run coverage          # 生成报告（reports/coverage/index.html）
-npm run coverage:check    # 检查是否达到阈值（lines/functions/statements ≥ 70%，branches ≥ 55%）
+# 若已有 .nyc_output，可单独生成 NYC 官方 Kotlin 文件覆盖率报告
+npm run coverage
+
+# 单独检查阈值
+npm run coverage:check
 ```
 
 ### 使用 CLI 统一入口
 
 ```bash
-# 跳过构建，只跑 L1 测试
+# 本地调试单轮用例时，可跳过构建只跑 L1 测试
 node scripts/kuikly-test.mjs --level L1 --skip-build
 
-# 全流程（构建 → 插桩 → 测试 → 覆盖率）
+# 全流程：构建 → 插桩 → 自动启动插桩服务器 → 测试 → NYC 官方 Kotlin 文件覆盖率报告 → 阈值检查
 node scripts/kuikly-test.mjs --full
 
-# 仅生成覆盖率报告（基于已有 .nyc_output 数据）
+# 仅生成 NYC 官方 Kotlin 文件覆盖率报告（基于已有 .nyc_output 数据）
 node scripts/kuikly-test.mjs --coverage-only
 ```
 
 ### 用 AI 生成新测试用例
 
 ```bash
-# 分析测试页面源码，自动生成对应 spec 文件
+# 分析测试页面源码，按知识库规则自动生成覆盖主要交互路径的 spec 文件
 @skill kuikly-test generate KRListViewTestPage
 
 # 生成后，运行并生成初始截图基准
@@ -185,7 +186,7 @@ Error: locator.click: Timeout 30000ms exceeded
 **原因**：服务器未响应，或页面中组件未正确渲染。
 
 **处理**：
-1. 手动访问 `http://localhost:8080/?page_name=<TestPageName>` 确认页面可以加载
+1. 在浏览器中打开 `http://localhost:8080/?page_name=<TestPageName>`，确认页面可以加载
 2. 打开浏览器控制台，检查是否有 JS 错误
 3. 确认 `data-kuikly-component` 属性已注入（右键 → 检查元素）
 
@@ -206,16 +207,13 @@ npx playwright test --update-snapshots
 
 ---
 
-### 覆盖率报告为空 / 没有数据
+### NYC 官方 Kotlin 文件覆盖率报告为空 / 没有数据
 
-**原因**：未使用插桩版服务器运行测试，`window.__coverage__` 不存在，fixture 静默跳过了收集。
+**原因**：未以插桩模式运行测试，`window.__coverage__` 不存在，fixture 静默跳过了收集。
 
-**处理**：确保按顺序执行：
+**处理**：优先直接执行：
 ```bash
-npm run instrument
-node scripts/serve-instrumented.mjs &   # 后台启动，无需另开终端
-npm test
-npm run coverage
+node scripts/kuikly-test.mjs --full
 ```
 
 ---

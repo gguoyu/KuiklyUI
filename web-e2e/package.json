@@ -23,9 +23,8 @@
     "verify": "node verify-phase1.mjs",
     "instrument": "node scripts/instrument.mjs",
     "instrument:with-native": "node scripts/instrument.mjs --with-native",
-    "coverage": "node scripts/coverage-summary.js",
-    "coverage:kotlin": "node scripts/coverage-summary.js --kotlin",
-    "coverage:check": "node scripts/coverage-summary.js --kotlin --check",
+    "coverage": "node scripts/coverage-report.mjs",
+    "coverage:check": "node scripts/coverage-report.mjs --check",
     "kuikly-test": "node scripts/kuikly-test.mjs"
   },
   "keywords": [

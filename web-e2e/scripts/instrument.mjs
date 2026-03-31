@@ -2,12 +2,13 @@
 /**
  * Istanbul 插桩脚本
  *
- * 【核心原理】
- * webpack developmentExecutable 产物 (h5App.js) 使用 eval-source-map devtool，
- * 所有模块代码被 eval() 包裹，Istanbul 无法穿透 eval() 插桩，
- * 导致整个 h5App.js 只有 ~17 个 statements（仅 webpack 外层 wrapper）。
+ * 【实现说明】
+ * 正式覆盖率口径仍然是“NYC 官方 Kotlin 文件覆盖率结果”。
+ * 但在当前 webpack developmentExecutable 构建下，最终产物 h5App.js 使用 eval-source-map devtool，
+ * 所有模块代码被 eval() 包裹，Istanbul 无法直接穿透最终 bundle 插桩，
+ * 否则整个 h5App.js 只能得到极少量外层 wrapper statement。
  *
- * 正确做法：插桩 webpack 打包**前**的各 Kotlin 模块 JS 文件：
+ * 因此当前实现会插桩 webpack 打包**前**的 Kotlin 模块 JS 文件：
  *   h5App/build/compileSync/js/main/developmentExecutable/kotlin/
  *     KuiklyCore-render-web-base.js   (~18000 行，~10000 statements)
  *     KuiklyCore-render-web-h5.js     (~6000 行，~3800 statements)
@@ -15,12 +16,15 @@
  *     kotlin-kotlin-stdlib.js         (标准库，可选插桩)
  *
  * 插桩后由 serve-instrumented.mjs 以 /modules/<name> 路由提供，
- * 同时 inject 一段 loader script 替代原来的 h5App.js，
+ * 同时生成一个同名 h5App.js loader 替代原始 bundle，
  * 按顺序加载各模块后调用入口函数启动渲染引擎。
+ *
+ * 这属于“为 NYC 官方 Kotlin 覆盖率流程服务的实现细节”，
+ * 不是引入另一套独立覆盖率口径。
  *
  * 使用方法：
  *   node scripts/instrument.mjs                  # 插桩 Kotlin 模块文件
- *   node scripts/instrument.mjs --with-native    # 同时插桩 nativevue2.js
+ *   node scripts/instrument.mjs --with-native    # 同时插桩 nativevue2.js（调试辅助口径）
  *   node scripts/instrument.mjs --skip-if-exists # 已存在则跳过
  *
  * 输出：
@@ -306,5 +310,6 @@ log('\n✅ Instrumentation complete!');
 log(`Instrumented files in: ${INSTRUMENTED_DIR}`);
 log(`  - instrumented/modules/     (${TARGET_MODULES.length} instrumented Kotlin modules)`);
 log(`  - instrumented/h5App.js     (loader script)`);
-log('\nNext step: start instrumented server with:');
-log('  npm run serve:instrumented');
+log('\nNext step:');
+log('  node scripts/kuikly-test.mjs --full    # 标准入口，自动启动插桩版服务器并执行完整闭环');
+log('  npm run serve:instrumented             # 仅用于本地排障时单独启动插桩版服务器');

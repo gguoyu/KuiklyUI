@@ -7,13 +7,13 @@
 | 阶段 | 内容 | 状态 |
 |------|------|------|
 | Phase 1 | 基础设施（KuiklyPage Fixture、本地服务器） | ✅ 完成 |
-| Phase 2 | web-test 专用测试页面（21 个 Kotlin 页面） | ✅ 完成 |
-| Phase 3 | L0 静态用例（72 tests，截图基准已生成） | ✅ 完成 |
-| Phase 4 | L1/L2 交互用例（63 tests） | ✅ 完成 |
-| Phase 5 | 动画测试（22 tests，PAG 占位 skip） | ✅ 完成 |
+| Phase 2 | web-test 专用测试页面（当前实现以仓库中的页面清单为准） | ✅ 完成 |
+| Phase 3 | L0 静态用例（截图基准已生成，数量以当前测试目录为准） | ✅ 完成 |
+| Phase 4 | L1/L2 交互用例（数量以当前测试目录为准） | ✅ 完成 |
+| Phase 5 | 动画测试（含 PAG 占位 skip，数量以当前测试目录为准） | ✅ 完成 |
 | Phase 6 | 覆盖率 + CLI 统一入口 | ✅ 完成 |
 
-**当前测试总量：157 tests**（不含 skip）
+**说明：** 页面数和用例数会随测试面扩展持续变化，README 不再维护易漂移的固定统计值，实际规模以 `demo/.../web_test/` 和 `web-e2e/tests/` 当前内容为准。
 
 ---
 
@@ -30,13 +30,16 @@ npm install && npx playwright install chromium
 # 下载字体（首次，约 1 分钟）
 npm run setup
 
-# 运行全量测试（Playwright 自动启动服务器）
+# 标准入口：本地一键完整闭环
+node scripts/kuikly-test.mjs --full
+
+# 仅在本地调试单轮用例时，可直接运行 Playwright（不生成正式覆盖率报告）
 npm test
 
 # 运行指定级别
-npm run test:L0    # L0 静态渲染（72 tests）
-npm run test:L1    # L1 简单交互（15 tests）
-npm run test:L2    # L2 复杂交互 + 动画（70 tests）
+npm run test:L0    # L0 静态渲染
+npm run test:L1    # L1 简单交互
+npm run test:L2    # L2 复杂交互 + 动画
 ```
 
 ---
@@ -67,7 +70,7 @@ web-e2e/
 │   ├── serve.js                # 普通测试服务器（port 8080）
 │   ├── serve-instrumented.mjs  # 插桩版服务器（覆盖率用）
 │   ├── instrument.mjs          # Istanbul 插桩脚本
-│   └── coverage-report.mjs     # 覆盖率报告生成（跨平台路径封装）
+│   └── coverage-report.mjs     # NYC 官方 Kotlin 文件覆盖率报告生成（跨平台路径封装）
 ├── playwright.config.js        # Playwright 配置（viewport: 375×812，Chromium）
 ├── .nycrc.json                 # 覆盖率阈值配置
 └── package.json
@@ -193,29 +196,22 @@ kuiklyPage.countFrameDiffs(frames, { threshold? });         // number
 
 ---
 
-## 📊 覆盖率报告
+## 📊 覆盖率
 
-覆盖率收集已集成在测试 fixture 中，**每个测试结束后自动将 `window.__coverage__` 写入 `.nyc_output/`**，无需手动导出，无需两个终端。
+覆盖率收集已集成在测试 fixture 中，**每个测试结束后自动将 `window.__coverage__` 写入 `.nyc_output/`**。覆盖率的唯一门禁与对外展示口径统一为：**NYC 官方 Kotlin 文件覆盖率结果**。
 
 ```bash
-# Step 1：插桩
-npm run instrument
+# 标准入口：CLI 一键完成构建、插桩、启动插桩服务器、执行测试、生成 NYC 官方 Kotlin 文件覆盖率报告、阈值检查
+node scripts/kuikly-test.mjs --full
 
-# Step 2：后台启动插桩版服务器（Playwright 会自动复用已有服务器）
-node scripts/serve-instrumented.mjs &
-
-# Step 3：运行测试（覆盖率数据自动写入 .nyc_output/）
-npm test
-
-# Step 4：生成报告
+# 若只基于已有 .nyc_output 生成 NYC 官方 Kotlin 文件覆盖率报告
 npm run coverage
-# 报告路径：reports/coverage/index.html
 
-# Step 5：检查是否达标
+# 仅检查是否达到阈值
 npm run coverage:check
 ```
 
-> 💡 也可以用 CLI 一键执行全流程：`node scripts/kuikly-test.mjs --full`
+报告路径：`reports/coverage/index.html`
 
 ### 覆盖率阈值（`.nycrc.json`）
 
@@ -228,22 +224,22 @@ npm run coverage:check
 
 ## 🖥️ CLI 统一入口
 
-`scripts/kuikly-test.mjs` 封装了完整流程：
+`scripts/kuikly-test.mjs` 封装了完整流程，并满足“本地一键运行”原则：`--full` 会自动完成构建、插桩、启动插桩服务器、执行 Playwright、生成 NYC 官方 Kotlin 文件覆盖率报告并检查阈值。日常执行默认以该命令为标准入口。
 
 ```bash
-# 直接运行测试（跳过构建，最常用）
+# 本地调试单轮用例时，可跳过构建直接运行测试
 node scripts/kuikly-test.mjs --level L0 --skip-build
 
-# 全流程：构建 → 插桩 → 测试 → 覆盖率报告
+# 全流程：构建 → 插桩 → 自动启动插桩服务器 → 测试 → NYC 官方 Kotlin 文件覆盖率报告 → 阈值检查
 node scripts/kuikly-test.mjs --full
 
 # 其他选项
 --level L0|L1|L2        只运行指定级别
 --test <file>           只运行指定文件
 --update-snapshots      更新截图基准
---coverage-only         仅生成覆盖率报告（基于已有 .nyc_output）
+--coverage-only         仅生成 NYC 官方 Kotlin 文件覆盖率报告（基于已有 .nyc_output）
 --instrument            仅执行插桩
---with-native           插桩时同时处理 nativevue2.js
+--with-native           插桩时同时处理 nativevue2.js（调试辅助口径，不改变正式门禁口径）
 --headed                有界面模式
 --debug                 调试模式
 ```
@@ -253,13 +249,13 @@ node scripts/kuikly-test.mjs --full
 ## 🤖 AI 辅助（CodeBuddy Skill）
 
 ```bash
-# 分析测试页面源码，自动生成完整测试用例
+# 分析测试页面源码，按知识库规则自动生成覆盖主要交互路径的测试用例
 @skill kuikly-test generate <TestPageName>
 
 # 一键运行测试
 @skill kuikly-test run [--level L0|L1|L2]
 
-# 查看覆盖率摘要
+# 查看 NYC 官方 Kotlin 文件覆盖率摘要
 @skill kuikly-test coverage
 
 # 查看用例编写规范和 Fixture API
@@ -284,9 +280,9 @@ npm run test:update-snapshots
 ```
 若在不同平台间存在轻微差异，确认已执行 `npm run setup` 下载 Web Font；当前 `maxDiffPixelRatio` 为 `0.02`，可在 `playwright.config.js` 中适当调整。
 
-**Q: 端口 8080 被占用？**
+**Q: NYC 官方 Kotlin 文件覆盖率报告为空 / 没有数据？**
 
-配置了 `reuseExistingServer: true`，已有服务器会被直接复用。如需修改端口，同步更新 `playwright.config.js` 中的 `webServer.port` 和 `use.baseURL`。
+优先使用 `node scripts/kuikly-test.mjs --full`。如果直接运行普通 `npm test`，不会产生覆盖率数据；只有插桩模式才会写入 `.nyc_output/` 并生成 NYC 官方 Kotlin 文件覆盖率报告。
 
 **Q: 如何只运行单个测试文件？**
 ```bash

@@ -9,6 +9,8 @@
  * - 若 instrumented/ 中无对应文件，回退到原始 BUILD_DIR
  *
  * 使用方法：
+ * - 日常标准入口是 `node scripts/kuikly-test.mjs --full`，由 CLI 自动拉起插桩版服务器
+ * - 仅在本地排障或单独验证插桩产物时，才直接运行：
  *   npm run serve:instrumented            # 默认端口 8080
  *   PORT=8081 npm run serve:instrumented  # 自定义端口
  */
@@ -189,4 +191,3 @@ process.on('SIGINT', () => {
   console.log('\n👋 正在关闭服务器...');
   server.close(() => { console.log('✅ 已关闭'); process.exit(0); });
 });
-

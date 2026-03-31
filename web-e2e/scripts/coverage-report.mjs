@@ -1,53 +1,80 @@
 #!/usr/bin/env node
 /**
- * 覆盖率报告生成脚本
+ * NYC 官方 Kotlin 文件覆盖率报告脚本
  *
- * 自动解析路径，无需手动指定绝对路径，跨机器通用。
+ * 统一口径：
+ * - 基于 `.nyc_output/` 中的浏览器运行时覆盖率数据
+ * - 由 NYC 官方命令生成/检查报告
+ * - 通过 source map 将结果映射回 Kotlin 源文件维度
+ *
+ * 说明：
+ * - 在当前 Windows + Kotlin/JS source map 场景下，`nyc report` 直接读取原始 `.nyc_output/`
+ *   时可能出现 remap 后文件被再次 exclude 导致报告为空的问题。
+ * - 这里先用 `nyc merge` 生成统一的 remap 后 coverage JSON，再在报告阶段显式关闭
+ *   `exclude-after-remap`，以确保官方 NYC 报告能够正确展示 Kotlin 文件覆盖率。
  *
  * 使用方法：
- *   node scripts/coverage-report.mjs              # 生成报告
+ *   node scripts/coverage-report.mjs              # 生成 NYC 官方 Kotlin 文件覆盖率报告
  *   node scripts/coverage-report.mjs --check      # 检查阈值
  */
 
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
-const e2eRoot     = join(__dirname, '..');            // web-e2e/
-const projectRoot = join(e2eRoot, '..');              // KuiklyUI/ (where h5App.js paths are anchored)
-const nycOutput   = join(e2eRoot, '.nyc_output');
-const reportDir   = join(e2eRoot, 'reports', 'coverage');
-const nycrcPath   = join(e2eRoot, '.nycrc.json');
+const e2eRoot       = join(__dirname, '..');
+const projectRoot   = join(e2eRoot, '..');
+const nycOutputDir  = join(e2eRoot, '.nyc_output');
+const mergedTempDir = join(e2eRoot, '.nyc_merged');
+const mergedJson    = join(mergedTempDir, 'out.json');
+const reportDir     = join(e2eRoot, 'reports', 'coverage');
+const nycrcPath     = join(e2eRoot, '.nycrc.json');
+const checkOnly     = process.argv.includes('--check');
 
-const checkOnly = process.argv.includes('--check');
-
-if (!existsSync(nycOutput)) {
-  console.error('❌ .nyc_output 不存在，请先以插桩服务器运行测试');
-  console.error('   1. npm run instrument');
-  console.error('   2. node scripts/serve-instrumented.mjs &   # 后台启动，无需另开终端');
-  console.error('   3. npm test');
+if (!existsSync(nycOutputDir)) {
+  console.error('❌ .nyc_output 不存在，请先运行插桩覆盖率测试');
+  console.error('   推荐方式：node scripts/kuikly-test.mjs --full');
   process.exit(1);
 }
 
-// --cwd 指向项目根目录，使 NYC 能正确解析覆盖率数据中的绝对路径
-// --nycrc-path 明确指向 web-e2e/.nycrc.json，避免 --cwd 改变后读不到配置
-const baseFlags = [
-  `--cwd "${projectRoot}"`,
-  `--temp-dir "${nycOutput}"`,
-  `--nycrc-path "${nycrcPath}"`,
-].join(' ');
+function prepareMergedCoverage() {
+  if (existsSync(mergedTempDir)) {
+    rmSync(mergedTempDir, { recursive: true, force: true });
+  }
+  mkdirSync(mergedTempDir, { recursive: true });
+
+  console.log('🧩 合并原始覆盖率数据...');
+  execSync(`npx nyc merge "${nycOutputDir}" "${mergedJson}"`, {
+    cwd: e2eRoot,
+    stdio: 'inherit',
+  });
+}
+
+function buildBaseFlags() {
+  return [
+    `--cwd "${projectRoot}"`,
+    `--temp-dir "${mergedTempDir}"`,
+    `--nycrc-path "${nycrcPath}"`,
+    '--exclude-after-remap=false',
+  ].join(' ');
+}
+
+prepareMergedCoverage();
+const baseFlags = buildBaseFlags();
 
 if (checkOnly) {
-  console.log('🎯 检查覆盖率阈值...');
+  console.log('🎯 使用 NYC 官方 Kotlin 文件覆盖率口径检查阈值...');
   execSync(`npx nyc check-coverage ${baseFlags}`, { cwd: e2eRoot, stdio: 'inherit' });
   console.log('✅ 覆盖率达标');
 } else {
-  console.log('📊 生成覆盖率报告...');
-  // --no-check-coverage：仅生成报告，不触发阈值检查（阈值检查由 --check 模式单独执行）
-  execSync(`npx nyc report ${baseFlags} --report-dir "${reportDir}" --no-check-coverage`, { cwd: e2eRoot, stdio: 'inherit' });
+  console.log('📊 使用 NYC 官方 Kotlin 文件覆盖率口径生成 NYC 官方 Kotlin 文件覆盖率报告...');
+  execSync(`npx nyc report ${baseFlags} --report-dir "${reportDir}" --no-check-coverage`, {
+    cwd: e2eRoot,
+    stdio: 'inherit',
+  });
   console.log(`✅ 报告已生成：${reportDir}/index.html`);
 }

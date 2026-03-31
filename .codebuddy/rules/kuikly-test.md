@@ -9,11 +9,11 @@
 
 | 指令 | 说明 |
 |------|------|
-| `@skill kuikly-test auto` | **全自动闭环**：运行 → 分析 → 修复/补用例 → 覆盖率检查，循环直到全部达标 |
+| `@skill kuikly-test auto` | **默认自动闭环**：运行 → 分析 → 修复/补用例 → 覆盖率检查，循环推进；无法自动闭环的问题转人工确认 |
 | `@skill kuikly-test run [--level L0\|L1\|L2]` | 一键运行指定级别（或全量）E2E 测试 |
-| `@skill kuikly-test generate <TestPageName>` | 分析测试页面源码，AI 自动生成完整测试用例 |
+| `@skill kuikly-test generate <TestPageName>` | 分析测试页面源码，按知识库规则自动生成覆盖主要交互路径的测试用例 |
 | `@skill kuikly-test guide` | 输出用例编写模板、Fixture API 说明、最佳实践 |
-| `@skill kuikly-test coverage` | 展示当前覆盖率摘要 |
+| `@skill kuikly-test coverage` | 展示 NYC 官方 Kotlin 文件覆盖率摘要 |
 
 ---
 
@@ -81,7 +81,7 @@ http://localhost:8080/?page_name=ClickTestPage
 |------|----|------|
 | 浏览器 | Chromium | 仅配置 Chromium，暂不扩展 Firefox/WebKit |
 | Viewport | `375 × 812` | iPhone X 尺寸，截图基准按此尺寸生成 |
-| baseURL | `http://localhost:8080` | Playwright 自动启动服务器并复用已有实例 |
+| baseURL | `http://localhost:8080` | CLI `--full` 或 Playwright 调试流程都会访问该地址；调试时可复用已有实例 |
 | timeout | 60s | 单个用例超时时间 |
 | retries | CI: 2，本地: 1 | 失败重试次数 |
 
@@ -102,7 +102,7 @@ http://localhost:8080/?page_name=ClickTestPage
 @skill kuikly-test run --level L1
 @skill kuikly-test run --level L2
 
-# 全流程（构建 → 插桩 → 测试 → 覆盖率报告）
+# 全流程（构建 → 插桩 → 自动启动插桩服务器 → 测试 → NYC 官方 Kotlin 文件覆盖率报告 → 阈值检查）
 @skill kuikly-test run --full
 ```
 
@@ -110,7 +110,7 @@ http://localhost:8080/?page_name=ClickTestPage
 
 当用户触发 `run` 指令时，按以下步骤执行：
 
-1. **服务器说明**：`playwright.config.js` 中已配置 `webServer`，运行 `npx playwright test` 时 Playwright 会**自动启动** `node scripts/serve.js`（端口 8080）。若端口已被占用（如用户自己启动了服务器），Playwright 会直接复用，**无需手动操作**。
+1. **标准入口说明**：日常标准入口优先使用 `node scripts/kuikly-test.mjs --full`，由 CLI 一键完成构建、插桩、启动插桩版服务器、执行测试、生成 NYC 官方 Kotlin 文件覆盖率报告和阈值检查。仅在本地调试单轮用例时，才直接走 Playwright 默认服务流程。
 2. **执行测试命令**：
 
 ```bash
@@ -135,19 +135,17 @@ cd web-e2e
 npm run test:L0          # 运行 L0 静态测试
 npm run test:L1          # 运行 L1 简单交互测试
 npm run test:L2          # 运行 L2 复杂交互测试
-npm test                 # 运行全量测试
+npm test                 # 本地调试时运行全量测试（不生成正式覆盖率报告）
 npm run test:smoke       # 运行冒烟测试（快速验证）
 
-# 覆盖率模式（无需两个终端，后台启动插桩服务器）
-npm run instrument                    # Istanbul 插桩
-node scripts/serve-instrumented.mjs & # 后台启动插桩版服务器
-npm test                              # 运行测试，覆盖率数据自动写入 .nyc_output/
-npm run coverage                      # 生成覆盖率报告
-npm run coverage:check                # 检查覆盖率是否达标
+# 覆盖率模式（唯一门禁与对外展示口径为 NYC 官方 Kotlin 文件覆盖率）
+node scripts/kuikly-test.mjs --full   # 一键完成构建、插桩、启动插桩服务器、测试、报告、阈值检查
+npm run coverage                      # 基于已有 .nyc_output 生成 NYC 官方 Kotlin 文件覆盖率报告
+npm run coverage:check                # 基于 .nycrc.json 检查阈值
 
 # CLI 统一入口
 node scripts/kuikly-test.mjs --level L0 --skip-build
-node scripts/kuikly-test.mjs --full --with-native
+node scripts/kuikly-test.mjs --full
 node scripts/kuikly-test.mjs --coverage-only
 ```
 
@@ -179,7 +177,7 @@ node scripts/kuikly-test.mjs --coverage-only
 
 **Step 2：查询「组件交互特征知识库」（见第五节）**
 
-识别页面中所有 `KRXxxView` 渲染组件，查表获取每种组件**必须验证的交互操作清单**。
+识别页面中所有 `KRXxxView` 渲染组件，查表获取每种组件应优先补齐的**主要交互操作清单**。
 
 **Step 3：确定测试级别和输出路径**
 
@@ -192,7 +190,7 @@ node scripts/kuikly-test.mjs --coverage-only
 
 - 严格遵循第六节「用例编写规范」
 - 每个操作步骤都包含：定位 → 操作 → 等待渲染 → 截图/断言
-- 不可遗漏任何组件必须验证的交互
+- 默认按知识库规则补齐主要交互；若规则缺失或页面异常，再升级为人工确认
 
 **Step 5：输出文件**
 
@@ -200,18 +198,18 @@ node scripts/kuikly-test.mjs --coverage-only
 - 需要更新截图基准：`npx playwright test --update-snapshots`
 - 测试文件位置和测试数量
 
-### 4.3 关键原则（不可遗漏）
+### 4.3 关键原则
 
-> 如果页面渲染出了 `KRListView`，生成的用例**必须**包含滚动操作。
-> 如果渲染出了 `KRInputView`，生成的用例**必须**包含输入操作。
-> 如果渲染出了 `KRModalView`，生成的用例**必须**包含弹出/关闭操作。
-> 这不由人去发现并补充，而是通过查「组件交互特征知识库」自动推导。
+> 如果页面渲染出了 `KRListView`，生成流程应优先补齐滚动操作。
+> 如果渲染出了 `KRInputView`，生成流程应优先补齐输入操作。
+> 如果渲染出了 `KRModalView`，生成流程应优先补齐弹出/关闭操作。
+> 默认不以人工先补步骤为流程前提，而是通过查「组件交互特征知识库」自动推导主要交互；规则缺失或页面异常时再转人工确认。
 
 ---
 
 ## 五、组件交互特征知识库
 
-> AI 生成测试用例时**必须**查阅此表，根据页面中出现的渲染组件自动推导所有必须覆盖的交互操作。
+> AI 生成测试用例时应查阅此表，根据页面中出现的渲染组件自动推导并补齐主要交互操作；若知识库未覆盖某类规则，再升级为人工补充。
 
 ### 5.1 渲染组件 → 必须验证的交互操作映射表
 
@@ -256,7 +254,7 @@ text { ... }          // → KRTextView
 
 **AI 自动推导结果：**
 
-| 识别到的渲染组件 | 查表必须包含的交互 |
+| 识别到的渲染组件 | 查表优先补齐的交互 |
 |-----------------|------------------|
 | `KRInputView` | 点击获取焦点 → 输入文本 → 验证显示 |
 | `KRListView` | 垂直滚动 × 多次 + 截图 |
@@ -580,16 +578,12 @@ test.describe('KRListView 列表滚动测试', () => {
 当用户触发 `coverage` 指令时：
 
 1. **检查 `.nyc_output/` 目录**：
-   - 若不存在或为空，说明未以插桩模式运行过测试，**自动执行以下步骤收集数据**：
+   - 若不存在或为空，说明未以插桩模式运行过测试，直接执行：
      ```bash
-     cd web-e2e
-     npm run instrument                    # Step 1: 插桩
-     node scripts/serve-instrumented.mjs & # Step 2: 后台启动插桩服务器
-     sleep 2                               # 等待服务器就绪
-     npm test                              # Step 3: 运行全量测试，自动收集覆盖率数据
+     cd web-e2e && node scripts/kuikly-test.mjs --full
      ```
-   - 若已有数据，跳过上述步骤，直接生成报告
-2. **生成报告**：
+   - 若已有数据，跳过上述步骤，直接生成 NYC 官方 Kotlin 文件覆盖率报告
+2. **生成 NYC 官方 Kotlin 文件覆盖率报告**：
    ```bash
    cd web-e2e && npm run coverage
    ```
@@ -597,7 +591,7 @@ test.describe('KRListView 列表滚动测试', () => {
    ```bash
    cd web-e2e && npm run coverage:check
    ```
-4. **展示摘要**：输出 lines / functions / statements / branches 覆盖率数值
+4. **展示摘要**：基于 NYC 官方 Kotlin 文件覆盖率报告输出 lines / functions / statements / branches 覆盖率数值
 
 ### 9.3 覆盖率阈值（`.nycrc.json`）
 
@@ -648,7 +642,7 @@ A: `cd web-e2e && npx playwright test --headed --debug`，或 `npm run test:ui` 
 
 ---
 
-## 十一、全自动闭环（auto 指令）
+## 十一、默认自动闭环（auto 指令）
 
 ### 11.1 指令格式
 
@@ -656,7 +650,7 @@ A: `cd web-e2e && npx playwright test --headed --debug`，或 `npm run test:ui` 
 @skill kuikly-test auto
 ```
 
-触发后 AI **全程自主执行**，无需人工介入，直到所有测试通过且覆盖率达标，最后输出一份完整的执行报告。
+触发后 AI 按默认自动闭环流程持续推进；若遇到无法自动修复、规则缺失或需要产品/渲染行为确认的问题，则将其转入「待人工确认」列表，最后输出一份完整的执行报告。
 
 ---
 
@@ -857,71 +851,40 @@ npx playwright test <修复的spec文件>
 
 ### 11.6 Phase D — 覆盖率检查与补充
 
-**覆盖率收集完全自动化**：`test-base.ts` fixture teardown 已在每个测试结束后自动调用 `collectCoverage()`，将 `window.__coverage__` 写入 `.nyc_output/`。AI 只需按以下步骤操作，**无需手动干预，无需两个终端**。
+**覆盖率收集完全自动化**：`test-base.ts` fixture teardown 已在每个测试结束后自动调用 `collectCoverage()`，将 `window.__coverage__` 写入 `.nyc_output/`。唯一门禁与对外展示口径统一为 NYC 官方 Kotlin 文件覆盖率结果；AI 优先走 CLI 一键流程，而不是手工分解插桩服务步骤。
 
 ---
 
-**Step D1：停止普通服务器（若已在运行），插桩并启动插桩服务器**
-
-```bash
-# 1. 检查 8080 端口是否被占用（普通服务器）
-#    Windows：
-powershell -Command "Get-Process -Id (Get-NetTCPConnection -LocalPort 8080 -State Listen).OwningProcess | Select-Object Id,ProcessName"
-#    macOS/Linux：
-lsof -ti:8080
-
-# 2. 如有进程占用 8080，停止它
-#    Windows：
-powershell -Command "Stop-Process -Id <PID> -Force"
-#    macOS/Linux：
-kill -9 <PID>
-
-# 3. 执行插桩
-cd web-e2e
-npm run instrument
-
-# 4. 后台启动插桩服务器（Playwright 的 reuseExistingServer: true 会自动复用它）
-#    Windows Git Bash / macOS / Linux：
-node scripts/serve-instrumented.mjs &
-
-# 等待服务器启动（验证 200 响应）
-sleep 2
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/
-```
-
-**Step D2：运行全量测试，收集覆盖率数据**
+**Step D1：执行 CLI 一键覆盖率流程**
 
 ```bash
 cd web-e2e
-npx playwright test --reporter=list
+node scripts/kuikly-test.mjs --full
 ```
 
-覆盖率数据自动写入 `.nyc_output/*.json`（每个测试一个文件，共 159 个）。
-
-**Step D3：生成覆盖率报告并检查阈值**
+**Step D2：若仅需基于已有数据重复出报告，则执行 NYC 官方 Kotlin 文件覆盖率报告命令**
 
 ```bash
 cd web-e2e
-npm run coverage          # 生成 HTML/text 报告
-npm run coverage:check    # 检查阈值（lines/functions/statements ≥ 70%，branches ≥ 55%）
+npm run coverage
+npm run coverage:check
 ```
 
-读取 text 报告输出，提取各指标数值：
+若前一步执行了 `--full`，覆盖率数据已自动写入 `.nyc_output/*.json`，并由 NYC 官方命令生成 NYC 官方 Kotlin 文件覆盖率报告与执行阈值检查。
 
-```
-File      | % Stmts | % Branch | % Funcs | % Lines
-h5App.js  |  87.5   |   50.0   |  100.0  |  91.3
-```
+**Step D3：若阈值未达标，再定位低覆盖区域补测**
+
+从 `reports/coverage/index.html` 中查看 NYC 官方 Kotlin 文件覆盖率报告，读取 lines / functions / statements / branches 指标与低覆盖文件列表。
 
 **Step D4：若全部达标 → 进入 Phase E（输出报告）**
 
 **Step D5：若有指标不达标 → 定位覆盖率低的区域**
 
-从 `reports/coverage/index.html` 或 `.nyc_output/*.json` 文件中，找出覆盖率最低的函数区域：
+从 `reports/coverage/index.html` 中，找出覆盖率最低的 Kotlin 文件和对应源码区域：
 
-1. 读取 `.nyc_output/` 下任意一个 JSON 文件（所有文件记录相同文件，只是计数器不同，nyc 会合并）
-2. 找出 `f`（function）计数器中值为 0 的函数，即未执行的代码路径
-3. 对照 `fnMap` 找到对应的函数名和行号，判断属于哪个渲染组件
+1. 以 NYC 官方 Kotlin 文件覆盖率报告中的低覆盖文件列表为准
+2. 结合 source map 反查对应 Kotlin 文件和行号
+3. 判断属于哪个渲染组件、样式路径或交互分支
 
 **Step D6：针对低覆盖区域补充用例**
 
@@ -930,15 +893,7 @@ h5App.js  |  87.5   |   50.0   |  100.0  |  91.3
 1. 读取该组件对应的 `web_test` 页面 `.kt` 源码
 2. 对照「组件交互特征知识库」（第五节），检查是否有必须验证的交互操作在现有 spec 中**缺失**
 3. 若发现缺失场景 → 在现有 spec 文件中**追加对应的 test 块**
-4. 追加后重新执行 Step D2～D3，更新覆盖率数据
-
-**Step D7：循环检查，直到达标**
-
-- 达标 → 进入 Phase E
-- 仍不达标 → 重复 Step D5~D6，最多循环 **3 次**
-- 3 次后仍不达标 → 在报告中说明剩余缺口，列入「待人工处理」
-
----
+4. 追加后重新执行 Step D1～D3，更新覆盖率数据并重新检查 NYC 门禁
 
 ### 11.7 Phase E — 输出最终报告
 

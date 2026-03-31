@@ -49,3 +49,6 @@ proto/**/*.kt
 ## Claude Code
 .claude/settings.local.json
 /kuikly-web-autotest/
+reports
+/web-e2e/.nyc_merged/
+/web-e2e/.nyc_output/

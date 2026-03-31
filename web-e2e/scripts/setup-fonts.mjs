@@ -156,8 +156,8 @@ async function main() {
   console.log('\n✅ 字体下载完成！');
   console.log(`   文件路径：${FONT_FILE}`);
   console.log('\n🚀 现在可以运行测试了：');
-  console.log('   npm test         # 全量测试');
-  console.log('   npm run test:smoke  # 冒烟测试');
+  console.log('   node scripts/kuikly-test.mjs --full  # 标准入口：本地一键完整闭环');
+  console.log('   npm run test:smoke                   # 本地调试时快速冒烟');
 }
 
 main().catch(err => {
