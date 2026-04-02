@@ -1,0 +1,120 @@
+#!/usr/bin/env node
+
+import { execFileSync } from 'child_process';
+import { existsSync, readFileSync } from 'fs';
+import { join, relative } from 'path';
+
+const repoRoot = process.cwd();
+const coveragePath = join(repoRoot, 'web-e2e', 'reports', 'coverage', 'coverage-final.json');
+const scanScriptPath = join(repoRoot, 'kuikly-web-autotest', 'scripts', 'scan-web-test-pages.mjs');
+
+if (!existsSync(coveragePath)) {
+  console.error(JSON.stringify({ error: `Missing coverage report: ${coveragePath}` }, null, 2));
+  process.exit(1);
+}
+
+const coverage = JSON.parse(readFileSync(coveragePath, 'utf8'));
+
+function loadScanResult() {
+  const output = execFileSync(process.execPath, [scanScriptPath], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  return JSON.parse(output);
+}
+
+const scan = loadScanResult();
+
+const pageList = scan.pages || [];
+const pageNames = pageList.map((page) => page.pageName);
+
+function componentSpecCandidates(filePath) {
+  const basename = filePath.split('/').pop() || '';
+  const normalized = basename.replace(/\.kt$/, '');
+
+  const candidates = [];
+
+  const pageByExactName = pageNames.find((pageName) => {
+    const token = pageName.replace(/TestPage$/, '').toLowerCase();
+    return token && normalized.toLowerCase().includes(token.toLowerCase());
+  });
+  if (pageByExactName) {
+    candidates.push(pageByExactName);
+  }
+
+  if (/module/i.test(normalized)) {
+    const moduleName = normalized.replace(/^KR/, '').replace(/Module.*$/, '').toLowerCase();
+    for (const pageName of pageNames.filter((name) => /ModuleTestPage$/.test(name))) {
+      if (pageName.toLowerCase().includes(moduleName)) {
+        candidates.push(pageName);
+      }
+    }
+  }
+
+  if (/event|gesture|animation|list|scroll|router|windowresize|image|richtext|video|hover|blur/i.test(normalized)) {
+    for (const pageName of pageNames) {
+      const loweredPage = pageName.toLowerCase();
+      if (normalized.toLowerCase().includes('event') && loweredPage.includes('event')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('gesture') && loweredPage.includes('gesture')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('animation') && loweredPage.includes('anim')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('list') && loweredPage.includes('list')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('scroll') && loweredPage.includes('scroll')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('image') && loweredPage.includes('image')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('richtext') && loweredPage.includes('richtext')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('video') && loweredPage.includes('video')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('hover') && loweredPage.includes('hover')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('blur') && loweredPage.includes('blur')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('router') && loweredPage.includes('navigation')) candidates.push(pageName);
+      if (normalized.toLowerCase().includes('windowresize') && loweredPage.includes('view')) candidates.push(pageName);
+    }
+  }
+
+  return [...new Set(candidates)];
+}
+
+function metrics(info) {
+  const statementValues = Object.values(info.s || {});
+  const functionValues = Object.values(info.f || {});
+  const branchValues = Object.values(info.b || {}).flatMap((value) => Array.isArray(value) ? value : []);
+  const lineValues = Object.keys(info.statementMap || {}).map((key) => Number((info.s || {})[key] || 0));
+
+  const summarize = (values) => {
+    const total = values.length;
+    const covered = values.filter((value) => Number(value) > 0).length;
+    const pct = total === 0 ? 100 : (covered / total) * 100;
+    return { covered, total, pct };
+  };
+
+  return {
+    statements: summarize(statementValues),
+    functions: summarize(functionValues),
+    branches: summarize(branchValues),
+    lines: summarize(lineValues),
+  };
+}
+
+const suggestions = Object.entries(coverage)
+  .map(([absolutePath, info]) => {
+    const file = relative(repoRoot, absolutePath).split('\\').join('/');
+    const summary = metrics(info);
+    return {
+      file,
+      metrics: summary,
+      uncoveredWeight:
+        (summary.branches.total - summary.branches.covered) * 3 +
+        (summary.lines.total - summary.lines.covered) * 2 +
+        (summary.statements.total - summary.statements.covered),
+      suggestedPages: componentSpecCandidates(file),
+      existingSpecs: scan.specTargets
+        .filter((spec) => spec.targets.some((target) => componentSpecCandidates(file).includes(target)))
+        .map((spec) => spec.file),
+    };
+  })
+  .filter((item) => item.uncoveredWeight > 0)
+  .sort((left, right) => right.uncoveredWeight - left.uncoveredWeight)
+  .slice(0, 20);
+
+console.log(JSON.stringify({
+  generatedAt: new Date().toISOString(),
+  suggestions,
+}, null, 2));

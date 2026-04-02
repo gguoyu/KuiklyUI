@@ -1,0 +1,3 @@
+display_name: Kuikly Web Autotest
+short_description: Run and maintain the KuiklyUI web E2E and coverage closed loop.
+default_prompt: Run the KuiklyUI web automated test flow, inspect failures, summarize coverage, and drive the suite toward the AUTOTEST.md expectations.
