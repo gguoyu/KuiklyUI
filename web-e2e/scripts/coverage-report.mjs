@@ -12,6 +12,9 @@
  *   时可能出现 remap 后文件被再次 exclude 导致报告为空的问题。
  * - 这里先用 `nyc merge` 生成统一的 remap 后 coverage JSON，再在报告阶段显式关闭
  *   `exclude-after-remap`，以确保官方 NYC 报告能够正确展示 Kotlin 文件覆盖率。
+ * - 当前正式统计口径进一步收敛为：仅统计 `core-render-web/base` 与 `core-render-web/h5`
+ *   两个目录下的 Kotlin 文件；合并后的 remap 结果会在本脚本内再次过滤，避免 NYC include
+ *   在 remap 后未完全生效时把其他 Kotlin 文件带入门禁。
  *
  * 使用方法：
  *   node scripts/coverage-report.mjs              # 生成 NYC 官方 Kotlin 文件覆盖率报告
@@ -19,21 +22,25 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync, rmSync } from 'fs';
-import { join, dirname } from 'path';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { join, dirname, normalize } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
+const __dirname = dirname(__filename);
 
-const e2eRoot       = join(__dirname, '..');
-const projectRoot   = join(e2eRoot, '..');
-const nycOutputDir  = join(e2eRoot, '.nyc_output');
+const e2eRoot = join(__dirname, '..');
+const projectRoot = join(e2eRoot, '..');
+const nycOutputDir = join(e2eRoot, '.nyc_output');
 const mergedTempDir = join(e2eRoot, '.nyc_merged');
-const mergedJson    = join(mergedTempDir, 'out.json');
-const reportDir     = join(e2eRoot, 'reports', 'coverage');
-const nycrcPath     = join(e2eRoot, '.nycrc.json');
-const checkOnly     = process.argv.includes('--check');
+const mergedJson = join(mergedTempDir, 'out.json');
+const reportDir = join(e2eRoot, 'reports', 'coverage');
+const nycrcPath = join(e2eRoot, '.nycrc.json');
+const checkOnly = process.argv.includes('--check');
+const coverageScopeRoots = [
+  normalize(join(projectRoot, 'core-render-web', 'base', 'src', 'jsMain', 'kotlin')),
+  normalize(join(projectRoot, 'core-render-web', 'h5', 'src', 'jsMain', 'kotlin')),
+];
 
 if (!existsSync(nycOutputDir)) {
   console.error('❌ .nyc_output 不存在，请先运行插桩覆盖率测试');
@@ -52,6 +59,23 @@ function prepareMergedCoverage() {
     cwd: e2eRoot,
     stdio: 'inherit',
   });
+
+  filterMergedCoverage();
+}
+
+function isInCoverageScope(filePath) {
+  const normalizedPath = normalize(filePath);
+  return coverageScopeRoots.some((root) => normalizedPath.startsWith(root));
+}
+
+function filterMergedCoverage() {
+  const mergedCoverage = JSON.parse(readFileSync(mergedJson, 'utf8'));
+  const filteredCoverage = Object.fromEntries(
+    Object.entries(mergedCoverage).filter(([filePath]) => isInCoverageScope(filePath))
+  );
+
+  writeFileSync(mergedJson, `${JSON.stringify(filteredCoverage, null, 2)}\n`);
+  console.log(`🧹 覆盖率过滤后保留 ${Object.keys(filteredCoverage).length} 个 Kotlin 文件（仅 core-render-web/base 与 core-render-web/h5）`);
 }
 
 function buildBaseFlags() {

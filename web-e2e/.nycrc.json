@@ -1,5 +1,9 @@
 {
   "all": false,
+  "include": [
+    "core-render-web/base/src/jsMain/kotlin/**/*.kt",
+    "core-render-web/h5/src/jsMain/kotlin/**/*.kt"
+  ],
   "exclude": [
     "**/*.spec.js",
     "**/*.test.js",

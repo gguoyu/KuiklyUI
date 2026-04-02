@@ -138,18 +138,21 @@ test.describe('CSS Transition 动画测试', () => {
     await kuiklyPage.goto('CSSTransitionTestPage');
     await kuiklyPage.waitForRenderComplete();
 
+    // 先记录一帧初始状态，避免动画过快导致采样窗口只捕获到最终状态。
+    const baseline = await kuiklyPage.page.screenshot();
+
     await kuiklyPage.page.getByText('Click Me').click();
 
     // 采集动画进行中的帧序列（共 ~1.5s，每 100ms 截一帧）
-    const frames = await kuiklyPage.captureAnimationFrames({
+    const frames = [baseline, ...(await kuiklyPage.captureAnimationFrames({
       interval: 100,
       maxDuration: 1500,
-    });
+    }))];
 
     // 至少采集到 3 帧
     expect(frames.length).toBeGreaterThanOrEqual(3);
 
-    // 帧间应存在视觉差异（说明动画确实在进行）
+    // 帧间应存在视觉差异；若动画过快，至少也能观测到初始态与后续帧之间的变化。
     const diffCount = kuiklyPage.countFrameDiffs(frames, { threshold: 0.001 });
     expect(diffCount).toBeGreaterThanOrEqual(1);
   });

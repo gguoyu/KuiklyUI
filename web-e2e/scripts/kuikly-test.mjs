@@ -1,26 +1,4 @@
 #!/usr/bin/env node
-/**
- * Kuikly E2E Test CLI（统一入口）
- *
- * 设计目标：
- * - 本地一键闭环执行：构建 → 插桩 → 启动插桩服务器 → 执行测试 → 生成 NYC 官方 Kotlin 文件覆盖率报告 → 阈值检查
- * - `--full` 是日常标准入口；无 `--full` 时保留普通 Playwright 运行路径，供本地单轮调试使用
- *
- * 使用方法：
- *   node web-e2e/scripts/kuikly-test.mjs [options]
- *
- * 常用命令：
- *   --full              全流程：构建 → 插桩 → 启动插桩服务器 → 测试 → NYC 官方 Kotlin 文件覆盖率报告 → 阈值检查
- *   --level L0|L1|L2    只运行指定级别的测试
- *   --test <file>       只运行指定测试文件
- *   --update-snapshots  更新截图基准
- *   --coverage-only     仅生成 NYC 官方 Kotlin 文件覆盖率报告并检查阈值（基于已有 .nyc_output）
- *   --instrument        仅执行插桩步骤
- *   --with-native       插桩时同时处理 nativevue2.js（调试辅助口径，不改变正式门禁口径；默认仅 h5App.js）
- *   --skip-build        跳过 Gradle 构建步骤
- *   --headed            以有界面模式运行 Playwright
- *   --debug             以调试模式运行 Playwright
- */
 
 import { spawn } from 'child_process';
 import { existsSync, rmSync } from 'fs';
@@ -35,11 +13,12 @@ const e2eRoot = join(__dirname, '..');
 const defaultPort = process.env.KUIKLY_PORT || '8080';
 const gradleWrapper = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
 const gradleBuildArgs = ':demo:packLocalJSBundleDebug -Pkuikly.useLocalKsp=false';
+const instrumentedDefaultWorkers = '2';
 
 const args = process.argv.slice(2);
 
 function getArg(flag) {
-  const eq = args.find((a) => a.startsWith(`${flag}=`));
+  const eq = args.find((arg) => arg.startsWith(`${flag}=`));
   if (eq) {
     return eq.split('=').slice(1).join('=');
   }
@@ -62,13 +41,13 @@ const options = {
   debug: args.includes('--debug'),
 };
 
-console.log('🚀 Kuikly E2E Test CLI');
+console.log('Kuikly E2E Test CLI');
 console.log('Options:', options);
 
 function execCommand(command, cwd = projectRoot, extraEnv = {}) {
   return new Promise((resolve, reject) => {
-    console.log(`\n📦 Running: ${command}`);
-    console.log(`📁 CWD    : ${cwd}`);
+    console.log(`\nRunning: ${command}`);
+    console.log(`CWD    : ${cwd}`);
 
     const child = spawn(command, {
       shell: true,
@@ -83,10 +62,6 @@ function execCommand(command, cwd = projectRoot, extraEnv = {}) {
     });
     child.on('error', reject);
   });
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function waitForChildExit(child, timeoutMs) {
@@ -166,7 +141,7 @@ function waitForHttpReady(port, timeoutMs, child) {
 }
 
 async function startInstrumentedServer(port) {
-  console.log(`\n🛰️  启动插桩版测试服务器（port ${port}）...`);
+  console.log(`\nStarting instrumented test server (port ${port})...`);
 
   const child = spawn('node', ['scripts/serve-instrumented.mjs'], {
     cwd: e2eRoot,
@@ -175,11 +150,11 @@ async function startInstrumentedServer(port) {
   });
 
   child.on('error', (error) => {
-    console.error('❌ 插桩服务器启动失败:', error.message);
+    console.error('Failed to start instrumented server:', error.message);
   });
 
   await waitForHttpReady(port, 30_000, child);
-  console.log('✅ 插桩服务器已就绪');
+  console.log('Instrumented server is ready');
   return child;
 }
 
@@ -188,7 +163,7 @@ async function stopInstrumentedServer(child) {
     return;
   }
 
-  console.log('\n🛑 关闭插桩版测试服务器...');
+  console.log('\nStopping instrumented test server...');
 
   if (process.platform === 'win32') {
     const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
@@ -198,51 +173,51 @@ async function stopInstrumentedServer(child) {
     await new Promise((resolve) => killer.on('close', resolve));
     const exited = await waitForChildExit(child, 5_000);
     if (exited) {
-      console.log('✅ 插桩服务器已关闭');
+      console.log('Instrumented server stopped');
       return;
     }
   } else {
     child.kill('SIGINT');
     const exited = await waitForChildExit(child, 5_000);
     if (exited) {
-      console.log('✅ 插桩服务器已关闭');
+      console.log('Instrumented server stopped');
       return;
     }
   }
 
   child.kill();
   const exited = await waitForChildExit(child, 3_000);
-  console.log(exited ? '✅ 插桩服务器已关闭' : '⚠️  插桩服务器已强制关闭');
+  console.log(exited ? 'Instrumented server stopped' : 'Instrumented server was force closed');
 }
 
 function clearCoverageOutput() {
   const nycOutputDir = join(e2eRoot, '.nyc_output');
   if (existsSync(nycOutputDir)) {
     rmSync(nycOutputDir, { recursive: true, force: true });
-    console.log(`🧹 已清理旧覆盖率数据: ${nycOutputDir}`);
+    console.log(`Cleared previous coverage data: ${nycOutputDir}`);
   }
 }
 
 async function buildProject() {
   if (options.skipBuild) {
-    console.log('⏭️  --skip-build: 跳过 Gradle 构建');
+    console.log('--skip-build: skip Gradle build');
     return;
   }
 
-  console.log('\n🔨 构建测试产物（demo 走 :demo:packLocalJSBundleDebug）...');
+  console.log('\nBuilding demo bundle with Gradle...');
   await execCommand(`${gradleWrapper} ${gradleBuildArgs}`);
-  console.log('✅ 构建完成');
+  console.log('Build completed');
 }
 
 async function instrumentCode() {
-  console.log('\n🔬 执行 Istanbul 插桩...');
+  console.log('\nRunning Istanbul instrumentation...');
   const nativeFlag = options.withNative ? ' --with-native' : '';
   await execCommand(`node scripts/instrument.mjs${nativeFlag}`, e2eRoot);
-  console.log('✅ 插桩完成');
+  console.log('Instrumentation completed');
 }
 
 async function runTests({ instrumented = false } = {}) {
-  console.log(`\n🧪 运行 Playwright 测试${instrumented ? '（插桩模式）' : ''}...`);
+  console.log(`\nRunning Playwright tests${instrumented ? ' (instrumented mode)' : ''}...`);
 
   let cmd = 'npx playwright test';
   const levelMap = {
@@ -254,43 +229,48 @@ async function runTests({ instrumented = false } = {}) {
   if (options.level) {
     const levelPath = levelMap[String(options.level).toUpperCase()];
     if (levelPath) cmd += ` ${levelPath}`;
-    else console.warn(`⚠️  未知级别: ${options.level}，将运行全量测试`);
+    else console.warn(`Unknown level: ${options.level}, running full suite`);
   }
 
   if (options.test) cmd += ` ${options.test}`;
   if (options.updateSnapshots) cmd += ' --update-snapshots';
   if (options.headed) cmd += ' --headed';
   if (options.debug) cmd += ' --debug';
+  if (instrumented) {
+    cmd += ' --workers=' + instrumentedDefaultWorkers;
+    console.log('[kuikly-test] instrumented mode fixed workers=2');
+  }
 
   const extraEnv = instrumented
     ? {
         KUIKLY_SKIP_WEBSERVER: 'true',
         KUIKLY_INSTRUMENTED: 'true',
         KUIKLY_PORT: String(defaultPort),
+        KUIKLY_WORKERS: instrumentedDefaultWorkers,
       }
     : {};
 
   await execCommand(cmd, e2eRoot, extraEnv);
-  console.log('✅ 测试完成');
+  console.log('Tests completed');
 }
 
 async function generateCoverageReport() {
   const nycOutputDir = join(e2eRoot, '.nyc_output');
 
   if (!existsSync(nycOutputDir)) {
-    throw new Error('.nyc_output 不存在，请先运行插桩测试（例如 node scripts/kuikly-test.mjs --full）');
+    throw new Error('.nyc_output does not exist, run instrumented tests first');
   }
 
-  console.log('\n📊 生成 NYC 官方 Kotlin 文件覆盖率报告...');
+  console.log('\nGenerating official NYC Kotlin coverage report...');
   await execCommand('node scripts/coverage-report.mjs', e2eRoot);
-  console.log('✅ NYC 官方 Kotlin 文件覆盖率报告已生成');
-  console.log(`📄 查看报告: ${join(e2eRoot, 'reports/coverage/index.html')}`);
+  console.log('NYC Kotlin coverage report generated');
+  console.log(`Report: ${join(e2eRoot, 'reports/coverage/index.html')}`);
 }
 
 async function checkCoverageThresholds() {
-  console.log('\n🎯 检查覆盖率阈值（基于 .nycrc.json 配置）...');
+  console.log('\nChecking coverage thresholds from .nycrc.json...');
   await execCommand('node scripts/coverage-report.mjs --check', e2eRoot);
-  console.log('✅ 覆盖率达标');
+  console.log('Coverage thresholds passed');
 }
 
 async function main() {
@@ -317,10 +297,10 @@ async function main() {
       await runTests();
     }
 
-    console.log('\n✨ 所有任务执行完毕！');
+    console.log('\nAll tasks finished');
     process.exitCode = 0;
-  } catch (e) {
-    console.error(`\n❌ 错误: ${e.message}`);
+  } catch (error) {
+    console.error(`\nError: ${error.message}`);
     process.exitCode = 1;
   } finally {
     await stopInstrumentedServer(serverProcess);

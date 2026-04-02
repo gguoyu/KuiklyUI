@@ -27,6 +27,10 @@ const NYC_OUTPUT_DIR = resolve(__dirname, '..', '.nyc_output');
  */
 export async function collectCoverage(page: any, testTitle?: string): Promise<void> {
   try {
+    if (typeof page?.isClosed === 'function' && page.isClosed()) {
+      return;
+    }
+
     const coverage = await page.evaluate(() => {
       return (window as any).__coverage__ || null;
     });

@@ -100,6 +100,33 @@ test.describe('列表滚动测试', () => {
     }
   });
 
+  test('滚动到中部后应显示更后面的分组内容', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const listContainer = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(listContainer, { deltaY: 1200, smooth: false });
+
+    const scrollTop = await listContainer.evaluate((el) => (el as HTMLElement).scrollTop);
+    expect(scrollTop).toBeGreaterThan(1000);
+    await expect(kuiklyPage.page.getByText('分组 3', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('列表项 21', { exact: true })).toBeVisible();
+  });
+
+  test('滚动回顶部后应恢复首屏列表内容', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const listContainer = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(listContainer, { deltaY: 1200, smooth: false });
+    await kuiklyPage.scrollInContainer(listContainer, { deltaY: -1200, smooth: false });
+
+    const scrollTop = await listContainer.evaluate((el) => (el as HTMLElement).scrollTop);
+    expect(scrollTop).toBe(0);
+    await expect(kuiklyPage.page.getByText('分组 1', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('列表项 1', { exact: true })).toBeVisible();
+  });
+
   test('视觉回归：ListScrollTestPage 初始状态截图', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('ListScrollTestPage');
     await kuiklyPage.waitForRenderComplete();
