@@ -12,18 +12,18 @@ import { test, expect } from '../../fixtures/test-base';
 test.describe('L0 冒烟测试套件', () => {
   test('应该成功加载 ComposeRoutePager 页面', async ({ kuiklyPage }) => {
     // 访问页面
-    await kuiklyPage.goto('crouter');
+    await kuiklyPage.goto('SmokeTestPage');
 
     // 等待渲染完成
     await kuiklyPage.waitForRenderComplete();
 
     // 验证页面标题存在
-    await expect(kuiklyPage.page.locator('text=Kuikly页面路由')).toBeVisible();
+    await expect(kuiklyPage.page.locator('text=Smoke')).toBeVisible();
   });
 
   test('应该正确注入 data-kuikly-component 属性', async ({ kuiklyPage }) => {
     // 访问页面
-    await kuiklyPage.goto('crouter');
+    await kuiklyPage.goto('SmokeTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     // 查找所有带有 data-kuikly-component 属性的元素
@@ -41,7 +41,7 @@ test.describe('L0 冒烟测试套件', () => {
   });
 
   test('应该支持组件选择器定位元素', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('crouter');
+    await kuiklyPage.goto('SmokeTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     // 使用 components() 方法获取所有匹配的元素（返回数组）
@@ -56,20 +56,20 @@ test.describe('L0 冒烟测试套件', () => {
   });
 
   test('视觉回归：ComposeRoutePager 页面截图', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('crouter');
+    await kuiklyPage.goto('SmokeTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     // 等待页面完全加载（给图片等资源一些时间）
     await kuiklyPage.page.waitForTimeout(1000);
 
     // 进行视觉回归测试
-    await expect(kuiklyPage.page).toHaveScreenshot('crouter-page.png', {
+    await expect(kuiklyPage.page).toHaveScreenshot('smoke-test-page.png', {
       maxDiffPixels: 100, // 允许最多 100 像素的差异
     });
   });
 
   test('应该能够获取组件层级结构', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('crouter');
+    await kuiklyPage.goto('SmokeTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     // 获取所有组件及其层级

@@ -75,6 +75,13 @@ http://localhost:8080/?page_name=ClickTestPage
 
 每个测试页面通过 `@Page` 注解注册独立路由。
 
+### 2.5 测试页面来源硬约束
+
+1. `web-e2e/tests/` 中所有正式 E2E 用例，只允许访问 `demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/` 下的页面。
+2. 普通 Demo 页面、示例页、业务页不能作为正式自动化测试入口，即使当前已有可运行页面。
+3. 若某项测试需求在 `web_test` 中没有对应页面，必须先补建新的 `web_test` 页面，再生成或修改 spec。
+4. 发现现有 spec 仍依赖非 `web_test` 页面时，优先整改页面来源，不得继续在旧页面上追加正式测试逻辑。
+
 ### 2.4 测试运行环境
 
 | 参数 | 值 | 说明 |
@@ -172,6 +179,8 @@ node scripts/kuikly-test.mjs --coverage-only
 ```
 路径：demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/**/<TestPageName>.kt
 ```
+
+若目标页面不在 `web_test` 下，则停止生成流程，先补建对应的 `web_test` 页面。
 
 分析页面中使用的 KuiklyUI Compose 组件（如 `KRList`、`KRText`、`Input` 等），推断渲染到 DOM 的底层组件类型。
 
@@ -724,6 +733,11 @@ composite/（L1/L2）
 - 若 spec 文件**存在** → 标记为 ✅，继续
 - 若 spec 文件**不存在** → 标记为 ❌ 缺失，进入 **Step A3**
 
+同时扫描现有 spec 中的 `kuiklyPage.goto()` 目标：
+
+- 若目标页面位于 `web_test` 内 → 保持现状
+- 若目标页面**不在** `web_test` 内 → 标记为 ❌ 页面来源不合规，进入 **Step A3.5**
+
 **Step A3：自动补生成缺失的 spec 文件**
 
 对每个 ❌ 缺失的页面，执行与 `generate` 指令完全相同的流程（见第四节）：
@@ -731,6 +745,15 @@ composite/（L1/L2）
 2. 查询第五节「组件交互特征知识库」
 3. 生成完整 `.spec.ts` 文件并写入正确路径
 4. 记录"已补生成"列表，供最终报告使用
+
+**Step A3.5：整改非 `web_test` 页面依赖**
+
+对每个页面来源不合规的 spec：
+
+1. 先检查 `web_test` 中是否已有等价测试页面。
+2. 若已有等价页面：将 spec 的 `goto()` 与相关断言迁移到该 `web_test` 页面。
+3. 若没有等价页面：先在 `web_test` 下补建新页面，使其满足该测试属性，再将 spec 切换到新页面。
+4. 不得保留“正式 spec 继续访问普通 Demo 页面，仅新增一个 web_test 页面备用”的中间状态。
 
 **Step A4：为新生成的 spec 文件建立截图基准**
 

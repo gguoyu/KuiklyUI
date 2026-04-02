@@ -15,6 +15,8 @@
 
 **说明：** 页面数和用例数会随测试面扩展持续变化，README 不再维护易漂移的固定统计值，实际规模以 `demo/.../web_test/` 和 `web-e2e/tests/` 当前内容为准。
 
+**硬性约束：** `web-e2e/tests/` 中所有正式 E2E 用例都只能访问 `demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/` 下的页面。若现有 `web_test` 没有满足测试目标的页面，必须先补建 `web_test` 页面，再新增或改造 spec；禁止继续依赖普通 Demo 页面。
+
 ---
 
 ## 🚀 快速开始
@@ -106,6 +108,8 @@ npm run test:L2
 ---
 
 ## 📝 编写测试用例
+
+编写或改造用例前，先确认目标页面位于 `demo/.../pages/web_test/`。如果当前 spec 仍跳转到普通 Demo 页面，应先迁移到已有 `web_test` 页面；若没有对应页面，则先补一个新的 `web_test` 页面。
 
 所有用例通过 `KuiklyPage` Fixture 操作页面：
 
@@ -299,8 +303,9 @@ npm run test:debug    # 单步调试模式
 **Q: 新增组件后如何添加测试？**
 
 1. 在 `demo/.../pages/web_test/` 中创建 Kotlin 测试页面
-2. 用 `@skill kuikly-test generate <TestPageName>` 自动生成用例
-3. 运行 `npx playwright test --update-snapshots` 生成初始截图基准
+2. 确认后续 spec 只指向该 `web_test` 页面，不要直接复用普通 Demo 页面
+3. 用 `@skill kuikly-test generate <TestPageName>` 自动生成用例
+4. 运行 `npx playwright test --update-snapshots` 生成初始截图基准
 
 ---
 

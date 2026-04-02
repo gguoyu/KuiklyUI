@@ -167,6 +167,8 @@ demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/
 | **完整覆盖**             | 每个测试页面覆盖该组件/样式的**所有变体**（如 KRTextView 要包含不同字号、颜色、对齐方式等）|
 | **无外部依赖**           | 测试页面不调用网络接口、不读取本地数据库，所有数据内嵌在页面中                             |
 | **可独立访问**           | 每个测试页面有独立的路由，可通过 URL 直接打开                                              |
+| **唯一页面来源**         | `web-e2e/tests/` 中所有 `kuiklyPage.goto()` 只能指向 `demo/.../pages/web_test/` 下注册的测试页面；禁止直接依赖普通 Demo 页面 |
+| **缺页先补页**           | 若现有 `web_test` 中没有可承载某项测试属性的页面，必须先在 `web_test` 内新建测试页面，再生成或修改对应 spec |
 
 ### 3.4 测试页面分类清单
 
@@ -252,6 +254,17 @@ demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/
 ```
 
 > **核心价值：** 测试页面与 Demo 页面完全解耦。Demo 随业务需求自由变更，测试页面保持稳定。新增渲染组件或样式时，只需在 `web_test` 中新增对应的测试页面即可。
+
+### 3.6 测试页面来源约束
+
+为保证自动化测试稳定性，页面来源必须遵守以下硬性约束：
+
+1. `web-e2e/tests/` 中所有通过 `kuiklyPage.goto('<PageName>')` 访问的页面，必须来自 `demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/`。
+2. 禁止直接复用普通 Demo 页面、示例页、业务页作为正式 E2E 测试入口，即使这些页面当前可用。
+3. 如果某个现有 spec 依赖的页面不在 `web_test` 内，则该 spec 必须整改：
+   - 若 `web_test` 已有等价测试页面，则将 spec 切换到该页面。
+   - 若 `web_test` 中没有满足该测试目标的页面，则先补建新的 `web_test` 测试页面，再让 spec 指向新页面。
+4. AI Skill 在执行 `generate`、`auto`、补覆盖率、补缺失用例时，均必须先检查页面是否位于 `web_test`；若不在，则优先补页面，不得继续基于普通 Demo 页面生成正式用例。
 
 ---
 
@@ -1243,6 +1256,7 @@ stages:
 
 ```
 1. 读取指定 web-test 测试页面的 Kotlin 源码 (demo/src/commonMain/.../pages/web_test/...)
+   → 仅允许 `web_test` 目录内页面作为正式生成输入；若目标能力尚无对应页面，先补建 `web_test` 页面，再继续生成 spec
 2. 分析页面渲染后会产生的底层渲染组件类型（data-kuikly-component）
    ├─ KRListView     → 滚动/滑动/翻页类
    ├─ KRScrollView   → 滚动类
@@ -1274,6 +1288,7 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 - 用例编写规范与模板
 - 命名约定（文件名、截图名）
 - web-test 测试页面设计原则（来自 3.3 节）
+- web-test 唯一页面来源约束与缺页先补页规则（来自 3.6 节）
 - AI 生成策略（分析测试页面源码 → 查表 → 生成完整用例）
 
 ---
@@ -1295,6 +1310,7 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 ### Phase 2：web-test 测试页面生成（预计 3 天）
 
 - [x] 在 `demo/src/commonMain/.../pages/` 下创建 `web_test/` 目录结构
+- [ ] 清理现有对非 `web_test` 页面（普通 Demo 页面/示例页/业务页）的 E2E 依赖；若 `web_test` 缺页则先补建页面，再切换 spec
 - [x] 生成 L0 静态渲染测试页面（components/ + styles/）
 - [x] **AI Review L0 测试页面**：对照实际组件源码核查 API，自动修正问题
 - [x] 生成 L1 简单交互测试页面（interactions/click, input, modal）
@@ -1402,6 +1418,7 @@ npm run test:update-snapshots
 - [x] **浏览器范围**：当前及近期仅配置 Chromium，暂不扩展 WebKit/Firefox（已确认）
 - [x] **Skill 优先级**：Skill 在 Phase 7 实施即可（已确认）
 - [x] **测试页面维护**：新增渲染组件/样式时，由 AI 自动在 web-test 中补充测试页面（已确认）
+- [x] **测试页面唯一来源**：`web-e2e/tests/` 只能访问 `demo/.../pages/web_test/` 下页面；若测试属性缺页，必须先补 `web_test` 页面再补 spec（已确认）
 
 ---
 

@@ -1,7 +1,7 @@
 /**
  * L1 模块测试：内存监控模块（KRMemoryData / KRMemoryMonitor）
  *
- * 测试页面：MemoryDumpExamplePage
+ * 测试页面：MemoryModuleTestPage
  * 对应 Kotlin 源文件：KRMemoryData.kt、KRMemoryMonitor.kt（低覆盖率 → 提升）
  *
  * 测试覆盖：
@@ -12,15 +12,15 @@
 import { test, expect } from '../../../fixtures/test-base';
 
 test.describe('KRMemoryData/KRMemoryMonitor 内存模块测试', () => {
-  test('应该成功加载 MemoryDumpExamplePage 页面', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('MemoryDumpExamplePage');
+  test('应该成功加载 MemoryModuleTestPage 页面', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('MemoryModuleTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.locator('text=Memory Dump Example Page')).toBeVisible();
+    await expect(kuiklyPage.page.locator('text=MemoryModuleTestPage')).toBeVisible();
   });
 
   test('Dump Memory 按钮应存在并可点击（触发 KRMemoryMonitor）', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('MemoryDumpExamplePage');
+    await kuiklyPage.goto('MemoryModuleTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     const dumpBtn = kuiklyPage.page.locator('text=Dump Memory');
@@ -30,7 +30,7 @@ test.describe('KRMemoryData/KRMemoryMonitor 内存模块测试', () => {
   });
 
   test('Create And Retain 按钮应可触发（增加内存监控覆盖）', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('MemoryDumpExamplePage');
+    await kuiklyPage.goto('MemoryModuleTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     const createBtn = kuiklyPage.page.locator('text=Create And Retain 1000 Items').first();
