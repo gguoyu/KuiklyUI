@@ -11,6 +11,25 @@ Use this skill from the repository root.
 
 Treat `web-e2e/scripts/kuikly-test.mjs --full` as the canonical execution entrypoint for the current repo. Do not recreate the build, instrumentation, server, Playwright, and coverage pipeline manually unless you are debugging the pipeline itself.
 
+## Fixed operating mode
+
+This skill is the fixed project workflow for KuiklyUI web autotest.
+
+- Default AI trigger: when the user asks to run or continue the web autotest closed loop, improve web coverage, or inspect web autotest results, use this skill directly.
+- Default real run: `node kuikly-web-autotest/scripts/run-autotest-loop.mjs --skip-build --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan`
+- Default focused rerun: `node web-e2e/scripts/kuikly-test.mjs --skip-build --test <spec>`
+- Primary machine-readable output: `web-e2e/reports/autotest/loop-report.json`
+- User-facing quick reference: `web-e2e/AUTOTEST-USER-GUIDE.md`
+
+When coverage is still below threshold, continue the closed loop automatically as long as the next move stays inside the safe mutation scope below.
+
+When coverage cannot be pushed further by extending or repairing existing specs, inspect `suggest-test-targets.mjs` and the low-coverage files to decide whether the blocker is one of these two cases:
+
+- there is already a usable `web_test` page carrier, but the current spec set does not cover enough reachable behavior
+- there is no reasonable `web_test` page carrier for the uncovered behavior
+
+If the second case is confirmed, create a minimal carrier page only when the expected behavior is already clear from nearby `web_test` patterns; otherwise stop the loop with a manual-review warning instead of inventing page behavior.
+
 ## Workflow
 
 1. Use the loop entrypoint as the primary command.
@@ -32,6 +51,7 @@ Useful flags:
 - `--dry-run`: only analyze existing reports without rerunning tests
 - `--mutate-only`: apply auto-generated spec creation or refresh from existing reports without rerunning the full suite
 - `--retries 2`: allow two extra loop attempts after the first canonical run
+- `--max-rounds 3`: cap the total full-run rounds for the closed loop executor
 - `--max-new-specs 5`: cap how many new managed specs can be added in one loop pass
 - `--allow-incomplete-scan`: continue even when page/spec completeness has gaps
 - `--skip-build`, `--update-snapshots`, `--headed`, `--debug`, `--level`, `--test`: forwarded to the canonical runner
@@ -41,8 +61,10 @@ Automatic mutation scope:
 - create managed coverage specs for low-coverage source objects by following `suggest-test-targets.mjs`
 - refresh managed generated specs after failures in those same generated specs
 - repair handwritten specs when the fix is a deterministic page-target remap or legacy `page.goto('?page_name=...')` normalization to `kuiklyPage.goto('...')`
+- add a minimal `web_test` page only when a completeness gap or coverage gap clearly maps to a concrete missing carrier page and the required page behavior is obvious from existing repo patterns
 - after a handwritten repair, immediately rerun the patched spec with `web-e2e/scripts/kuikly-test.mjs --skip-build --test <spec>` to verify the fix result
 - if that targeted rerun still fails, automatically roll back the handwritten patch and emit a manual-review warning in the loop report
+- execute multiple full rounds, re-reading failure analysis and coverage after each round, and keep applying safe managed-spec repairs until the round budget is exhausted or the suite converges
 - do not rewrite handwritten non-managed specs outside those narrow safe rules unless a future deterministic repair rule is added
 
 2. Scan page and spec completeness directly when you need detailed raw data.
@@ -104,7 +126,8 @@ Prefer this report as the working summary for the closed loop.
 - If a screenshot diff matches intentional UI changes in modified source files, update snapshots.
 - If a failure indicates unexpected product behavior with no supporting code change, treat it as a code warning and do not silently weaken the test.
 - If coverage is below threshold, add or extend tests based on the low-coverage source object and rerun the full flow.
-- If a target capability is not represented in `web_test`, add the missing page under `demo/.../pages/web_test/` before adding the spec.
+- If a target capability is not represented in `web_test` but the intended behavior is already obvious from existing patterns, add the missing page under `demo/.../pages/web_test/` before adding the spec.
+- If a target capability is not represented in `web_test` and the intended behavior is still ambiguous, stop and report it as a carrier-page blocker.
 
 ## Escalate only when
 
