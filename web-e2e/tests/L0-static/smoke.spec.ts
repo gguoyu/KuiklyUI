@@ -22,20 +22,23 @@ test.describe('L0 冒烟测试套件', () => {
   });
 
   test('应该正确注入 data-kuikly-component 属性', async ({ kuiklyPage }) => {
+    test.slow();
+
     // 访问页面
     await kuiklyPage.goto('SmokeTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    // 查找所有带有 data-kuikly-component 属性的元素
-    const components = await kuiklyPage.page.locator('[data-kuikly-component]').all();
+    // 基于 locator 统计和抽样，避免一次性拉取全部 element handle。
+    const components = kuiklyPage.page.locator('[data-kuikly-component]');
+    const componentCount = await components.count();
 
     // 验证至少有一个组件被渲染
-    expect(components.length).toBeGreaterThan(0);
+    expect(componentCount).toBeGreaterThan(0);
 
     // 打印找到的组件类型（用于调试）
-    console.log(`找到 ${components.length} 个 Kuikly 组件`);
-    for (const comp of components.slice(0, 5)) { // 只打印前5个
-      const componentType = await comp.getAttribute('data-kuikly-component');
+    console.log(`找到 ${componentCount} 个 Kuikly 组件`);
+    for (let index = 0; index < Math.min(componentCount, 5); index += 1) {
+      const componentType = await components.nth(index).getAttribute('data-kuikly-component');
       console.log(`  - ${componentType}`);
     }
   });

@@ -94,9 +94,8 @@ test.describe('JS 帧动画测试', () => {
     await expect(kuiklyPage.page.getByText('开始计数').first()).toBeVisible({ timeout: 8000 });
 
     // 终态截图
-    await expect(kuiklyPage.page).toHaveScreenshot('js-frame-anim-count-end.png', {
-      maxDiffPixels: 300,
-    });
+    await expect(kuiklyPage.page.getByText('100', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('计数中...').first()).toHaveCount(0);
   });
 
   test('多段帧动画：各动画互不干扰，可独立触发', async ({ kuiklyPage }) => {

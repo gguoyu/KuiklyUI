@@ -1,4 +1,4 @@
-// @kuikly-autogen {"pageName":"PageListTestPage","category":"interactions","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/interactions/PageListTestPage.kt","reason":"coverage-gap","generatedAt":"2026-04-02T10:42:56.125Z"}
+// @kuikly-autogen {"pageName":"PageListTestPage","category":"interactions","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/interactions/PageListTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"interaction-page-list"}
 import { test, expect } from '../../fixtures/test-base';
 
 const PAGE_NAME = "PageListTestPage";
@@ -38,33 +38,66 @@ async function clickLabelIfPresent(kuiklyPage, label) {
   return false;
 }
 
+const PAGE_ZERO_ITEM = 'pageIndex:0 listIndex:0';
+const PAGE_ONE_ITEM = 'pageIndex:1 listIndex:0';
+const PAGE_THREE_ITEM = 'pageIndex:3 listIndex:0';
+
+async function dragPageList(page, container, deltaX) {
+  const box = await container.boundingBox();
+  if (!box) {
+    throw new Error('PageList container is not visible');
+  }
+
+  const startX = box.x + box.width * 0.75;
+  const endX = startX + deltaX;
+  const y = box.y + box.height / 2;
+
+  await page.mouse.move(startX, y);
+  await page.mouse.down();
+  await page.mouse.move(endX, y, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(800);
+}
+
+async function getLeft(locator) {
+  const box = await locator.boundingBox();
+  if (!box) {
+    throw new Error('Target is not visible enough to read bounding box');
+  }
+  return box.x;
+}
+
 test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
     await kuiklyPage.goto("PageListTestPage");
     await kuiklyPage.waitForRenderComplete();
-    await expectPageReady(kuiklyPage);
-    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
+
+    const page0Item = kuiklyPage.page.getByText(PAGE_ZERO_ITEM, { exact: true });
+    const page1Item = kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true });
+
+    await expect(kuiklyPage.page.getByText('PageListTestPage', { exact: true })).toBeVisible();
+    await expect(page0Item).toBeVisible();
+    expect(await getLeft(page0Item)).toBeGreaterThanOrEqual(0);
+    expect(await getLeft(page1Item)).toBeGreaterThan(300);
   });
 
-  test('exercises extracted controls on ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    test.skip(ACTION_LABELS.length === 0, 'No clickable labels were extracted from page source.');
-
+  test('swipes and clicks tabs on ' + PAGE_NAME, async ({ kuiklyPage }) => {
     await kuiklyPage.goto("PageListTestPage");
     await kuiklyPage.waitForRenderComplete();
-    await expectPageReady(kuiklyPage);
 
-    let clickedCount = 0;
-    for (const label of ACTION_LABELS) {
-      const clicked = await clickLabelIfPresent(kuiklyPage, label);
-      if (!clicked) {
-        continue;
-      }
+    const pageList = kuiklyPage.component('KRListView').first();
+    const page0Item = kuiklyPage.page.getByText(PAGE_ZERO_ITEM, { exact: true });
+    const page1Item = kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true });
+    const page3Item = kuiklyPage.page.getByText(PAGE_THREE_ITEM, { exact: true });
 
-      clickedCount += 1;
-      await kuiklyPage.page.waitForTimeout(250);
-      await expectPageReady(kuiklyPage);
-    }
+    await dragPageList(kuiklyPage.page, pageList, -260);
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(page1Item)).toBeGreaterThanOrEqual(0);
+    expect(await getLeft(page0Item)).toBeLessThan(0);
 
-    expect(clickedCount).toBeGreaterThan(0);
+    await kuiklyPage.page.getByText('tab3', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(800);
+    await expect(kuiklyPage.page.getByText('tab3', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(page3Item)).toBeGreaterThanOrEqual(0);
   });
 });

@@ -1,15 +1,17 @@
-// @kuikly-autogen {"pageName":"KRListViewTestPage","category":"components","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/components/KRListViewTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"default"}
+// @kuikly-autogen {"pageName":"CalendarModuleTestPage","category":"modules","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/modules/CalendarModuleTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"module-generic"}
 import { test, expect } from '../../../fixtures/test-base';
 
-const PAGE_NAME = "KRListViewTestPage";
-const TITLE_TEXT = "列表渲染测试";
+const PAGE_NAME = "CalendarModuleTestPage";
+const TITLE_TEXT = "CalendarModuleTestPage";
 const STABLE_TEXTS = [
-  "列表渲染测试",
-  "1",
-  "列表项 1",
-  "这是第一个列表项的描述文字"
+  "CalendarModuleTestPage"
 ];
-const ACTION_LABELS = [];
+const ACTION_LABELS = [
+  "timestampToCalendar",
+  "calendarToTimestamp",
+  "addCalendar",
+  "formatTimestamp"
+];
 
 async function expectPageReady(kuiklyPage) {
   if (TITLE_TEXT) {
@@ -43,7 +45,7 @@ async function clickLabelIfPresent(kuiklyPage, label) {
 
 test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    await kuiklyPage.goto("KRListViewTestPage");
+    await kuiklyPage.goto("CalendarModuleTestPage");
     await kuiklyPage.waitForRenderComplete();
     await expectPageReady(kuiklyPage);
     await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
@@ -52,7 +54,7 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('exercises extracted controls on ' + PAGE_NAME, async ({ kuiklyPage }) => {
     test.skip(ACTION_LABELS.length === 0, 'No clickable labels were extracted from page source.');
 
-    await kuiklyPage.goto("KRListViewTestPage");
+    await kuiklyPage.goto("CalendarModuleTestPage");
     await kuiklyPage.waitForRenderComplete();
     await expectPageReady(kuiklyPage);
 

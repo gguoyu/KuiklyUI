@@ -1,13 +1,10 @@
-// @kuikly-autogen {"pageName":"KRListViewTestPage","category":"components","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/components/KRListViewTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"default"}
-import { test, expect } from '../../../fixtures/test-base';
+// @kuikly-autogen {"pageName":"ButtonEventTestPage","category":"interactions","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/interactions/ButtonEventTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"interaction-generic"}
+import { test, expect } from '../../fixtures/test-base';
 
-const PAGE_NAME = "KRListViewTestPage";
-const TITLE_TEXT = "列表渲染测试";
+const PAGE_NAME = "ButtonEventTestPage";
+const TITLE_TEXT = "ButtonEventTestPage";
 const STABLE_TEXTS = [
-  "列表渲染测试",
-  "1",
-  "列表项 1",
-  "这是第一个列表项的描述文字"
+  "ButtonEventTestPage"
 ];
 const ACTION_LABELS = [];
 
@@ -43,7 +40,7 @@ async function clickLabelIfPresent(kuiklyPage, label) {
 
 test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    await kuiklyPage.goto("KRListViewTestPage");
+    await kuiklyPage.goto("ButtonEventTestPage");
     await kuiklyPage.waitForRenderComplete();
     await expectPageReady(kuiklyPage);
     await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
@@ -52,7 +49,7 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('exercises extracted controls on ' + PAGE_NAME, async ({ kuiklyPage }) => {
     test.skip(ACTION_LABELS.length === 0, 'No clickable labels were extracted from page source.');
 
-    await kuiklyPage.goto("KRListViewTestPage");
+    await kuiklyPage.goto("ButtonEventTestPage");
     await kuiklyPage.waitForRenderComplete();
     await expectPageReady(kuiklyPage);
 
