@@ -1173,6 +1173,29 @@ function buildSpecIndex() {
   return entries;
 }
 
+function findHandwrittenSpecsForPage(pageName, specIndex) {
+  return specIndex.filter((entry) => !entry.autogenMetadata && entry.gotoTargets.includes(pageName));
+}
+
+function classifyCarrierPageBlocker(pageName, specIndex) {
+  const handwrittenSpecs = findHandwrittenSpecsForPage(pageName, specIndex);
+  if (handwrittenSpecs.length === 0) {
+    return null;
+  }
+
+  const blockingSpec = handwrittenSpecs.find((entry) => /test\.skip\s*\(/.test(entry.content) || /TODO:/i.test(entry.content));
+  if (!blockingSpec) {
+    return null;
+  }
+
+  return {
+    pageName,
+    specFile: blockingSpec.relativeFile,
+    reason: 'handwritten-spec-blocks-automation',
+    message: 'A handwritten spec already marks this page as pending or skipped, so the loop must stop instead of generating a managed coverage spec.',
+  };
+}
+
 function resolveOrphanTarget(pageName, pageCatalog) {
   if (!pageName) {
     return null;
@@ -1474,7 +1497,8 @@ function addManagedSpecsForMissingPages(scan, pageCatalog, context) {
   return changed;
 }
 
-function addManagedSpecsForCoverage(suggestions, pageCatalog, managedIndex, context) {
+function addManagedSpecsForCoverage(suggestions, pageCatalog, managedIndex, context, blockers = []) {
+  const specIndex = buildSpecIndex();
   const candidatePages = [];
 
   for (const suggestion of suggestions?.suggestions || []) {
@@ -1497,6 +1521,12 @@ function addManagedSpecsForCoverage(suggestions, pageCatalog, managedIndex, cont
 
     const pageMeta = pageCatalog.pagesByName.get(pageName);
     if (!pageMeta) {
+      continue;
+    }
+
+    const blocker = classifyCarrierPageBlocker(pageName, specIndex);
+    if (blocker) {
+      blockers.push(blocker);
       continue;
     }
 
@@ -1773,6 +1803,18 @@ function addVerificationWarnings(verificationLog, warnings) {
   }
 }
 
+function addCarrierPageBlockerWarnings(blockers, warnings) {
+  for (const blocker of blockers || []) {
+    warnings.push({
+      type: 'carrier-page-blocker',
+      pageName: blocker.pageName,
+      specFile: blocker.specFile,
+      reason: blocker.reason,
+      message: blocker.message,
+    });
+  }
+}
+
 function coverageThresholdsPassed(coverage) {
   return Object.values(coverage?.summary || {}).every((metric) => metric.passed !== false);
 }
@@ -1837,6 +1879,7 @@ function buildRoundSummary(roundNumber, analysis, coverageCheck, scan, mutationC
 
 function executeLoop() {
   const pageCatalog = loadPageCatalog();
+  const coverageBlockers = [];
   const loopReport = {
     generatedAt: new Date().toISOString(),
     options,
@@ -1908,7 +1951,7 @@ function executeLoop() {
 
     if (!options.dryRun) {
       const mutateOnlyContext = createMutationContext(false);
-      addManagedSpecsForCoverage(loopReport.finalAnalyses.suggestions, pageCatalog, managedIndex, mutateOnlyContext);
+      addManagedSpecsForCoverage(loopReport.finalAnalyses.suggestions, pageCatalog, managedIndex, mutateOnlyContext, coverageBlockers);
       recordMutationBatch(loopReport, mutateOnlyContext, 'mutate-only');
       if (mutateOnlyContext.mutations.length > 0) {
         managedIndex = loadManagedSpecIndex();
@@ -1978,7 +2021,7 @@ function executeLoop() {
     addVerificationWarnings(loopReport.verification, loopReport.warnings);
 
     if (!coverageThresholdsPassed(round.coverageAnalysis)) {
-      addManagedSpecsForCoverage(round.suggestions, pageCatalog, managedIndex, roundContext);
+      addManagedSpecsForCoverage(round.suggestions, pageCatalog, managedIndex, roundContext, coverageBlockers);
     }
 
     round.mutations = roundContext.mutations;
@@ -2017,6 +2060,7 @@ function executeLoop() {
   if (scanHasCompletenessGaps(loopReport.scan)) {
     addCompletenessWarnings(loopReport.scan, loopReport.warnings);
   }
+  addCarrierPageBlockerWarnings(coverageBlockers, loopReport.warnings);
   addVerificationWarnings(loopReport.verification, loopReport.warnings);
 
   const safeScan = loopReport.scan || emptyScanResult();

@@ -62,6 +62,7 @@ Automatic mutation scope:
 - refresh managed generated specs after failures in those same generated specs
 - repair handwritten specs when the fix is a deterministic page-target remap or legacy `page.goto('?page_name=...')` normalization to `kuiklyPage.goto('...')`
 - add a minimal `web_test` page only when a completeness gap or coverage gap clearly maps to a concrete missing carrier page and the required page behavior is obvious from existing repo patterns
+- do not generate a new managed coverage spec for a page that already has a handwritten spec explicitly marked as pending, skipped, SDK-blocked, or TODO-driven; treat that page as a blocker and stop
 - after a handwritten repair, immediately rerun the patched spec with `web-e2e/scripts/kuikly-test.mjs --skip-build --test <spec>` to verify the fix result
 - if that targeted rerun still fails, automatically roll back the handwritten patch and emit a manual-review warning in the loop report
 - execute multiple full rounds, re-reading failure analysis and coverage after each round, and keep applying safe managed-spec repairs until the round budget is exhausted or the suite converges
@@ -126,8 +127,10 @@ Prefer this report as the working summary for the closed loop.
 - If a screenshot diff matches intentional UI changes in modified source files, update snapshots.
 - If a failure indicates unexpected product behavior with no supporting code change, treat it as a code warning and do not silently weaken the test.
 - If coverage is below threshold, add or extend tests based on the low-coverage source object and rerun the full flow.
+- If a handwritten spec already exists for a page and that spec explicitly says the capability is pending, SDK-blocked, or intentionally skipped, do not auto-generate a parallel managed spec for the same page.
 - If a target capability is not represented in `web_test` but the intended behavior is already obvious from existing patterns, add the missing page under `demo/.../pages/web_test/` before adding the spec.
 - If a target capability is not represented in `web_test` and the intended behavior is still ambiguous, stop and report it as a carrier-page blocker.
+- If a new carrier page would only be a placeholder title page and would not express the missing capability itself, stop and report it as a carrier-page blocker instead of creating it.
 
 ## Escalate only when
 
