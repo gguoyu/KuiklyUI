@@ -63,8 +63,11 @@ function parseIntegerArg(flag, fallback) {
   return parsed;
 }
 
+const parsedRetries = parseIntegerArg('--retries', 2);
+
 const options = {
-  retries: parseIntegerArg('--retries', 1),
+  retries: parsedRetries,
+  maxRounds: parseIntegerArg('--max-rounds', parsedRetries + 1),
   maxNewSpecs: parseIntegerArg('--max-new-specs', 3),
   dryRun: hasFlag('--dry-run'),
   mutateOnly: hasFlag('--mutate-only'),
@@ -211,10 +214,19 @@ function normalizeContentText(value) {
   if (!text) {
     return null;
   }
+  if (!/[\p{L}\p{N}]/u.test(text)) {
+    return null;
+  }
   if (/^[\-+*=|/\\]+$/.test(text)) {
     return null;
   }
   return text;
+}
+
+function toJsLiteral(value) {
+  return JSON.stringify(String(value)).replace(/[\u2028\u2029]/g, (char) => {
+    return char === '\u2028' ? '\\u2028' : '\\u2029';
+  });
 }
 
 function normalizeActionLabel(value) {
@@ -348,25 +360,51 @@ function loadPageCatalog() {
   };
 }
 
-function managedSpecMetadataFor(pageMeta, reason) {
+function defaultManagedTemplateProfile(pageMeta) {
+  switch (pageMeta.pageName) {
+    case 'ListScrollTestPage':
+      return 'interaction-list-scroll';
+    case 'PageListTestPage':
+      return 'interaction-page-list';
+    case 'JSFrameAnimTestPage':
+      return 'animation-jsframe';
+    case 'PropertyAnimTestPage':
+      return 'animation-property';
+    case 'NetworkModuleTestPage':
+      return 'module-network';
+    default:
+      break;
+  }
+
+  switch (pageMeta.category) {
+    case 'interactions':
+      return 'interaction-generic';
+    case 'animations':
+      return 'animation-generic';
+    case 'modules':
+      return 'module-generic';
+    default:
+      return 'default';
+  }
+}
+
+function managedSpecMetadataFor(pageMeta, reason, templateProfile) {
   return {
     pageName: pageMeta.pageName,
     category: pageMeta.category,
     sourceFile: pageMeta.file,
-    reason,
-    generatedAt: new Date().toISOString(),
+    managedBy: 'kuikly-web-autotest',
+    templateProfile,
   };
 }
 
-function buildManagedSpecContent(pageMeta, reason) {
-  const metadata = managedSpecMetadataFor(pageMeta, reason);
-  const fixtureImport = inferFixtureImport(pageMeta.managedSpecPath);
-  const titleLiteral = pageMeta.titleText ? JSON.stringify(pageMeta.titleText) : 'null';
-  const actionLabelsLiteral = JSON.stringify(pageMeta.actionLabels, null, 2);
-  const stableTextsLiteral = JSON.stringify(pageMeta.stableTexts.slice(0, 3), null, 2);
+function buildManagedSpecPreamble(pageMeta, metadata, fixtureImport) {
   const metadataLiteral = escapeTemplateLiteral(JSON.stringify(metadata));
   const fixtureImportLiteral = escapeTemplateLiteral(fixtureImport);
   const pageNameLiteral = escapeTemplateLiteral(JSON.stringify(pageMeta.pageName));
+  const titleLiteral = pageMeta.titleText ? JSON.stringify(pageMeta.titleText) : 'null';
+  const stableTextsLiteral = JSON.stringify(pageMeta.stableTexts.slice(0, 4), null, 2);
+  const actionLabelsLiteral = JSON.stringify(pageMeta.actionLabels, null, 2);
 
   return `// @kuikly-autogen ${metadataLiteral}
 import { test, expect } from '${fixtureImportLiteral}';
@@ -405,7 +443,11 @@ async function clickLabelIfPresent(kuiklyPage, label) {
 
   return false;
 }
+`;
+}
 
+function buildManagedDefaultSpec(pageMeta, preamble, pageNameLiteral) {
+  return `${preamble}
 test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
     await kuiklyPage.goto(${pageNameLiteral});
@@ -437,6 +479,661 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   });
 });
 `;
+}
+
+function buildManagedGenericSmokeSpec(pageMeta, preamble, pageNameLiteral) {
+  return `${preamble}
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+    await expectPageReady(kuiklyPage);
+    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
+  });
+
+  test('probes one stable control on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    test.skip(ACTION_LABELS.length === 0, 'No clickable labels were extracted from page source.');
+
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+    await expectPageReady(kuiklyPage);
+
+    let clicked = false;
+    for (const label of ACTION_LABELS.slice(0, 3)) {
+      clicked = await clickLabelIfPresent(kuiklyPage, label);
+      if (clicked) {
+        break;
+      }
+    }
+
+    expect(clicked).toBeTruthy();
+    await kuiklyPage.page.waitForTimeout(400);
+    await expectPageReady(kuiklyPage);
+  });
+});
+`;
+}
+
+function buildManagedListScrollSpec(pageMeta, preamble, pageNameLiteral) {
+  return `${preamble}
+const LIST_TITLE = '列表滚动测试';
+const LIST_GROUP_ONE = '分组 1';
+const LIST_GROUP_THREE = '分组 3';
+const LIST_ITEM_ONE = '列表项 1';
+const LIST_ITEM_EIGHT = '列表项 8';
+const LIST_ITEM_TWENTY_ONE = '列表项 21';
+const LIST_SELECTED_ONE = '选中: 列表项 1';
+const LIST_SELECTED_EIGHT = '选中: 列表项 8';
+async function listContainer(kuiklyPage) {
+  return kuiklyPage.component('KRListView').first();
+}
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText(LIST_TITLE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(LIST_GROUP_ONE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(LIST_ITEM_ONE, { exact: true })).toBeVisible();
+  });
+
+  test('scrolls and selects stable rows on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await kuiklyPage.page.getByText(LIST_ITEM_ONE, { exact: true }).click();
+    await expect(kuiklyPage.page.getByText(LIST_SELECTED_ONE, { exact: true })).toBeVisible();
+
+    const container = await listContainer(kuiklyPage);
+    await kuiklyPage.scrollInContainer(container, { deltaY: 500, smooth: false });
+    await expect(kuiklyPage.page.getByText(LIST_ITEM_EIGHT, { exact: true })).toBeVisible();
+
+    await kuiklyPage.page.getByText(LIST_ITEM_EIGHT, { exact: true }).click();
+    await expect(kuiklyPage.page.getByText(LIST_SELECTED_EIGHT, { exact: true })).toBeVisible();
+
+    await kuiklyPage.scrollInContainer(container, { deltaY: 1200, smooth: false });
+    const scrollTop = await container.evaluate((el) => (el instanceof HTMLElement ? el.scrollTop : 0));
+    expect(scrollTop).toBeGreaterThan(900);
+    await expect(kuiklyPage.page.getByText(LIST_GROUP_THREE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(LIST_ITEM_TWENTY_ONE, { exact: true })).toBeVisible();
+
+    for (let i = 0; i < 8; i += 1) {
+      await kuiklyPage.scrollInContainer(container, { deltaY: 350, smooth: false });
+    }
+
+    const finalScrollTop = await container.evaluate((el) => (el instanceof HTMLElement ? el.scrollTop : 0));
+    expect(finalScrollTop).toBeGreaterThan(1800);
+  });
+});
+`;
+}
+
+function buildManagedListScrollLiteSpec(pageMeta, preamble, pageNameLiteral) {
+  return `${preamble}
+const LIST_TITLE = '列表滚动测试';
+const LIST_ITEM_ONE = '列表项 1';
+const LIST_ITEM_EIGHT = '列表项 8';
+const LIST_ITEM_TWENTY_ONE = '列表项 21';
+
+async function listContainer(kuiklyPage) {
+  return kuiklyPage.component('KRListView').first();
+}
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText(LIST_TITLE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(LIST_ITEM_ONE, { exact: true })).toBeVisible();
+  });
+
+  test('reaches lower list sections on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    const container = await listContainer(kuiklyPage);
+    await kuiklyPage.page.getByText(LIST_ITEM_ONE, { exact: true }).click();
+    await kuiklyPage.scrollInContainer(container, { deltaY: 550, smooth: false });
+    await expect(kuiklyPage.page.getByText(LIST_ITEM_EIGHT, { exact: true })).toBeVisible();
+
+    await kuiklyPage.scrollInContainer(container, { deltaY: 1650, smooth: false });
+    await expect(kuiklyPage.page.getByText(LIST_ITEM_TWENTY_ONE, { exact: true })).toBeVisible();
+  });
+});
+`;
+}
+
+function buildManagedPageListSpec(pageMeta, preamble, pageNameLiteral) {
+  return `${preamble}
+const PAGE_ZERO_ITEM = 'pageIndex:0 listIndex:0';
+const PAGE_ONE_ITEM = 'pageIndex:1 listIndex:0';
+const PAGE_THREE_ITEM = 'pageIndex:3 listIndex:0';
+
+async function dragPageList(page, container, deltaX) {
+  const box = await container.boundingBox();
+  if (!box) {
+    throw new Error('PageList container is not visible');
+  }
+
+  const startX = box.x + box.width * 0.75;
+  const endX = startX + deltaX;
+  const y = box.y + box.height / 2;
+
+  await page.mouse.move(startX, y);
+  await page.mouse.down();
+  await page.mouse.move(endX, y, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(800);
+}
+
+async function getLeft(locator) {
+  const box = await locator.boundingBox();
+  if (!box) {
+    throw new Error('Target is not visible enough to read bounding box');
+  }
+  return box.x;
+}
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    const page0Item = kuiklyPage.page.getByText(PAGE_ZERO_ITEM, { exact: true });
+    const page1Item = kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true });
+
+    await expect(kuiklyPage.page.getByText('PageListTestPage', { exact: true })).toBeVisible();
+    await expect(page0Item).toBeVisible();
+    expect(await getLeft(page0Item)).toBeGreaterThanOrEqual(0);
+    expect(await getLeft(page1Item)).toBeGreaterThan(300);
+  });
+
+  test('swipes and clicks tabs on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    const pageList = kuiklyPage.component('KRListView').first();
+    const page0Item = kuiklyPage.page.getByText(PAGE_ZERO_ITEM, { exact: true });
+    const page1Item = kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true });
+    const page3Item = kuiklyPage.page.getByText(PAGE_THREE_ITEM, { exact: true });
+
+    await dragPageList(kuiklyPage.page, pageList, -260);
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(page1Item)).toBeGreaterThanOrEqual(0);
+    expect(await getLeft(page0Item)).toBeLessThan(0);
+
+    await kuiklyPage.page.getByText('tab3', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(800);
+    await expect(kuiklyPage.page.getByText('tab3', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(page3Item)).toBeGreaterThanOrEqual(0);
+  });
+});
+`;
+}
+
+function buildManagedJsFrameAnimSpec(pageMeta, preamble, pageNameLiteral) {
+  const labels = {
+    section: toJsLiteral('1. 进度条帧动画'),
+    progressZero: toJsLiteral('进度: 0%'),
+    progressDone: toJsLiteral('进度: 100%'),
+    colorStart: toJsLiteral('当前色块: 1 / 5'),
+    colorDone: toJsLiteral('当前色块: 5 / 5'),
+    startProgress: toJsLiteral('开始动画'),
+    running: toJsLiteral('运行中...'),
+    startColor: toJsLiteral('开始轮播'),
+    colorRunning: toJsLiteral('轮播中...'),
+    startMarquee: toJsLiteral('开始跑马灯'),
+    startCount: toJsLiteral('开始计数'),
+    countRunning: toJsLiteral('计数中...'),
+  };
+
+  return `${preamble}
+const SECTION_TITLE = ${labels.section};
+const PROGRESS_ZERO = ${labels.progressZero};
+const PROGRESS_DONE = ${labels.progressDone};
+const COLOR_START = ${labels.colorStart};
+const COLOR_DONE = ${labels.colorDone};
+const START_PROGRESS = ${labels.startProgress};
+const RUNNING_PROGRESS = ${labels.running};
+const START_COLOR = ${labels.startColor};
+const RUNNING_COLOR = ${labels.colorRunning};
+const START_MARQUEE = ${labels.startMarquee};
+const START_COUNT = ${labels.startCount};
+const RUNNING_COUNT = ${labels.countRunning};
+
+async function waitForIdleLabel(page, label, timeout = 8000) {
+  await expect(page.getByText(label, { exact: true }).first()).toBeVisible({ timeout });
+}
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText(SECTION_TITLE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(PROGRESS_ZERO, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(COLOR_START, { exact: true })).toBeVisible();
+  });
+
+  test('runs progress and color animations on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await kuiklyPage.page.getByText(START_PROGRESS, { exact: true }).click();
+    await expect(kuiklyPage.page.getByText(RUNNING_PROGRESS, { exact: true }).first()).toBeVisible({ timeout: 1500 });
+    await waitForIdleLabel(kuiklyPage.page, START_PROGRESS);
+    await expect(kuiklyPage.page.getByText(PROGRESS_DONE, { exact: true })).toBeVisible();
+
+    await kuiklyPage.page.getByText(START_COLOR, { exact: true }).click();
+    await expect(kuiklyPage.page.getByText(RUNNING_COLOR, { exact: true }).first()).toBeVisible({ timeout: 1500 });
+    await waitForIdleLabel(kuiklyPage.page, START_COLOR);
+    await expect(kuiklyPage.page.getByText(COLOR_DONE, { exact: true })).toBeVisible();
+  });
+
+  test('runs marquee and counter animations on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await kuiklyPage.page.getByText(START_MARQUEE, { exact: true }).click();
+    await expect(kuiklyPage.page.getByText(RUNNING_PROGRESS, { exact: true }).first()).toBeVisible({ timeout: 1500 });
+    await waitForIdleLabel(kuiklyPage.page, START_MARQUEE, 6000);
+
+    await kuiklyPage.page.getByText(START_COUNT, { exact: true }).click();
+    await expect(kuiklyPage.page.getByText(RUNNING_COUNT, { exact: true }).first()).toBeVisible({ timeout: 1500 });
+    await waitForIdleLabel(kuiklyPage.page, START_COUNT);
+    await expect(kuiklyPage.page.getByText('100', { exact: true })).toBeVisible();
+  });
+});
+`;
+}
+
+function buildManagedJsFrameAnimStateSpec(pageMeta, preamble, pageNameLiteral) {
+  const labels = {
+    section: toJsLiteral('1. 进度条帧动画'),
+    progressDone: toJsLiteral('进度: 100%'),
+    colorDone: toJsLiteral('当前色块: 5 / 5'),
+    startProgress: toJsLiteral('开始动画'),
+    startColor: toJsLiteral('开始轮播'),
+    startCount: toJsLiteral('开始计数'),
+  };
+
+  return `${preamble}
+const SECTION_TITLE = ${labels.section};
+const PROGRESS_DONE = ${labels.progressDone};
+const COLOR_DONE = ${labels.colorDone};
+const START_PROGRESS = ${labels.startProgress};
+const START_COLOR = ${labels.startColor};
+const START_COUNT = ${labels.startCount};
+
+async function waitForIdleLabel(page, label, timeout = 8000) {
+  await expect(page.getByText(label, { exact: true }).first()).toBeVisible({ timeout });
+}
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText(SECTION_TITLE, { exact: true })).toBeVisible();
+  });
+
+  test('verifies stable end states on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await kuiklyPage.page.getByText(START_PROGRESS, { exact: true }).click();
+    await waitForIdleLabel(kuiklyPage.page, START_PROGRESS);
+    await expect(kuiklyPage.page.getByText(PROGRESS_DONE, { exact: true })).toBeVisible();
+
+    await kuiklyPage.page.getByText(START_COLOR, { exact: true }).click();
+    await waitForIdleLabel(kuiklyPage.page, START_COLOR);
+    await expect(kuiklyPage.page.getByText(COLOR_DONE, { exact: true })).toBeVisible();
+
+    await kuiklyPage.page.getByText(START_COUNT, { exact: true }).click();
+    await waitForIdleLabel(kuiklyPage.page, START_COUNT);
+    await expect(kuiklyPage.page.getByText('100', { exact: true })).toBeVisible();
+  });
+});
+`;
+}
+
+function buildManagedPropertyAnimSpec(pageMeta, preamble, pageNameLiteral) {
+  const labels = {
+    section: toJsLiteral('1. Linear 平移动画'),
+    playTranslate: toJsLiteral('播放平移'),
+    restorePosition: toJsLiteral('还原位置'),
+    spring: toJsLiteral('弹性运动'),
+    color: toJsLiteral('变换颜色'),
+    restoreColor: toJsLiteral('还原颜色'),
+    combo: toJsLiteral('平移+旋转'),
+    restore: toJsLiteral('还原'),
+  };
+
+  return `${preamble}
+const SECTION_TITLE = ${labels.section};
+const PLAY_TRANSLATE = ${labels.playTranslate};
+const RESTORE_POSITION = ${labels.restorePosition};
+const SPRING_ACTION = ${labels.spring};
+const COLOR_ACTION = ${labels.color};
+const RESTORE_COLOR = ${labels.restoreColor};
+const COMBO_ACTION = ${labels.combo};
+const RESTORE_ACTION = ${labels.restore};
+
+async function waitForText(page, text, timeout = 5000) {
+  await expect(page.getByText(text, { exact: true }).first()).toBeVisible({ timeout });
+}
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText(SECTION_TITLE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(PLAY_TRANSLATE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(COMBO_ACTION, { exact: true })).toBeVisible();
+  });
+
+  test('toggles translate and spring animations on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await kuiklyPage.page.getByText(PLAY_TRANSLATE, { exact: true }).click();
+    await waitForText(kuiklyPage.page, RESTORE_POSITION);
+    await kuiklyPage.page.getByText(RESTORE_POSITION, { exact: true }).first().click();
+    await waitForText(kuiklyPage.page, PLAY_TRANSLATE);
+
+    await kuiklyPage.page.getByText(SPRING_ACTION, { exact: true }).click();
+    await waitForText(kuiklyPage.page, RESTORE_POSITION);
+  });
+
+  test('toggles color and combo animations on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await kuiklyPage.page.getByText(COLOR_ACTION, { exact: true }).click();
+    await waitForText(kuiklyPage.page, RESTORE_COLOR);
+
+    await kuiklyPage.page.getByText(COMBO_ACTION, { exact: true }).click();
+    await waitForText(kuiklyPage.page, RESTORE_ACTION);
+  });
+});
+`;
+}
+
+function buildManagedPropertyAnimToggleSpec(pageMeta, preamble, pageNameLiteral) {
+  const labels = {
+    section: toJsLiteral('1. Linear 平移动画'),
+    playTranslate: toJsLiteral('播放平移'),
+    restorePosition: toJsLiteral('还原位置'),
+    color: toJsLiteral('变换颜色'),
+    restoreColor: toJsLiteral('还原颜色'),
+    combo: toJsLiteral('平移+旋转'),
+    restore: toJsLiteral('还原'),
+  };
+
+  return `${preamble}
+const SECTION_TITLE = ${labels.section};
+const PLAY_TRANSLATE = ${labels.playTranslate};
+const RESTORE_POSITION = ${labels.restorePosition};
+const COLOR_ACTION = ${labels.color};
+const RESTORE_COLOR = ${labels.restoreColor};
+const COMBO_ACTION = ${labels.combo};
+const RESTORE_ACTION = ${labels.restore};
+
+async function waitForText(page, text, timeout = 5000) {
+  await expect(page.getByText(text, { exact: true }).first()).toBeVisible({ timeout });
+}
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText(SECTION_TITLE, { exact: true })).toBeVisible();
+  });
+
+  test('verifies one-way animation toggles on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await kuiklyPage.page.getByText(PLAY_TRANSLATE, { exact: true }).click();
+    await waitForText(kuiklyPage.page, RESTORE_POSITION);
+
+    await kuiklyPage.page.getByText(COLOR_ACTION, { exact: true }).click();
+    await waitForText(kuiklyPage.page, RESTORE_COLOR);
+
+    await kuiklyPage.page.getByText(COMBO_ACTION, { exact: true }).click();
+    await waitForText(kuiklyPage.page, RESTORE_ACTION);
+  });
+});
+`;
+}
+
+function buildManagedNetworkModuleSpec(pageMeta, preamble, pageNameLiteral) {
+  return `${preamble}
+async function waitForOutput(page, text) {
+  await expect(page.getByText(text, { exact: false }).first()).toBeVisible({ timeout: 15000 });
+}
+
+async function clickNetworkAction(page, label) {
+  const labelled = page.getByLabel(label, { exact: true });
+  if (await labelled.count()) {
+    await labelled.first().click();
+    return;
+  }
+
+  await page.getByText(label, { exact: true }).first().click();
+}
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText('NetworkModuleTestPage', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByLabel('requestGet', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByLabel('requestPostBinary', { exact: true })).toBeVisible();
+  });
+
+  test('covers request success paths on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await clickNetworkAction(kuiklyPage.page, 'requestGet');
+    await waitForOutput(kuiklyPage.page, 'Get request completed:');
+    await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('http://localhost:8080/api/network/get?key=value', { exact: false })).toBeVisible({ timeout: 15000 });
+
+    await clickNetworkAction(kuiklyPage.page, 'requestPost');
+    await waitForOutput(kuiklyPage.page, 'Post request completed:');
+    await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('http://localhost:8080/api/network/post', { exact: false })).toBeVisible({ timeout: 15000 });
+
+    await clickNetworkAction(kuiklyPage.page, 'requestPostBinary');
+    await waitForOutput(kuiklyPage.page, 'Post request completed:');
+    await expect(kuiklyPage.page.getByText('hello world', { exact: false })).toBeVisible({ timeout: 15000 });
+  });
+
+  test('covers request edge paths on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await clickNetworkAction(kuiklyPage.page, 'requestGetBinary');
+    await waitForOutput(kuiklyPage.page, 'Get request completed:');
+    await expect(kuiklyPage.page.getByText('statusCode=-1002', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('Request with GET/HEAD method cannot have body.', { exact: false })).toBeVisible({ timeout: 15000 });
+
+    await clickNetworkAction(kuiklyPage.page, 'status204');
+    await waitForOutput(kuiklyPage.page, 'Get request completed:');
+    await expect(kuiklyPage.page.getByText('success=false', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('statusCode=204', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('Unexpected end of JSON input', { exact: false })).toBeVisible({ timeout: 15000 });
+  });
+});
+`;
+}
+
+function buildManagedNetworkModuleSmokeSpec(pageMeta, preamble, pageNameLiteral) {
+  return `${preamble}
+async function waitForOutput(page, text) {
+  await expect(page.getByText(text, { exact: false }).first()).toBeVisible({ timeout: 15000 });
+}
+
+async function clickNetworkAction(page, label) {
+  const labelled = page.getByLabel(label, { exact: true });
+  if (await labelled.count()) {
+    await labelled.first().click();
+    return;
+  }
+
+  await page.getByText(label, { exact: true }).first().click();
+}
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText('NetworkModuleTestPage', { exact: true })).toBeVisible();
+  });
+
+  test('covers one success and one edge case on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await clickNetworkAction(kuiklyPage.page, 'requestGet');
+    await waitForOutput(kuiklyPage.page, 'statusCode=200');
+
+    await clickNetworkAction(kuiklyPage.page, 'requestPostBinary');
+    await waitForOutput(kuiklyPage.page, 'hello world');
+
+    await clickNetworkAction(kuiklyPage.page, 'status204');
+    await waitForOutput(kuiklyPage.page, 'statusCode=204');
+  });
+});
+`;
+}
+
+function buildManagedPageListTabSpec(pageMeta, preamble, pageNameLiteral) {
+  return `${preamble}
+const PAGE_ZERO_ITEM = 'pageIndex:0 listIndex:0';
+const PAGE_ONE_ITEM = 'pageIndex:1 listIndex:0';
+const PAGE_THREE_ITEM = 'pageIndex:3 listIndex:0';
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText('PageListTestPage', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(PAGE_ZERO_ITEM, { exact: true })).toBeVisible();
+  });
+
+  test('switches pages through tabs on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await kuiklyPage.page.getByText('tab1', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(800);
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    await expect(kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true })).toBeVisible();
+
+    await kuiklyPage.page.getByText('tab3', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(800);
+    await expect(kuiklyPage.page.getByText('tab3', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    await expect(kuiklyPage.page.getByText(PAGE_THREE_ITEM, { exact: true })).toBeVisible();
+  });
+});
+`;
+}
+
+function buildManagedInteractionSpec(pageMeta, preamble, pageNameLiteral, templateProfile) {
+  if (pageMeta.pageName === 'ListScrollTestPage') {
+    if (templateProfile === 'interaction-list-scroll-lite') {
+      return buildManagedListScrollLiteSpec(pageMeta, preamble, pageNameLiteral);
+    }
+    return buildManagedListScrollSpec(pageMeta, preamble, pageNameLiteral);
+  }
+
+  if (pageMeta.pageName === 'PageListTestPage') {
+    if (templateProfile === 'interaction-page-list-tab-only') {
+      return buildManagedPageListTabSpec(pageMeta, preamble, pageNameLiteral);
+    }
+    return buildManagedPageListSpec(pageMeta, preamble, pageNameLiteral);
+  }
+
+  if (templateProfile === 'interaction-generic-repair') {
+    return buildManagedGenericSmokeSpec(pageMeta, preamble, pageNameLiteral);
+  }
+
+  return buildManagedDefaultSpec(pageMeta, preamble, pageNameLiteral);
+}
+
+function buildManagedAnimationSpec(pageMeta, preamble, pageNameLiteral, templateProfile) {
+  if (pageMeta.pageName === 'JSFrameAnimTestPage') {
+    if (templateProfile === 'animation-jsframe-state-only') {
+      return buildManagedJsFrameAnimStateSpec(pageMeta, preamble, pageNameLiteral);
+    }
+    return buildManagedJsFrameAnimSpec(pageMeta, preamble, pageNameLiteral);
+  }
+
+  if (pageMeta.pageName === 'PropertyAnimTestPage') {
+    if (templateProfile === 'animation-property-toggle-only') {
+      return buildManagedPropertyAnimToggleSpec(pageMeta, preamble, pageNameLiteral);
+    }
+    return buildManagedPropertyAnimSpec(pageMeta, preamble, pageNameLiteral);
+  }
+
+  if (templateProfile === 'animation-generic-repair') {
+    return buildManagedGenericSmokeSpec(pageMeta, preamble, pageNameLiteral);
+  }
+
+  return buildManagedDefaultSpec(pageMeta, preamble, pageNameLiteral);
+}
+
+function buildManagedModuleSpec(pageMeta, preamble, pageNameLiteral, templateProfile) {
+  if (pageMeta.pageName === 'NetworkModuleTestPage') {
+    if (templateProfile === 'module-network-smoke') {
+      return buildManagedNetworkModuleSmokeSpec(pageMeta, preamble, pageNameLiteral);
+    }
+    return buildManagedNetworkModuleSpec(pageMeta, preamble, pageNameLiteral);
+  }
+
+  if (templateProfile === 'module-generic-repair') {
+    return buildManagedGenericSmokeSpec(pageMeta, preamble, pageNameLiteral);
+  }
+
+  return buildManagedDefaultSpec(pageMeta, preamble, pageNameLiteral);
+}
+
+function buildManagedSpecContent(pageMeta, reason, repairProfile = null) {
+  const templateProfile = repairProfile?.templateProfile || defaultManagedTemplateProfile(pageMeta);
+  const metadata = managedSpecMetadataFor(pageMeta, reason, templateProfile);
+  const fixtureImport = inferFixtureImport(pageMeta.managedSpecPath);
+  const pageNameLiteral = escapeTemplateLiteral(JSON.stringify(pageMeta.pageName));
+  const preamble = buildManagedSpecPreamble(pageMeta, metadata, fixtureImport);
+
+  if (pageMeta.category === 'interactions') {
+    return buildManagedInteractionSpec(pageMeta, preamble, pageNameLiteral, templateProfile);
+  }
+
+  if (pageMeta.category === 'animations') {
+    return buildManagedAnimationSpec(pageMeta, preamble, pageNameLiteral, templateProfile);
+  }
+
+  if (pageMeta.category === 'modules') {
+    return buildManagedModuleSpec(pageMeta, preamble, pageNameLiteral, templateProfile);
+  }
+
+  if (templateProfile === 'generic-repair') {
+    return buildManagedGenericSmokeSpec(pageMeta, preamble, pageNameLiteral);
+  }
+
+  return buildManagedDefaultSpec(pageMeta, preamble, pageNameLiteral);
 }
 
 function parseAutogenMetadataFromContent(content) {
@@ -653,9 +1350,75 @@ function loadManagedSpecIndex() {
   return { byPage, byFile };
 }
 
-function upsertManagedSpec(pageMeta, reason, context) {
+function managedRepairProfileFor(pageMeta, failure, managedEntry) {
+  const currentProfile = managedEntry?.metadata?.templateProfile || defaultManagedTemplateProfile(pageMeta);
+  const message = `${failure?.message || ''}\n${failure?.stack || ''}`.toLowerCase();
+
+  if (pageMeta.pageName === 'ListScrollTestPage') {
+    return {
+      templateProfile: currentProfile === 'interaction-list-scroll' ? 'interaction-list-scroll-lite' : currentProfile,
+      strategy: currentProfile === 'interaction-list-scroll' ? 'reduce-scroll-depth-and-assertions' : 'reuse-list-scroll-template',
+    };
+  }
+
+  if (pageMeta.pageName === 'PageListTestPage') {
+    const prefersTabOnly =
+      currentProfile === 'interaction-page-list' &&
+      (failure?.category === 'ELEMENT_NOT_FOUND' || message.includes('bounding box') || message.includes('not visible'));
+    return {
+      templateProfile: prefersTabOnly ? 'interaction-page-list-tab-only' : currentProfile,
+      strategy: prefersTabOnly ? 'rewrite-to-tab-driven-page-switch' : 'reuse-page-list-template',
+    };
+  }
+
+  if (pageMeta.pageName === 'JSFrameAnimTestPage') {
+    return {
+      templateProfile: currentProfile === 'animation-jsframe' ? 'animation-jsframe-state-only' : currentProfile,
+      strategy: currentProfile === 'animation-jsframe' ? 'rewrite-to-state-driven-animation-checks' : 'reuse-jsframe-animation-template',
+    };
+  }
+
+  if (pageMeta.pageName === 'PropertyAnimTestPage') {
+    return {
+      templateProfile: currentProfile === 'animation-property' ? 'animation-property-toggle-only' : currentProfile,
+      strategy: currentProfile === 'animation-property' ? 'rewrite-to-toggle-state-assertions' : 'reuse-property-animation-template',
+    };
+  }
+
+  if (pageMeta.pageName === 'NetworkModuleTestPage') {
+    return {
+      templateProfile: currentProfile === 'module-network' ? 'module-network-smoke' : currentProfile,
+      strategy: currentProfile === 'module-network' ? 'rewrite-to-shorter-network-coverage-path' : 'reuse-network-module-template',
+    };
+  }
+
+  switch (pageMeta.category) {
+    case 'interactions':
+      return {
+        templateProfile: 'interaction-generic-repair',
+        strategy: 'rewrite-interaction-managed-spec-to-light-smoke',
+      };
+    case 'animations':
+      return {
+        templateProfile: 'animation-generic-repair',
+        strategy: 'rewrite-animation-managed-spec-to-light-smoke',
+      };
+    case 'modules':
+      return {
+        templateProfile: 'module-generic-repair',
+        strategy: 'rewrite-module-managed-spec-to-light-smoke',
+      };
+    default:
+      return {
+        templateProfile: 'generic-repair',
+        strategy: 'rewrite-managed-spec-to-light-smoke',
+      };
+  }
+}
+
+function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
   const targetPath = pageMeta.managedSpecPath;
-  const content = buildManagedSpecContent(pageMeta, reason);
+  const content = buildManagedSpecContent(pageMeta, reason, repairProfile);
   const alreadyExists = existsSync(targetPath);
   const previousContent = alreadyExists ? readFileSync(targetPath, 'utf8') : null;
 
@@ -669,6 +1432,8 @@ function upsertManagedSpec(pageMeta, reason, context) {
     pageName: pageMeta.pageName,
     file: toPosix(relative(repoRoot, targetPath)),
     dryRun: context.dryRun,
+    templateProfile: repairProfile?.templateProfile || defaultManagedTemplateProfile(pageMeta),
+    repairStrategy: repairProfile?.strategy || null,
   };
 
   if (!context.dryRun) {
@@ -765,7 +1530,8 @@ function repairManagedSpecFailures(failureAnalysis, pageCatalog, managedIndex, c
       continue;
     }
 
-    if (upsertManagedSpec(pageMeta, `failure-repair:${failure.category}`, context)) {
+    const repairProfile = managedRepairProfileFor(pageMeta, failure, managedEntry);
+    if (upsertManagedSpec(pageMeta, `failure-repair:${failure.category}`, context, repairProfile)) {
       repairedCount += 1;
     }
   }
@@ -1007,6 +1773,68 @@ function addVerificationWarnings(verificationLog, warnings) {
   }
 }
 
+function coverageThresholdsPassed(coverage) {
+  return Object.values(coverage?.summary || {}).every((metric) => metric.passed !== false);
+}
+
+function scanHasCompletenessGaps(scan) {
+  return Boolean(
+    scan?.summary &&
+      (scan.summary.missingSpecCount > 0 || scan.summary.orphanSpecTargetCount > 0 || scan.summary.specsWithoutGotoCount > 0)
+  );
+}
+
+function recordMutationBatch(loopReport, mutationContext, phase) {
+  const applied = mutationContext?.mutations || [];
+  const reverted = mutationContext?.revertedMutations || [];
+
+  if (applied.length > 0) {
+    loopReport.mutations.push(...applied.map((mutation) => ({ ...mutation, phase })));
+  }
+
+  if (reverted.length > 0) {
+    for (const mutation of reverted) {
+      loopReport.warnings.push({
+        type: 'mutation-rolled-back',
+        phase,
+        file: mutation.file,
+        reason: mutation.reason,
+        message: 'Automatic mutation was reverted because its targeted verification rerun failed.',
+      });
+    }
+  }
+
+  return applied.length;
+}
+
+function refreshScanIfNeeded(skipScan) {
+  return skipScan ? emptyScanResult() : runNodeScript('scan-web-test-pages.mjs');
+}
+
+function runAnalysisBundle() {
+  return {
+    failureAnalysis: tryLoadJson('analyze-playwright-results.mjs'),
+    coverageAnalysis: tryLoadJson('summarize-coverage.mjs'),
+    suggestions: tryLoadJson('suggest-test-targets.mjs'),
+  };
+}
+
+function buildRoundSummary(roundNumber, analysis, coverageCheck, scan, mutationContext) {
+  const coveragePassed = coverageThresholdsPassed(analysis.coverageAnalysis);
+  const testsPassed = (analysis.failureAnalysis?.summary?.failedCount || 0) === 0;
+  const thresholdCheckPassed = coverageCheck ? !coverageCheck.failed : coveragePassed;
+
+  return {
+    round: roundNumber,
+    testsPassed,
+    coveragePassed,
+    thresholdCheckPassed,
+    completenessPassed: !scanHasCompletenessGaps(scan),
+    appliedMutationCount: mutationContext?.mutations?.length || 0,
+    revertedMutationCount: mutationContext?.revertedMutations?.length || 0,
+  };
+}
+
 function executeLoop() {
   const pageCatalog = loadPageCatalog();
   const loopReport = {
@@ -1025,65 +1853,66 @@ function executeLoop() {
   };
 
   let managedIndex = loadManagedSpecIndex();
+  loopReport.scan = refreshScanIfNeeded(options.skipScan);
 
-  if (!options.skipScan) {
-    loopReport.scan = runNodeScript('scan-web-test-pages.mjs');
-    addManagedSpecsForMissingPages(loopReport.scan, pageCatalog, loopReport);
-    if (loopReport.mutations.length > 0 && !options.dryRun) {
-      managedIndex = loadManagedSpecIndex();
-      loopReport.scan = runNodeScript('scan-web-test-pages.mjs');
-    }
+  const initialMutationContext = createMutationContext(options.dryRun);
+  addManagedSpecsForMissingPages(loopReport.scan, pageCatalog, initialMutationContext);
+  const initialRepairContext = applyAndVerifyHandwrittenRepairs(
+    loopReport.scan,
+    pageCatalog,
+    options.dryRun,
+    loopReport.verification
+  );
+  initialMutationContext.mutations.push(...initialRepairContext.mutations);
+  initialMutationContext.revertedMutations.push(...initialRepairContext.revertedMutations);
+  recordMutationBatch(loopReport, initialMutationContext, 'preflight');
+  addVerificationWarnings(loopReport.verification, loopReport.warnings);
 
-    const scanRepairContext = applyAndVerifyHandwrittenRepairs(loopReport.scan, pageCatalog, options.dryRun, loopReport.verification);
-    if (scanRepairContext.mutations.length > 0) {
-      loopReport.mutations.push(...scanRepairContext.mutations);
-      loopReport.scan = runNodeScript('scan-web-test-pages.mjs');
-    }
-    addVerificationWarnings(loopReport.verification, loopReport.warnings);
+  if ((initialMutationContext.mutations.length > 0 || initialMutationContext.revertedMutations.length > 0) && !options.dryRun) {
+    managedIndex = loadManagedSpecIndex();
+    loopReport.scan = refreshScanIfNeeded(options.skipScan);
+  }
 
-    if (
-      !options.allowIncompleteScan &&
-      (loopReport.scan.summary.orphanSpecTargetCount > 0 || loopReport.scan.summary.specsWithoutGotoCount > 0)
-    ) {
-      addCompletenessWarnings(loopReport.scan, loopReport.warnings);
-      loopReport.finalAnalyses.failures = tryLoadJson('analyze-playwright-results.mjs');
-      loopReport.finalAnalyses.coverage = tryLoadJson('summarize-coverage.mjs');
-      loopReport.finalAnalyses.suggestions = tryLoadJson('suggest-test-targets.mjs');
-      loopReport.actions = classifyActions(
-        loopReport.scan,
-        loopReport.finalAnalyses.failures,
-        loopReport.finalAnalyses.coverage,
-        loopReport.finalAnalyses.suggestions,
-        loopReport.warnings,
-        loopReport.mutations,
-        loopReport.verification
-      );
-      loopReport.finalStatus = buildFinalStatus(
-        loopReport.scan,
-        loopReport.finalAnalyses.failures,
-        loopReport.finalAnalyses.coverage,
-        null,
-        0,
-        loopReport.warnings,
-        loopReport.verification
-      );
-      return loopReport;
-    }
+  if (!options.allowIncompleteScan && scanHasCompletenessGaps(loopReport.scan)) {
+    addCompletenessWarnings(loopReport.scan, loopReport.warnings);
+    const analysis = runAnalysisBundle();
+    loopReport.finalAnalyses.failures = analysis.failureAnalysis;
+    loopReport.finalAnalyses.coverage = analysis.coverageAnalysis;
+    loopReport.finalAnalyses.suggestions = analysis.suggestions;
+    loopReport.actions = classifyActions(
+      loopReport.scan,
+      loopReport.finalAnalyses.failures,
+      loopReport.finalAnalyses.coverage,
+      loopReport.finalAnalyses.suggestions,
+      loopReport.warnings,
+      loopReport.mutations,
+      loopReport.verification
+    );
+    loopReport.finalStatus = buildFinalStatus(
+      loopReport.scan,
+      loopReport.finalAnalyses.failures,
+      loopReport.finalAnalyses.coverage,
+      null,
+      0,
+      loopReport.warnings,
+      loopReport.verification
+    );
+    return loopReport;
   }
 
   if (options.dryRun || options.mutateOnly) {
-    loopReport.finalAnalyses.failures = tryLoadJson('analyze-playwright-results.mjs');
-    loopReport.finalAnalyses.coverage = tryLoadJson('summarize-coverage.mjs');
-    loopReport.finalAnalyses.suggestions = tryLoadJson('suggest-test-targets.mjs');
+    const analysis = runAnalysisBundle();
+    loopReport.finalAnalyses.failures = analysis.failureAnalysis;
+    loopReport.finalAnalyses.coverage = analysis.coverageAnalysis;
+    loopReport.finalAnalyses.suggestions = analysis.suggestions;
 
     if (!options.dryRun) {
-      managedIndex = loadManagedSpecIndex();
-      addManagedSpecsForCoverage(loopReport.finalAnalyses.suggestions, pageCatalog, managedIndex, loopReport);
-      if (loopReport.mutations.length > 0) {
+      const mutateOnlyContext = createMutationContext(false);
+      addManagedSpecsForCoverage(loopReport.finalAnalyses.suggestions, pageCatalog, managedIndex, mutateOnlyContext);
+      recordMutationBatch(loopReport, mutateOnlyContext, 'mutate-only');
+      if (mutateOnlyContext.mutations.length > 0) {
         managedIndex = loadManagedSpecIndex();
-        if (!options.skipScan) {
-          loopReport.scan = runNodeScript('scan-web-test-pages.mjs');
-        }
+        loopReport.scan = refreshScanIfNeeded(options.skipScan);
       }
     }
 
@@ -1109,12 +1938,17 @@ function executeLoop() {
     return loopReport;
   }
 
-  const maxAttempts = Math.max(1, options.retries + 1);
-  for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
-    const attemptNumber = attemptIndex + 1;
-    const attempt = {
-      attempt: attemptNumber,
-      canonicalRun: null,
+  const maxRounds = Math.max(1, options.maxRounds);
+  for (let roundIndex = 0; roundIndex < maxRounds; roundIndex += 1) {
+    const roundNumber = roundIndex + 1;
+    const round = {
+      attempt: roundNumber,
+      canonicalRun: runCommand(
+        `Canonical full run (round ${roundNumber}/${maxRounds})`,
+        process.execPath,
+        buildCanonicalArgs(),
+        { allowFailure: true }
+      ),
       coverageCheck: null,
       failureAnalysis: null,
       coverageAnalysis: null,
@@ -1122,54 +1956,54 @@ function executeLoop() {
       mutations: [],
       warnings: [],
       rerunTriggered: false,
+      summary: null,
     };
 
-    attempt.canonicalRun = runCommand(
-      `Canonical full run (attempt ${attemptNumber}/${maxAttempts})`,
-      process.execPath,
-      buildCanonicalArgs(),
-      { allowFailure: true }
-    );
+    const analysis = runAnalysisBundle();
+    round.failureAnalysis = analysis.failureAnalysis;
+    round.coverageAnalysis = analysis.coverageAnalysis;
+    round.suggestions = analysis.suggestions;
 
-    attempt.failureAnalysis = tryLoadJson('analyze-playwright-results.mjs');
-    attempt.coverageAnalysis = tryLoadJson('summarize-coverage.mjs');
-    attempt.suggestions = tryLoadJson('suggest-test-targets.mjs');
-
-    if (!options.skipCoverageCheck && !attempt.coverageAnalysis.error) {
-      attempt.coverageCheck = runCoverageCheck();
+    if (!options.skipCoverageCheck && !round.coverageAnalysis.error) {
+      round.coverageCheck = runCoverageCheck();
     }
 
-    const attemptContext = createMutationContext(false);
+    const roundContext = createMutationContext(false);
+    repairManagedSpecFailures(round.failureAnalysis, pageCatalog, managedIndex, roundContext);
 
-    repairManagedSpecFailures(attempt.failureAnalysis, pageCatalog, managedIndex, attemptContext);
-    const latestScanForRepairs = options.skipScan ? emptyScanResult() : runNodeScript('scan-web-test-pages.mjs');
-    const handwrittenRepairContext = applyAndVerifyHandwrittenRepairs(latestScanForRepairs, pageCatalog, false, loopReport.verification);
-    attemptContext.mutations.push(...handwrittenRepairContext.mutations);
+    const latestScan = refreshScanIfNeeded(options.skipScan);
+    const handwrittenRepairContext = applyAndVerifyHandwrittenRepairs(latestScan, pageCatalog, false, loopReport.verification);
+    roundContext.mutations.push(...handwrittenRepairContext.mutations);
+    roundContext.revertedMutations.push(...handwrittenRepairContext.revertedMutations);
     addVerificationWarnings(loopReport.verification, loopReport.warnings);
 
-    const coveragePassed = Object.values(attempt.coverageAnalysis.summary || {}).every((metric) => metric.passed !== false);
-    if (!coveragePassed) {
-      addManagedSpecsForCoverage(attempt.suggestions, pageCatalog, managedIndex, attemptContext);
+    if (!coverageThresholdsPassed(round.coverageAnalysis)) {
+      addManagedSpecsForCoverage(round.suggestions, pageCatalog, managedIndex, roundContext);
     }
 
-    attempt.mutations = attemptContext.mutations;
-    loopReport.mutations.push(...attempt.mutations);
+    round.mutations = roundContext.mutations;
+    recordMutationBatch(loopReport, roundContext, `round-${roundNumber}`);
 
-    if (attempt.mutations.length > 0) {
+    if (roundContext.mutations.length > 0) {
       managedIndex = loadManagedSpecIndex();
-      attempt.rerunTriggered = attemptIndex < maxAttempts - 1;
     }
 
-    loopReport.attempts.push(attempt);
+    loopReport.scan = refreshScanIfNeeded(options.skipScan);
+    round.summary = buildRoundSummary(roundNumber, analysis, round.coverageCheck, loopReport.scan, roundContext);
+    round.rerunTriggered = roundContext.mutations.length > 0 && roundIndex < maxRounds - 1;
+    loopReport.attempts.push(round);
 
-    const testsPassed = (attempt.failureAnalysis.summary?.failedCount || 0) === 0;
-    const thresholdCheckPassed = attempt.coverageCheck ? !attempt.coverageCheck.failed : coveragePassed;
-
-    if (testsPassed && coveragePassed && thresholdCheckPassed && attempt.mutations.length === 0) {
+    if (
+      round.summary.testsPassed &&
+      round.summary.coveragePassed &&
+      round.summary.thresholdCheckPassed &&
+      round.summary.completenessPassed &&
+      round.summary.appliedMutationCount === 0
+    ) {
       break;
     }
 
-    if (attempt.mutations.length === 0 || !attempt.rerunTriggered) {
+    if (!round.rerunTriggered) {
       break;
     }
   }
@@ -1179,11 +2013,9 @@ function executeLoop() {
   loopReport.finalAnalyses.coverage = lastAttempt?.coverageAnalysis || tryLoadJson('summarize-coverage.mjs');
   loopReport.finalAnalyses.suggestions = lastAttempt?.suggestions || tryLoadJson('suggest-test-targets.mjs');
 
-  if (!options.skipScan) {
-    loopReport.scan = runNodeScript('scan-web-test-pages.mjs');
-    if (loopReport.scan.summary.orphanSpecTargetCount > 0 || loopReport.scan.summary.specsWithoutGotoCount > 0) {
-      addCompletenessWarnings(loopReport.scan, loopReport.warnings);
-    }
+  loopReport.scan = refreshScanIfNeeded(options.skipScan);
+  if (scanHasCompletenessGaps(loopReport.scan)) {
+    addCompletenessWarnings(loopReport.scan, loopReport.warnings);
   }
   addVerificationWarnings(loopReport.verification, loopReport.warnings);
 
