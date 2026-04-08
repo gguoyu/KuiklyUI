@@ -61,6 +61,7 @@ function prepareMergedCoverage() {
   });
 
   filterMergedCoverage();
+  supplementZeroBaselineCoverage();
 }
 
 function isInCoverageScope(filePath) {
@@ -68,14 +69,239 @@ function isInCoverageScope(filePath) {
   return coverageScopeRoots.some((root) => normalizedPath.startsWith(root));
 }
 
+function readMergedCoverage() {
+  return JSON.parse(readFileSync(mergedJson, 'utf8'));
+}
+
+function writeMergedCoverage(coverage) {
+  const sortedCoverage = Object.fromEntries(
+    Object.entries(coverage).sort(([left], [right]) => left.localeCompare(right))
+  );
+  writeFileSync(mergedJson, `${JSON.stringify(sortedCoverage, null, 2)}\n`);
+}
+
 function filterMergedCoverage() {
-  const mergedCoverage = JSON.parse(readFileSync(mergedJson, 'utf8'));
+  const mergedCoverage = readMergedCoverage();
   const filteredCoverage = Object.fromEntries(
     Object.entries(mergedCoverage).filter(([filePath]) => isInCoverageScope(filePath))
   );
 
-  writeFileSync(mergedJson, `${JSON.stringify(filteredCoverage, null, 2)}\n`);
-  console.log(`🧹 覆盖率过滤后保留 ${Object.keys(filteredCoverage).length} 个 Kotlin 文件（仅 core-render-web/base 与 core-render-web/h5）`);
+  writeMergedCoverage(filteredCoverage);
+  console.log(
+    `Coverage filtered to ${Object.keys(filteredCoverage).length} Kotlin files under core-render-web/base and core-render-web/h5`
+  );
+}
+
+function walkKotlinFiles(dir, result = []) {
+  if (!existsSync(dir)) {
+    return result;
+  }
+
+  for (const entry of readdirSync(dir)) {
+    const fullPath = join(dir, entry);
+    const stats = statSync(fullPath);
+    if (stats.isDirectory()) {
+      walkKotlinFiles(fullPath, result);
+      continue;
+    }
+    if (entry.endsWith('.kt')) {
+      result.push(normalize(fullPath));
+    }
+  }
+  return result;
+}
+
+function collectScopedKotlinFiles() {
+  return [...new Set(coverageScopeRoots.flatMap((root) => walkKotlinFiles(root)))];
+}
+
+function stripComments(lines) {
+  const sanitized = [];
+  let inBlockComment = false;
+
+  for (const rawLine of lines) {
+    let output = '';
+    let index = 0;
+
+    while (index < rawLine.length) {
+      if (inBlockComment) {
+        const endBlock = rawLine.indexOf('*/', index);
+        if (endBlock === -1) {
+          index = rawLine.length;
+          break;
+        }
+        inBlockComment = false;
+        index = endBlock + 2;
+        continue;
+      }
+
+      const startBlock = rawLine.indexOf('/*', index);
+      const startLine = rawLine.indexOf('//', index);
+      const candidates = [startBlock, startLine].filter((value) => value !== -1);
+      const nextComment = candidates.length > 0 ? Math.min(...candidates) : -1;
+
+      if (nextComment === -1) {
+        output += rawLine.slice(index);
+        break;
+      }
+
+      output += rawLine.slice(index, nextComment);
+
+      if (nextComment === startLine) {
+        break;
+      }
+
+      inBlockComment = true;
+      index = nextComment + 2;
+    }
+
+    sanitized.push(output);
+  }
+
+  return sanitized;
+}
+
+function isIgnorableCoverageLine(trimmedLine) {
+  if (!trimmedLine) {
+    return true;
+  }
+  if (trimmedLine.startsWith('package ') || trimmedLine.startsWith('import ')) {
+    return true;
+  }
+  if (trimmedLine.startsWith('@')) {
+    return true;
+  }
+  if (/^[{}()[\],.;]+$/.test(trimmedLine)) {
+    return true;
+  }
+  return false;
+}
+
+function createPosition(lineNumber, column) {
+  return { line: lineNumber, column };
+}
+
+function createRange(lineNumber, startColumn, endColumn) {
+  return {
+    start: createPosition(lineNumber, startColumn),
+    end: createPosition(lineNumber, endColumn),
+  };
+}
+
+function addStatement(fileCoverage, lineNumber, lineText) {
+  const key = String(Object.keys(fileCoverage.statementMap).length);
+  const firstColumn = Math.max(0, lineText.search(/\S/));
+  const lastColumn = Math.max(firstColumn, lineText.length - 1);
+
+  fileCoverage.statementMap[key] = createRange(lineNumber, firstColumn, lastColumn);
+  fileCoverage.s[key] = 0;
+}
+
+function addFunction(fileCoverage, lineNumber, lineText) {
+  const key = String(Object.keys(fileCoverage.fnMap).length);
+  const match = lineText.match(/\bfun\s+([A-Za-z0-9_]+)/);
+  const name = match?.[1] ?? `(anonymous_${key})`;
+  const firstColumn = Math.max(0, lineText.search(/\S/));
+  const lastColumn = Math.max(firstColumn, lineText.length - 1);
+
+  fileCoverage.fnMap[key] = {
+    name,
+    decl: createRange(lineNumber, firstColumn, lastColumn),
+    loc: createRange(lineNumber, firstColumn, lastColumn),
+    line: lineNumber,
+  };
+  fileCoverage.f[key] = 0;
+}
+
+function addBranch(fileCoverage, lineNumber, lineText, branchCount, type = 'cond-expr') {
+  const key = String(Object.keys(fileCoverage.branchMap).length);
+  const firstColumn = Math.max(0, lineText.search(/\S/));
+  const lastColumn = Math.max(firstColumn, lineText.length - 1);
+  const loc = createRange(lineNumber, firstColumn, lastColumn);
+
+  fileCoverage.branchMap[key] = {
+    loc,
+    type,
+    locations: Array.from({ length: branchCount }, () => ({
+      start: { ...loc.start },
+      end: { ...loc.end },
+    })),
+    line: lineNumber,
+  };
+  fileCoverage.b[key] = Array(branchCount).fill(0);
+}
+
+function countMatches(lineText, regex) {
+  return [...lineText.matchAll(regex)].length;
+}
+
+function buildZeroBaselineCoverage(filePath) {
+  const source = readFileSync(filePath, 'utf8');
+  const originalLines = source.split(/\r?\n/);
+  const sanitizedLines = stripComments(originalLines);
+  const fileCoverage = {
+    path: filePath,
+    statementMap: {},
+    fnMap: {},
+    branchMap: {},
+    s: {},
+    f: {},
+    b: {},
+  };
+
+  sanitizedLines.forEach((lineText, index) => {
+    const lineNumber = index + 1;
+    const originalLine = originalLines[index] ?? lineText;
+    const trimmedLine = lineText.trim();
+
+    if (isIgnorableCoverageLine(trimmedLine)) {
+      return;
+    }
+
+    addStatement(fileCoverage, lineNumber, originalLine);
+
+    if (/\bfun\b/.test(trimmedLine)) {
+      addFunction(fileCoverage, lineNumber, originalLine);
+    }
+
+    if (/\bif\b/.test(trimmedLine)) {
+      addBranch(fileCoverage, lineNumber, originalLine, 2, 'if');
+    }
+    if (/\bwhen\b/.test(trimmedLine)) {
+      addBranch(fileCoverage, lineNumber, originalLine, 2, 'switch');
+    }
+    if (trimmedLine.includes('?:')) {
+      addBranch(fileCoverage, lineNumber, originalLine, 2, 'cond-expr');
+    }
+
+    const conditionalOps = countMatches(trimmedLine, /&&/g) + countMatches(trimmedLine, /\|\|/g);
+    for (let branchIndex = 0; branchIndex < conditionalOps; branchIndex += 1) {
+      addBranch(fileCoverage, lineNumber, originalLine, 2, 'binary-expr');
+    }
+  });
+
+  if (Object.keys(fileCoverage.statementMap).length === 0) {
+    fileCoverage.statementMap['0'] = createRange(1, 0, 0);
+    fileCoverage.s['0'] = 0;
+  }
+
+  return fileCoverage;
+}
+
+function supplementZeroBaselineCoverage() {
+  const mergedCoverage = readMergedCoverage();
+  const scopedFiles = collectScopedKotlinFiles();
+  const coveredFiles = new Set(Object.keys(mergedCoverage).map((filePath) => normalize(filePath)));
+  const missingFiles = scopedFiles.filter((filePath) => !coveredFiles.has(filePath));
+
+  for (const filePath of missingFiles) {
+    mergedCoverage[filePath] = buildZeroBaselineCoverage(filePath);
+  }
+
+  writeMergedCoverage(mergedCoverage);
+  console.log(
+    `Coverage scope contains ${scopedFiles.length} Kotlin files; supplemented ${missingFiles.length} missing files with zero-hit baselines`
+  );
 }
 
 function buildBaseFlags() {
