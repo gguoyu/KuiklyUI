@@ -1177,13 +1177,22 @@ function findHandwrittenSpecsForPage(pageName, specIndex) {
   return specIndex.filter((entry) => !entry.autogenMetadata && entry.gotoTargets.includes(pageName));
 }
 
+function countDeclaredTests(content, pattern) {
+  return (content.match(pattern) || []).length;
+}
+
 function classifyCarrierPageBlocker(pageName, specIndex) {
   const handwrittenSpecs = findHandwrittenSpecsForPage(pageName, specIndex);
   if (handwrittenSpecs.length === 0) {
     return null;
   }
 
-  const blockingSpec = handwrittenSpecs.find((entry) => /test\.skip\s*\(/.test(entry.content) || /TODO:/i.test(entry.content));
+  const blockingSpec = handwrittenSpecs.find((entry) => {
+    const activeTestCount = countDeclaredTests(entry.content, /\btest\(\s*./g);
+    const skippedTestCount = countDeclaredTests(entry.content, /\btest\.skip\(\s*./g);
+    const pageLevelBlocker = /missing SDK|SDK-blocked|TODO:|pending implementation|blocked by/i.test(entry.content);
+    return activeTestCount === 0 && (skippedTestCount > 0 || pageLevelBlocker);
+  });
   if (!blockingSpec) {
     return null;
   }
@@ -1192,7 +1201,7 @@ function classifyCarrierPageBlocker(pageName, specIndex) {
     pageName,
     specFile: blockingSpec.relativeFile,
     reason: 'handwritten-spec-blocks-automation',
-    message: 'A handwritten spec already marks this page as pending or skipped, so the loop must stop instead of generating a managed coverage spec.',
+    message: 'A handwritten spec already marks this page as fully blocked or pending at page level, so the loop must stop instead of generating a managed coverage spec.',
   };
 }
 

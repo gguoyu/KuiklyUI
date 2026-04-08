@@ -45,7 +45,7 @@ Manual review is required for `orphanSpecTarget`, ambiguous product behavior, pa
 
 9. Final stop rules
 
-If a page already has a handwritten spec that is explicitly `test.skip`, TODO-driven, or blocked by missing SDK or product capability, AI must stop and report a blocker instead of generating a parallel managed spec.
+If a page already has a handwritten spec that is a page-level blocker with only skipped or pending tests, AI must stop and report a blocker instead of generating a parallel managed spec.
 If a new `web_test` page would only be a placeholder title page and would not exercise the missing capability itself, AI must stop and wait for manual confirmation.
 
 10. Recommended order
