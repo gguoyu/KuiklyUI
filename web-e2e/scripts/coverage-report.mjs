@@ -22,7 +22,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
 import { join, dirname, normalize } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -87,6 +87,129 @@ function buildBaseFlags() {
   ].join(' ');
 }
 
+function walkHtmlFiles(dir) {
+  const result = [];
+  for (const entry of readdirSync(dir)) {
+    const fullPath = join(dir, entry);
+    const stats = statSync(fullPath);
+    if (stats.isDirectory()) {
+      result.push(...walkHtmlFiles(fullPath));
+      continue;
+    }
+    if (entry.endsWith('.html')) {
+      result.push(fullPath);
+    }
+  }
+  return result;
+}
+
+function extractCoverageStatuses(coverageColumnHtml) {
+  const matches = [...coverageColumnHtml.matchAll(/cline-any\s+(cline-(?:yes|no|neutral))/g)];
+  return matches.map((match) => match[1].replace('cline-', ''));
+}
+
+function wrapCodeLinesWithCoverageStatus(codeHtml, statuses) {
+  const lines = codeHtml.split('\n');
+  if (lines.length !== statuses.length) {
+    return null;
+  }
+
+  return lines.map((line, index) => {
+    const status = statuses[index] || 'neutral';
+    return `<span class="code-line code-line-${status}">${line}</span>`;
+  }).join('\n');
+}
+
+function patchCoverageHtmlFile(filePath) {
+  const html = readFileSync(filePath, 'utf8');
+  if (!html.includes('<table class="coverage">') || html.includes('code-line code-line-')) {
+    return false;
+  }
+
+  const tableMatch = html.match(/<td class="line-coverage quiet">([\s\S]*?)<\/td><td class="text"><pre class="prettyprint lang-js">([\s\S]*?)<\/pre><\/td>/);
+  if (!tableMatch) {
+    return false;
+  }
+
+  const [, coverageColumnHtml, codeHtml] = tableMatch;
+  const statuses = extractCoverageStatuses(coverageColumnHtml);
+  const wrappedCodeHtml = wrapCodeLinesWithCoverageStatus(codeHtml, statuses);
+  if (!wrappedCodeHtml) {
+    console.warn(`Skipping coverage line post-process due to mismatched line count: ${filePath}`);
+    return false;
+  }
+
+  const patchedHtml = html.replace(
+    '<td class="text"><pre class="prettyprint lang-js">',
+    '<td class="text"><pre class="prettyprint lang-js coverage-code">'
+  ).replace(codeHtml, wrappedCodeHtml);
+
+  writeFileSync(filePath, patchedHtml);
+  return true;
+}
+
+function patchCoverageStyles() {
+  const baseCssPath = join(reportDir, 'base.css');
+  const marker = '/* kuikly coverage code line highlighting */';
+  const cssPatch = `
+
+${marker}
+td.text {
+  width: 100%;
+}
+
+pre.prettyprint.lang-js.coverage-code {
+  display: block;
+}
+
+.code-line {
+  display: block;
+  margin: 0 -0.75em;
+  padding: 0 0.75em;
+}
+
+.code-line-yes {
+  background: rgba(230, 245, 208, 0.75);
+}
+
+.code-line-no {
+  background: rgba(252, 225, 229, 0.9);
+}
+
+.code-line-neutral {
+  background: rgba(234, 234, 234, 0.45);
+}
+
+.highlighted .code-line-yes,
+.highlighted .code-line-no,
+.highlighted .code-line-neutral {
+  box-shadow: inset 3px 0 0 #00000022;
+}
+`;
+
+  const baseCss = readFileSync(baseCssPath, 'utf8');
+  if (!baseCss.includes(marker)) {
+    writeFileSync(baseCssPath, `${baseCss}${cssPatch}`);
+  }
+}
+
+function postProcessCoverageReport() {
+  if (!existsSync(reportDir)) {
+    return;
+  }
+
+  patchCoverageStyles();
+
+  const htmlFiles = walkHtmlFiles(reportDir);
+  let patchedCount = 0;
+  for (const filePath of htmlFiles) {
+    if (patchCoverageHtmlFile(filePath)) {
+      patchedCount += 1;
+    }
+  }
+  console.log(`Coverage report style enhancement complete, processed ${patchedCount} file pages`);
+}
+
 prepareMergedCoverage();
 const baseFlags = buildBaseFlags();
 
@@ -100,5 +223,6 @@ if (checkOnly) {
     cwd: e2eRoot,
     stdio: 'inherit',
   });
+  postProcessCoverageReport();
   console.log(`✅ 报告已生成：${reportDir}/index.html`);
 }
