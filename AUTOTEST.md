@@ -1254,29 +1254,100 @@ stages:
 
 ### 14.2 AI 自动生成流程
 
-```
-1. 读取指定 web-test 测试页面的 Kotlin 源码 (demo/src/commonMain/.../pages/web_test/...)
-   → 仅允许 `web_test` 目录内页面作为正式生成输入；若目标能力尚无对应页面，先补建 `web_test` 页面，再继续生成 spec
-2. 分析页面渲染后会产生的底层渲染组件类型（data-kuikly-component）
-   ├─ KRListView     → 滚动/滑动/翻页类
-   ├─ KRScrollView   → 滚动类
-   ├─ KRInputView / KRTextFieldView → 输入类
-   ├─ KRView (有点击/手势行为)      → 点击/拖拽/手势类
-   ├─ KRModalView    → 弹窗类
-   ├─ KRImageView    → 图片加载验证
-   ├─ KRTextView / KRRichTextView   → 静态渲染验证
-   ├─ KRCanvasView   → 静态绘制验证
-   └─ KRVideoView    → 视频首帧验证
-3. 查询「组件交互特征知识库」(6.2节)
-   → 根据渲染组件类型获取必须验证的交互操作清单
-4. 合并所有组件的交互清单（取并集）
-5. 确定测试级别：L0 / L1 / L2（取最高）
-6. 基于交互清单 + 模板，生成包含完整交互步骤的测试用例
-   → 每个交互操作都包含：定位 + 操作 + 等待 + 截图验证
-7. 输出到 web-e2e/tests/L{N}/... 目录
+当前仓库的实际闭环入口已经不是“单页 generate spec”的线性流程，而是以 `kuikly-web-autotest/scripts/run-autotest-loop.mjs` 为入口的多轮闭环执行器。下面这版流程图用于替换旧参考图，反映当前实现中的真实节点与分支。
+
+```text
+开发/AI
+  ↓
+SKILL
+  kuikly-web-autotest
+  ↓
+CLI 闭环入口
+  node kuikly-web-autotest/scripts/run-autotest-loop.mjs
+  ↓
+预扫描 / 预修复
+  - scan-web-test-pages.mjs
+  - 补齐缺失 managed spec
+  - 修复并验证少量可安全修复的 handwritten spec
+  ↓
+是否允许带缺口继续
+  ├─ 否，且 completeness 不通过
+  │   → 输出 warnings + loop-report.json
+  │   → 结束
+  └─ 是 / completeness 通过
+      ↓
+  Canonical CLI
+    node web-e2e/scripts/kuikly-test.mjs --full
+      ↓
+  CLI 内部编排
+    - build（可 skip）
+    - instrument
+    - start instrumented server
+    - Playwright 执行
+    - generate coverage report
+    - check coverage thresholds
+      ↓
+  结果分析
+    - analyze-playwright-results.mjs
+    - summarize-coverage.mjs
+    - suggest-test-targets.mjs
+      ↓
+  用例结果是否通过
+  ├─ 不通过
+  │   ↓
+  │ 安全自动修复范围内？
+  │   ├─ 是
+  │   │   - repair managed spec failures
+  │   │   - repair handwritten spec（仅确定性规则）
+  │   │   - targeted rerun verify
+  │   │   ↓
+  │   │  仍有轮次预算？
+  │   │   ├─ 是 → 回到 Canonical CLI 再跑一轮
+  │   │   └─ 否 → 输出 warnings + loop-report.json → 结束
+  │   └─ 否
+  │       → 标记 manual review / product issue warning
+  │       → 输出 loop-report.json
+  │       → 结束
+  └─ 通过
+      ↓
+  覆盖率是否达标
+  ├─ 达标
+  │   → finalStatus.overallPassed = true
+  │   → 输出 loop-report.json
+  │   → 结束
+  └─ 不达标
+      ↓
+  是否存在清晰可补的 coverage spec / carrier page
+  ├─ 是
+  │   - addManagedSpecsForCoverage
+  │   - 必要时补最小可判定的 web_test carrier page
+  │   ↓
+  │  仍有轮次预算？
+  │   ├─ 是 → 回到 Canonical CLI 再跑一轮
+  │   └─ 否 → 输出未达标 warnings + loop-report.json → 结束
+  └─ 否
+      → 标记 carrier-page blocker / manual review
+      → 输出 loop-report.json
+      → 结束
 ```
 
-**关键设计：** 步骤 3 是核心。知识库把“识别到某类渲染组件后应补哪些主要交互步骤”固化为规则，AI 生成时按规则补齐对应操作。例如识别到 `KRListView` 时补滚动步骤，识别到 `KRInputView` 时补输入步骤。这样可以显著降低遗漏率，并把缺口集中到知识库规则或测试页面设计本身，而不是临时人工补步骤。
+**与旧参考图的关键差异：**
+
+- 当前实际入口是 `run-autotest-loop.mjs`，而不是直接从 Skill 调 `kuikly-test.mjs` 后由人工决定下一步。
+- `CLI` 之后不是只接 `Playwright`；真实链路还包含 build、instrument、instrumented server、coverage report 与 threshold check。
+- “用例结果”和“覆盖率”之间确实仍然是串联关系，但两者外侧各自都有自动修复和多轮重试逻辑，不是单轮判断。
+- “是否需要人工决策”在当前实现里不是一个单独前置菱形，而是散落在多个阻断点：completeness gap、handwritten repair 验证失败、product issue、carrier-page blocker、轮次耗尽。
+- 当前结束态以 `web-e2e/reports/autotest/loop-report.json` 的 `finalStatus`、`warnings`、`actions` 为准，而不是只看某一次 Playwright 执行结果。
+
+**当前实现对应关系：**
+
+- 闭环入口：`kuikly-web-autotest/scripts/run-autotest-loop.mjs`
+- Canonical CLI：`web-e2e/scripts/kuikly-test.mjs --full`
+- 浏览器执行层：`Playwright` + `web-e2e/playwright.config.js`
+- 结果分析：`analyze-playwright-results.mjs`、`summarize-coverage.mjs`、`suggest-test-targets.mjs`
+- 机器可读输出：`web-e2e/reports/autotest/loop-report.json`
+
+**关键设计：** 当前核心已经从“根据单个页面生成一份 spec”升级为“扫描 completeness → 跑 canonical CLI → 分析失败与覆盖率 → 在安全边界内自动修复/补测 → 多轮收敛”。因此文档里后续若再描述 Skill 流程，应优先围绕闭环执行器，而不是围绕旧版 generate-only 模型。
 
 ### 14.3 Skill 文件
 
