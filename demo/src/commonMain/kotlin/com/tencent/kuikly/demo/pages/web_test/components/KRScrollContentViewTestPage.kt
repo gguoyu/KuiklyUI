@@ -19,29 +19,30 @@ import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.pager.Pager
+import com.tencent.kuikly.core.views.KRNestedScrollMode
 import com.tencent.kuikly.core.views.List
 import com.tencent.kuikly.core.views.Scroller
 import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
 
 /**
- * KRScrollContentView 滚动内容验证测试页面
+ * KRScrollContentView 婊氬姩鍐呭楠岃瘉娴嬭瘯椤甸潰
  *
- * Scroller 组件内部自动创建 KRScrollContentView 作为子容器。
- * 所有添加到 Scroller 的子视图会自动放入 KRScrollContentView 中。
+ * Scroller 缁勪欢鍐呴儴鑷姩鍒涘缓 KRScrollContentView 浣滀负瀛愬鍣ㄣ€?
+ * 鎵€鏈夋坊鍔犲埌 Scroller 鐨勫瓙瑙嗗浘浼氳嚜鍔ㄦ斁鍏?KRScrollContentView 涓€?
  *
- * 测试覆盖：
- * 1. 垂直滚动（默认 flexDirection = column）
- * 2. 水平滚动（flexDirectionRow）
- * 3. 长内容纵向滚动
- * 4. 混合内容滚动（文本 + 色块）
- * 5. 嵌套滚动容器布局验证
+ * 娴嬭瘯瑕嗙洊锛?
+ * 1. 鍨傜洿婊氬姩锛堥粯璁?flexDirection = column锛?
+ * 2. 姘村钩婊氬姩锛坒lexDirectionRow锛?
+ * 3. 闀垮唴瀹圭旱鍚戞粴鍔?
+ * 4. 娣峰悎鍐呭婊氬姩锛堟枃鏈?+ 鑹插潡锛?
+ * 5. 宓屽婊氬姩瀹瑰櫒甯冨眬楠岃瘉
  */
 @Page("KRScrollContentViewTestPage")
 internal class KRScrollContentViewTestPage : Pager() {
 
     companion object {
-        // 用于生成测试色块的颜色列表
+        // 鐢ㄤ簬鐢熸垚娴嬭瘯鑹插潡鐨勯鑹插垪琛?
         private val COLORS = listOf(
             0xFFE53935L, 0xFF1E88E5L, 0xFF43A047L, 0xFFFB8C00L,
             0xFF8E24AAL, 0xFF00ACC1L, 0xFFD81B60L, 0xFF3949ABL,
@@ -62,10 +63,10 @@ internal class KRScrollContentViewTestPage : Pager() {
                     flex(1f)
                 }
 
-                // === Section 1: 垂直滚动 ===
+                // === Section 1: 鍨傜洿婊氬姩 ===
                 Text {
                     attr {
-                        text("1. 垂直滚动")
+                        text("1. 鍨傜洿婊氬姩")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(16f)
@@ -86,7 +87,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                             scrollEnable(true)
                             showScrollerIndicator(true)
                         }
-                        // 生成超出容器高度的内容
+                        // 鐢熸垚瓒呭嚭瀹瑰櫒楂樺害鐨勫唴瀹?
                         for (i in 1..10) {
                             View {
                                 attr {
@@ -98,7 +99,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                 }
                                 Text {
                                     attr {
-                                        text("垂直项 $i")
+                                        text("鍨傜洿椤?$i")
                                         fontSize(14f)
                                         color(Color.WHITE)
                                         fontWeightBold()
@@ -106,7 +107,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                 }
                             }
                         }
-                        // 底部间距
+                        // 搴曢儴闂磋窛
                         View {
                             attr {
                                 height(8f)
@@ -115,10 +116,10 @@ internal class KRScrollContentViewTestPage : Pager() {
                     }
                 }
 
-                // === Section 2: 水平滚动 ===
+                // === Section 2: 姘村钩婊氬姩 ===
                 Text {
                     attr {
-                        text("2. 水平滚动")
+                        text("2. 姘村钩婊氬姩")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(12f)
@@ -140,7 +141,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                             scrollEnable(true)
                             showScrollerIndicator(true)
                         }
-                        // 生成超出容器宽度的内容
+                        // 鐢熸垚瓒呭嚭瀹瑰櫒瀹藉害鐨勫唴瀹?
                         for (i in 1..15) {
                             View {
                                 attr {
@@ -160,7 +161,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                 }
                             }
                         }
-                        // 右侧间距
+                        // 鍙充晶闂磋窛
                         View {
                             attr {
                                 size(8f, 1f)
@@ -169,10 +170,10 @@ internal class KRScrollContentViewTestPage : Pager() {
                     }
                 }
 
-                // === Section 3: 长内容纵向滚动 ===
+                // === Section 3: 闀垮唴瀹圭旱鍚戞粴鍔?===
                 Text {
                     attr {
-                        text("3. 长内容滚动")
+                        text("3. 闀垮唴瀹规粴鍔?)
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(12f)
@@ -215,7 +216,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                 }
                                 Text {
                                     attr {
-                                        text("长列表滚动项 Item $i")
+                                        text("闀垮垪琛ㄦ粴鍔ㄩ」 Item $i")
                                         fontSize(13f)
                                         color(Color(0xFF333333))
                                         marginLeft(8f)
@@ -231,10 +232,10 @@ internal class KRScrollContentViewTestPage : Pager() {
                     }
                 }
 
-                // === Section 4: 混合内容滚动 ===
+                // === Section 4: 娣峰悎鍐呭婊氬姩 ===
                 Text {
                     attr {
-                        text("4. 混合内容滚动")
+                        text("4. 娣峰悎鍐呭婊氬姩")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(12f)
@@ -254,7 +255,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                             flex(1f)
                             scrollEnable(true)
                         }
-                        // 标题区域
+                        // 鏍囬鍖哄煙
                         View {
                             attr {
                                 padding(all = 12f)
@@ -264,7 +265,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                             }
                             Text {
                                 attr {
-                                    text("混合内容标题区域")
+                                    text("娣峰悎鍐呭鏍囬鍖哄煙")
                                     fontSize(16f)
                                     color(Color.WHITE)
                                     fontWeightBold()
@@ -272,14 +273,14 @@ internal class KRScrollContentViewTestPage : Pager() {
                             }
                             Text {
                                 attr {
-                                    text("这是一段说明文本，描述混合内容区域的功能。")
+                                    text("杩欐槸涓€娈佃鏄庢枃鏈紝鎻忚堪娣峰悎鍐呭鍖哄煙鐨勫姛鑳姐€?)
                                     fontSize(12f)
                                     color(Color(0xCCFFFFFF))
                                     marginTop(4f)
                                 }
                             }
                         }
-                        // 色块网格
+                        // 鑹插潡缃戞牸
                         View {
                             attr {
                                 flexDirectionRow()
@@ -297,7 +298,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                     }
                                     Text {
                                         attr {
-                                            text("块$i")
+                                            text("鍧?i")
                                             fontSize(13f)
                                             color(Color.WHITE)
                                             fontWeightBold()
@@ -306,7 +307,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                 }
                             }
                         }
-                        // 底部文本列表
+                        // 搴曢儴鏂囨湰鍒楄〃
                         for (i in 1..6) {
                             View {
                                 attr {
@@ -327,7 +328,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                 }
                                 Text {
                                     attr {
-                                        text("底部信息行 $i")
+                                        text("搴曢儴淇℃伅琛?$i")
                                         fontSize(13f)
                                         color(Color(0xFF333333))
                                         marginLeft(8f)
@@ -343,10 +344,10 @@ internal class KRScrollContentViewTestPage : Pager() {
                     }
                 }
 
-                // === Section 5: 嵌套布局验证 ===
+                // === Section 5: 宓屽甯冨眬楠岃瘉 ===
                 Text {
                     attr {
-                        text("5. 嵌套布局验证")
+                        text("5. 宓屽甯冨眬楠岃瘉")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(12f)
@@ -360,7 +361,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                         margin(left = 16f, top = 8f, right = 16f)
                         height(150f)
                     }
-                    // 左侧垂直滚动
+                    // 宸︿晶鍨傜洿婊氬姩
                     View {
                         attr {
                             flex(1f)
@@ -370,7 +371,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                         }
                         Text {
                             attr {
-                                text("左侧滚动")
+                                text("宸︿晶婊氬姩")
                                 fontSize(11f)
                                 color(Color(0xFF333333))
                                 marginLeft(8f)
@@ -381,6 +382,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                             attr {
                                 flex(1f)
                                 scrollEnable(true)
+                                nestedScroll(KRNestedScrollMode.SELF_FIRST, KRNestedScrollMode.SELF_FIRST)
                             }
                             for (i in 1..8) {
                                 View {
@@ -403,7 +405,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                             View { attr { height(4f) } }
                         }
                     }
-                    // 右侧垂直滚动
+                    // 鍙充晶鍨傜洿婊氬姩
                     View {
                         attr {
                             flex(1f)
@@ -412,7 +414,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                         }
                         Text {
                             attr {
-                                text("右侧滚动")
+                                text("鍙充晶婊氬姩")
                                 fontSize(11f)
                                 color(Color(0xFF333333))
                                 marginLeft(8f)
@@ -423,6 +425,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                             attr {
                                 flex(1f)
                                 scrollEnable(true)
+                                nestedScroll(KRNestedScrollMode.PARENT_FIRST, KRNestedScrollMode.SELF_FIRST)
                             }
                             for (i in 1..8) {
                                 View {
@@ -447,7 +450,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                     }
                 }
 
-                // 底部间距
+                // 搴曢儴闂磋窛
                 View {
                     attr {
                         height(50f)

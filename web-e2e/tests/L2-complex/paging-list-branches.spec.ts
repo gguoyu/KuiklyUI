@@ -78,4 +78,21 @@ test.describe('H5ListPagingHelper branch coverage', () => {
     expect(await getLeft(page0Item)).toBeGreaterThanOrEqual(0);
     expect(await getLeft(page3Item)).toBeGreaterThan(900);
   });
+
+  test('jumping from page 2 back to tab0 should realign the first page without leaving tab2 onscreen', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PageListTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const page0Item = kuiklyPage.page.getByText('pageIndex:0 listIndex:0');
+    const page2Item = kuiklyPage.page.getByText('pageIndex:2 listIndex:0');
+
+    await kuiklyPage.page.getByText('tab2', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(500);
+    await kuiklyPage.page.getByText('tab0', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(500);
+
+    await expect(kuiklyPage.page.getByText('tab0')).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(page0Item)).toBeGreaterThanOrEqual(0);
+    expect(await getLeft(page2Item)).toBeGreaterThan(600);
+  });
 });

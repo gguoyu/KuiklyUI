@@ -11,6 +11,13 @@ Use this skill from the repository root.
 
 Treat `web-e2e/scripts/kuikly-test.mjs --full` as the canonical execution entrypoint for the current repo. Do not recreate the build, instrumentation, server, Playwright, and coverage pipeline manually unless you are debugging the pipeline itself.
 
+## Apply Patch Constraints
+
+- Atomic edits only: never use `apply_patch` to replace more than 50 lines at once or to modify multiple logically independent code blocks in one patch.
+- Precise targeting: every patch must match the exact affected lines; if multiple locations must change, split them into separate `apply_patch` operations.
+- Preserve context: include at least 3 lines of original surrounding context around the affected block so the patch target stays unique.
+- No whole-file overwrite: unless creating a new file, never use `apply_patch` to rewrite an entire file in one shot.
+
 ## Fixed operating mode
 
 This skill is the fixed project workflow for KuiklyUI web autotest.

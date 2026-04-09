@@ -1,15 +1,18 @@
-// @kuikly-autogen {"pageName":"KRScrollContentViewTestPage","category":"components","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/components/KRScrollContentViewTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"default"}
+// @kuikly-autogen {"pageName":"PAGAnimTestPage","category":"animations","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/animations/PAGAnimTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"animation-generic"}
 import { test, expect } from '../../../fixtures/test-base';
 
-const PAGE_NAME = "KRScrollContentViewTestPage";
-const TITLE_TEXT = "1. 鍨傜洿婊氬姩";
+const PAGE_NAME = "PAGAnimTestPage";
+const TITLE_TEXT = "PAGAnimTestPage";
 const STABLE_TEXTS = [
-  "1. 鍨傜洿婊氬姩",
-  "鍨傜洿椤?$i",
-  "2. 姘村钩婊氬姩",
-  "H$i"
+  "PAGAnimTestPage",
+  "PAG status:",
+  "PAG progress mode:",
+  "PAG asset: user_avatar.pag with text and image replacement"
 ];
-const ACTION_LABELS = [];
+const ACTION_LABELS = [
+  "Play PAG",
+  "Pause at 20%"
+];
 
 async function expectPageReady(kuiklyPage) {
   if (TITLE_TEXT) {
@@ -43,7 +46,7 @@ async function clickLabelIfPresent(kuiklyPage, label) {
 
 test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    await kuiklyPage.goto("KRScrollContentViewTestPage");
+    await kuiklyPage.goto("PAGAnimTestPage");
     await kuiklyPage.waitForRenderComplete();
     await expectPageReady(kuiklyPage);
     await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
@@ -52,7 +55,7 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('exercises extracted controls on ' + PAGE_NAME, async ({ kuiklyPage }) => {
     test.skip(ACTION_LABELS.length === 0, 'No clickable labels were extracted from page source.');
 
-    await kuiklyPage.goto("KRScrollContentViewTestPage");
+    await kuiklyPage.goto("PAGAnimTestPage");
     await kuiklyPage.waitForRenderComplete();
     await expectPageReady(kuiklyPage);
 
