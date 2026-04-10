@@ -10,7 +10,7 @@
 | Phase 2 | web-test 专用测试页面（当前实现以仓库中的页面清单为准） | ✅ 完成 |
 | Phase 3 | L0 静态用例（截图基准已生成，数量以当前测试目录为准） | ✅ 完成 |
 | Phase 4 | L1/L2 交互用例（数量以当前测试目录为准） | ✅ 完成 |
-| Phase 5 | 动画测试（含 PAG 占位 skip，数量以当前测试目录为准） | ✅ 完成 |
+| Phase 5 | 动画测试（含 PAG 页面基础交互，数量以当前测试目录为准） | ✅ 完成 |
 | Phase 6 | 覆盖率 + CLI 统一入口 | ✅ 完成 |
 
 **说明：** 页面数和用例数会随测试面扩展持续变化，README 不再维护易漂移的固定统计值，实际规模以 `demo/.../web_test/` 和 `web-e2e/tests/` 当前内容为准。
@@ -29,7 +29,7 @@ cd web-e2e
 # 安装依赖（首次）
 npm install && npx playwright install chromium
 
-# 下载字体（首次，约 1 分钟）
+# 下载字体（首次，可选；若无法访问 Google Fonts 可跳过）
 npm run setup
 
 # 标准入口：本地一键完整闭环
@@ -55,24 +55,15 @@ web-e2e/
 │   ├── test-base.ts            # 扩展 test 对象（注入 kuiklyPage fixture）
 │   └── coverage.ts             # 覆盖率收集工具
 ├── tests/
-│   ├── L0-static/
-│   │   ├── smoke.spec.ts       # 冒烟测试（基础设施验证）
-│   │   ├── components/         # 组件静态渲染（krview、krtext、krlist 等，8 spec）
-│   │   └── styles/             # CSS 样式（border、shadow、gradient 等，7 spec）
-│   ├── L1-simple/              # 简单交互（click、input、modal，3 spec）
-│   └── L2-complex/
-│       ├── listscroll.spec.ts  # 列表滚动
-│       ├── gesture.spec.ts     # 手势
-│       ├── navigation.spec.ts  # 页面跳转
-│       ├── search.spec.ts      # 组合场景（搜索）
-│       ├── form.spec.ts        # 组合场景（表单）
-│       └── animations/         # 动画（css-transition、property-anim、js-frame-anim、pag-anim）
+│   ├── L0-static/              # L0：静态渲染截图对比（含 components / styles / smoke）
+│   ├── L1-simple/              # L1：简单交互、modules 与部分 managed auto spec
+│   └── L2-complex/             # L2：复杂交互、composite、animations 与部分 managed auto spec
 ├── scripts/
 │   ├── kuikly-test.mjs         # CLI 统一入口
 │   ├── serve.js                # 普通测试服务器（port 8080）
 │   ├── serve-instrumented.mjs  # 插桩版服务器（覆盖率用）
 │   ├── instrument.mjs          # Istanbul 插桩脚本
-│   └── coverage-report.mjs     # NYC 官方 Kotlin 文件覆盖率报告生成（跨平台路径封装）
+│   └── coverage-report.mjs     # NYC 官方 Kotlin 文件覆盖率报告生成（内部辅助脚本，跨平台路径封装）
 ├── playwright.config.js        # Playwright 配置（viewport: 375×812，Chromium）
 ├── .nycrc.json                 # 覆盖率阈值配置
 └── package.json
@@ -250,23 +241,22 @@ node scripts/kuikly-test.mjs --full
 
 ---
 
-## 🤖 AI 辅助（CodeBuddy Skill）
+## 🤖 AI 辅助（仓库级闭环）
+
+当前仓库的 AI 自动化测试闭环说明以 `../kuikly-web-autotest/SKILL.md` 为准，默认入口是 `run-autotest-loop.mjs`。
 
 ```bash
-# 分析测试页面源码，按知识库规则自动生成覆盖主要交互路径的测试用例
-@skill kuikly-test generate <TestPageName>
+# 若当前在仓库根目录（KuiklyUI/）
+node kuikly-web-autotest/scripts/run-autotest-loop.mjs
 
-# 一键运行测试
-@skill kuikly-test run [--level L0|L1|L2]
-
-# 查看 NYC 官方 Kotlin 文件覆盖率摘要
-@skill kuikly-test coverage
-
-# 查看用例编写规范和 Fixture API
-@skill kuikly-test guide
+# 若当前已在 web-e2e/ 目录
+node ../kuikly-web-autotest/scripts/run-autotest-loop.mjs
 ```
 
-Skill 定义文件：`.codebuddy/rules/kuikly-test.md`
+说明：
+- `web-e2e/scripts/kuikly-test.mjs --full` 是 canonical CLI，负责单轮完整执行
+- `kuikly-web-autotest/scripts/run-autotest-loop.mjs` 在其外层增加 completeness 扫描、失败分析、覆盖率补测与安全范围内自动修复
+- Skill 说明与默认运行方式统一以 `../kuikly-web-autotest/SKILL.md` 和 `../kuikly-web-autotest/agents/openai.yaml` 为准
 
 ---
 
@@ -304,8 +294,8 @@ npm run test:debug    # 单步调试模式
 
 1. 在 `demo/.../pages/web_test/` 中创建 Kotlin 测试页面
 2. 确认后续 spec 只指向该 `web_test` 页面，不要直接复用普通 Demo 页面
-3. 用 `@skill kuikly-test generate <TestPageName>` 自动生成用例
-4. 运行 `npx playwright test --update-snapshots` 生成初始截图基准
+3. 如需 AI 闭环补测/补 coverage，可运行 `node ../kuikly-web-autotest/scripts/run-autotest-loop.mjs`（当前位于 `web-e2e/` 目录时）
+4. 运行 `npx playwright test --update-snapshots` 生成或更新截图基准
 
 ---
 
@@ -313,7 +303,8 @@ npm run test:debug    # 单步调试模式
 
 | 文档 | 说明 |
 |------|------|
-| [QUICKSTART.md](./QUICKSTART.md) | 新人快速上手（5 分钟跑通第一个测试） |
+| [QUICKSTART.md](./QUICKSTART.md) | 新人快速上手（标准 CLI / 报告 / 常见操作） |
 | [../AUTOTEST.md](../AUTOTEST.md) | 完整测试方案设计（架构 / 规范 / 实施计划） |
-| [../.codebuddy/rules/kuikly-test.md](../.codebuddy/rules/kuikly-test.md) | CodeBuddy Skill 定义 |
+| [../kuikly-web-autotest/SKILL.md](../kuikly-web-autotest/SKILL.md) | 仓库级 AI 闭环说明 |
+| [../kuikly-web-autotest/agents/openai.yaml](../kuikly-web-autotest/agents/openai.yaml) | Skill 配套元数据 |
 | [Playwright 文档](https://playwright.dev) | Playwright 官方文档 |

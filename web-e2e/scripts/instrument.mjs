@@ -67,6 +67,12 @@ const INDEX_HTML_SRC = join(projectRoot, 'h5App', 'build', 'processedResources',
 // 输出目录
 const INSTRUMENTED_DIR  = join(e2eRoot, 'instrumented');
 const MODULES_OUT_DIR   = join(INSTRUMENTED_DIR, 'modules');
+const NYC_BIN = join(
+  e2eRoot,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'nyc.cmd' : 'nyc'
+);
 
 // 需要插桩的核心模块（不含 kotlin-stdlib，避免覆盖率被标准库拉低）
 const TARGET_MODULES = [
@@ -79,6 +85,20 @@ const TARGET_MODULES = [
 const args = process.argv.slice(2);
 const withNative   = args.includes('--with-native');
 const skipIfExists = args.includes('--skip-if-exists');
+
+function execSyncWithNodePath(command, options = {}) {
+  const mergedOptions = { ...options };
+  let rewrittenCommand = command;
+  if (command.startsWith('npx nyc ')) {
+    rewrittenCommand = `${NYC_BIN} ${command.slice('npx nyc '.length)}`;
+  }
+  mergedOptions.env = {
+    ...process.env,
+    NODE_PATH: join(e2eRoot, 'node_modules'),
+    ...(options.env ?? {}),
+  };
+  return execSync(rewrittenCommand, mergedOptions);
+}
 
 function log(msg)  { console.log(`[instrument] ${msg}`); }
 function warn(msg) { console.warn(`[instrument] ⚠️  ${msg}`); }
@@ -118,7 +138,7 @@ function instrumentModules() {
   const relOut = path.relative(projectRoot, MODULES_OUT_DIR);
 
   try {
-    execSync(
+    execSyncWithNodePath(
       `npx nyc instrument --source-map=true "${relSrc}" "${relOut}"`,
       { cwd: projectRoot, stdio: 'inherit' }
     );
@@ -133,9 +153,11 @@ function instrumentModules() {
     const mapName = name + '.map';
     const mapSrc  = join(KOTLIN_MODULES_DIR, mapName);
     const mapDst  = join(MODULES_OUT_DIR, mapName);
-    if (existsSync(mapSrc)) {
+    if (existsSync(mapDst)) {
+      log(`Keeping instrumented source map: ${mapName}`);
+    } else if (existsSync(mapSrc)) {
       copyFileSync(mapSrc, mapDst);
-      log(`Copied source map: ${mapName}`);
+      log(`Copied original source map as fallback: ${mapName}`);
     } else {
       warn(`Source map not found (coverage will be JS-level only): ${mapName}`);
     }
@@ -240,7 +262,7 @@ function instrumentNative() {
 
   log('Instrumenting nativevue2.js:');
   try {
-    execSync(
+    execSyncWithNodePath(
       `npx nyc instrument --source-map=true "${relSrc}" "${relOut}"`,
       { cwd: projectRoot, stdio: 'inherit' }
     );

@@ -34,7 +34,7 @@
 - [10. Playwright 配置](#10-playwright-配置)
 - [11. CLI 统一入口](#11-cli-统一入口)
 - [12. 代码覆盖率](#12-代码覆盖率)
-- [13. CI/CD 集成（蓝盾）](#13-cicd-集成蓝盾)
+- [13. CI/CD 集成（蓝盾，待落地）](#13-cicd-集成蓝盾待落地)
 - [14. CodeBuddy Skill 设计](#14-codebuddy-skill-设计)
 - [15. 实施计划](#15-实施计划)
 - [16. 待确认项](#16-待确认项)
@@ -117,44 +117,15 @@ DOM (div + absolute 定位 + data-kuikly-component 属性)
 
 ```
 demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/
-├── components/                    # 渲染组件测试页面
-│   ├── KRViewTestPage.kt          # KRView 渲染验证
-│   ├── KRTextViewTestPage.kt      # KRTextView 文本渲染验证
-│   ├── KRRichTextViewTestPage.kt  # KRRichTextView 富文本渲染验证
-│   ├── KRImageViewTestPage.kt     # KRImageView 图片加载/渲染验证
-│   ├── KRListViewTestPage.kt      # KRListView 列表渲染+滚动验证
-│   ├── KRScrollContentViewTestPage.kt    # KRScrollContentView 滚动验证
-│   ├── KRInputViewTestPage.kt     # KRInputView 输入交互验证
-│   ├── KRCanvasViewTestPage.kt    # KRCanvasView 绘制验证
-│   ├── KRVideoViewTestPage.kt     # KRVideoView 视频首帧验证
-│   └── KRModalViewTestPage.kt     # KRModalView 弹窗交互验证
-│
-├── styles/                        # CSS 样式测试页面
-│   ├── BorderTestPage.kt          # border / borderRadius 渲染验证
-│   ├── ShadowTestPage.kt          # shadow 渲染验证
-│   ├── GradientTestPage.kt        # gradient 渲染验证
-│   ├── TransformTestPage.kt       # transform 渲染验证
-│   ├── OpacityTestPage.kt         # opacity 渲染验证
-│   └── OverflowTestPage.kt        # overflow 渲染验证
-│
-├── interactions/                   # 交互行为测试页面
-│   ├── ClickTestPage.kt           # 点击事件验证
-│   ├── GestureTestPage.kt         # 手势操作验证（拖拽/缩放）
-│   ├── ListScrollTestPage.kt      # 列表滚动（含 stickyHeader/分页）
-│   ├── InputTestPage.kt           # 输入框全流程验证
-│   ├── ModalTestPage.kt           # 弹窗弹出/关闭验证
-│   └── NavigationTestPage.kt      # 页面跳转验证
-│
-├── animations/                     # 动画测试页面
-│   ├── CSSTransitionTestPage.kt   # CSS Transition 动画验证
-│   ├── JSFrameAnimTestPage.kt     # JS 帧动画验证
-│   ├── PropertyAnimTestPage.kt    # KR 属性动画验证
-│   └── PAGAnimTestPage.kt         # PAG 动画验证
-│
-└── composite/                      # 组合场景测试页面
-    ├── SearchTestPage.kt           # 搜索场景（输入+点击+列表滚动）
-    └── FormTestPage.kt             # 表单场景（多输入框+开关+提交）
+├── components/     # 渲染组件测试页面（如 KRViewTestPage.kt、KRImageViewTestPage.kt）
+├── styles/         # CSS 样式测试页面（如 BorderTestPage.kt、GradientTestPage.kt）
+├── interactions/   # 交互行为测试页面（如 ClickTestPage.kt、ModalTestPage.kt、PageListTestPage.kt）
+├── animations/     # 动画测试页面（如 CSSTransitionTestPage.kt、PAGAnimTestPage.kt）
+├── composite/      # 组合场景测试页面（如 SearchTestPage.kt、FormTestPage.kt）
+└── modules/        # Module 测试页面（如 CalendarModuleTestPage.kt、NetworkModuleTestPage.kt）
 ```
+
+> **说明：** 上面只保留分类与代表性示例，避免页面清单随仓库演进而在文档中漂移。完整页面列表与页面/spec 对应关系请以 `node kuikly-web-autotest/scripts/scan-web-test-pages.mjs` 输出为准。
 
 ### 3.3 测试页面设计原则
 
@@ -170,7 +141,9 @@ demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/
 | **唯一页面来源**         | `web-e2e/tests/` 中所有 `kuiklyPage.goto()` 只能指向 `demo/.../pages/web_test/` 下注册的测试页面；禁止直接依赖普通 Demo 页面 |
 | **缺页先补页**           | 若现有 `web_test` 中没有可承载某项测试属性的页面，必须先在 `web_test` 内新建测试页面，再生成或修改对应 spec |
 
-### 3.4 测试页面分类清单
+### 3.4 测试页面分类示例（非穷举）
+
+> **说明：** 本节用于说明各类页面承担的测试职责，只保留代表性页面。当前完整页面清单请以 `scan-web-test-pages.mjs` 的扫描结果为准。
 
 #### 3.4.1 L0 — 静态渲染测试页面
 
@@ -356,31 +329,14 @@ web-e2e/
 │   └── kuikly-test.mjs       # CLI 统一入口脚本
 │
 ├── tests/
-│   ├── L0-static/            # L0 级别：静态渲染截图对比
-│   │   ├── smoke.spec.ts     # 冒烟测试（基础设施验证）
-│   │   ├── components/       # 渲染组件验证（krview、krtext、krlist 等，8 spec）
-│   │   └── styles/           # CSS 样式渲染（border、shadow、gradient 等，7 spec）
-│   │
-│   ├── L1-simple/            # L1 级别：简单交互（3 spec）
-│   │   ├── click.spec.ts     # 点击事件
-│   │   ├── input.spec.ts     # 输入框交互
-│   │   └── modal.spec.ts     # 弹窗交互
-│   │
-│   └── L2-complex/           # L2 级别：复杂交互
-│       ├── listscroll.spec.ts # 列表滚动
-│       ├── gesture.spec.ts   # 手势操作
-│       ├── navigation.spec.ts # 页面跳转
-│       ├── search.spec.ts    # 组合场景（搜索）
-│       ├── form.spec.ts      # 组合场景（表单）
-│       └── animations/       # 动画验证（4 spec）
-│           ├── css-transition.spec.ts
-│           ├── property-anim.spec.ts
-│           ├── js-frame-anim.spec.ts
-│           └── pag-anim.spec.ts  # PAG 动画（全部 skip，待 SDK 集成）
+│   ├── L0-static/            # L0：静态渲染截图对比（含 components/styles/smoke）
+│   ├── L1-simple/            # L1：简单交互、modules 与部分 managed auto spec
+│   └── L2-complex/           # L2：复杂交互、composite、animations 与部分 managed auto spec
 │
-├── snapshots/                # 截图基准文件（git 跟踪）
-│   │                         # 实际存储在各 spec 文件同级的 *.spec.ts-snapshots/ 目录下
+├── *.spec.ts-snapshots/      # 截图基准文件（git 跟踪）
+│   │                         # Playwright 默认将基准图存储在各 spec 同级目录
 │   │                         # 命名格式：{name}-chromium-win32.png
+│   │                         # 完整 spec 清单以 `web-e2e/tests/` 当前目录为准
 │
 └── reports/                  # 生成的报告（.gitignore）
     ├── html/                 # Playwright HTML 报告
@@ -987,7 +943,7 @@ module.exports = defineConfig({
   // 截图对比配置
   expect: {
     toHaveScreenshot: {
-      maxDiffPixelRatio: 0.01,     // 允许 1% 像素差异
+      maxDiffPixelRatio: 0.02,     // 允许 2% 像素差异（当前实现值）
       threshold: 0.2,              // 单像素颜色容差
       // 注意：不设置 animations: 'disabled'，保留动画
     },
@@ -1046,7 +1002,7 @@ node web-e2e/scripts/kuikly-test.mjs --level L1
 node web-e2e/scripts/kuikly-test.mjs --level L2
 
 # 运行指定用例文件
-node web-e2e/scripts/kuikly-test.mjs --test tests/L0-static/components/image.spec.ts
+node web-e2e/scripts/kuikly-test.mjs --test tests/L0-static/components/krimage.spec.ts
 
 # 更新截图基准
 node web-e2e/scripts/kuikly-test.mjs --update-snapshots
@@ -1183,7 +1139,9 @@ node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
 
 ---
 
-## 13. CI/CD 集成（蓝盾）
+## 13. CI/CD 集成（蓝盾，待落地）
+
+> **现状说明：** 本节描述的是目标态 CI 方案。当前仓库尚未提交实际蓝盾 Pipeline 配置，现阶段请以本地 CLI（`web-e2e/scripts/kuikly-test.mjs --full`）和闭环入口（`kuikly-web-autotest/scripts/run-autotest-loop.mjs`）作为事实来源。
 
 ### 13.1 触发策略
 
@@ -1217,7 +1175,7 @@ stages:
     steps:
       - archive web-e2e/reports/html/
       - archive web-e2e/reports/coverage/
-      - archive web-e2e/snapshots/ (失败时)
+      - archive web-e2e/tests/**/**/*.spec.ts-snapshots/ (失败时，如流水线支持 glob 则按此模式归档)
 
   - name: "质量门禁"
     steps:
@@ -1229,7 +1187,7 @@ stages:
 
 ### 13.3 截图基准管理
 
-- 截图基准文件存储在 `web-e2e/snapshots/` 目录，**纳入 Git 版本管理**
+- 截图基准文件按 Playwright 默认规则存储在各 spec 同级的 `*.spec.ts-snapshots/` 目录，**纳入 Git 版本管理**
 - CI 中如果截图对比失败，报告中会展示 diff 图片便于排查
 - **基准生成规则：** 开发者本地执行 `npm run test:update-snapshots` 生成基准并 commit。通过 Chrome 启动参数（方案一）+ 内嵌 Web Font（方案二）消除跨平台字体渲染差异，无需在 CI 或 Docker 中专门生成
 - **基准更新流程：**
@@ -1245,12 +1203,14 @@ stages:
 
 ### 14.1 Skill 功能
 
+> **当前事实来源：** 本仓库的 Skill 说明与默认运行方式以 `kuikly-web-autotest/SKILL.md` 为准，配套元数据位于 `kuikly-web-autotest/agents/openai.yaml`。
+
 | 能力             | 说明                                                                      |
 | ---------------- | ------------------------------------------------------------------------- |
-| **一键运行**     | `@skill kuikly-test run [--level L0/L1/L2]`，自动执行 CLI 流程            |
-| **编写指导**     | `@skill kuikly-test guide`，输出用例编写模板、Fixture API 说明、最佳实践    |
-| **AI 自动生成**  | `@skill kuikly-test generate <TestPage>`，分析 web-test 测试页面源码自动生成对应 E2E 测试 |
-| **覆盖率查看**   | `@skill kuikly-test coverage`，展示 NYC 官方 Kotlin 文件覆盖率摘要          |
+| **一键运行**     | 通过 `kuikly-web-autotest/SKILL.md` 驱动闭环入口 `node kuikly-web-autotest/scripts/run-autotest-loop.mjs` |
+| **编写指导**     | 以 `kuikly-web-autotest/SKILL.md` 中的 workflow、decision rules、safe mutation scope 为准 |
+| **AI 自动生成**  | 由闭环执行器根据 completeness / coverage 自动生成或刷新 managed `auto-*.spec.ts` |
+| **覆盖率查看**   | 通过 `summarize-coverage.mjs` / `build-autotest-report.mjs` 查看 NYC Kotlin 覆盖率摘要 |
 
 ### 14.2 AI 自动生成流程
 
@@ -1351,7 +1311,9 @@ CLI 闭环入口
 
 ### 14.3 Skill 文件
 
-Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
+当前仓库以 `kuikly-web-autotest/SKILL.md` 作为 Skill 说明与发现入口，`kuikly-web-autotest/agents/openai.yaml` 提供配套元数据。当前实现**不再以** `.codebuddy/rules/kuikly-test.md` 作为事实来源，后续文档描述也应统一引用仓内 `SKILL.md`。
+
+`kuikly-web-autotest/SKILL.md` 当前包含：
 
 - 项目上下文（Kuikly Web 架构说明）
 - **组件交互特征知识库**（渲染组件 `KRXxxView` → 必须验证的交互操作映射表，来自 6.2 节）
@@ -1360,7 +1322,7 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 - 命名约定（文件名、截图名）
 - web-test 测试页面设计原则（来自 3.3 节）
 - web-test 唯一页面来源约束与缺页先补页规则（来自 3.6 节）
-- AI 生成策略（分析测试页面源码 → 查表 → 生成完整用例）
+- 闭环执行默认命令、分析脚本入口、自动修复边界与升级人工处理规则
 
 ---
 
@@ -1373,15 +1335,15 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 - [x] 初始化 `package.json`、`playwright.config.js`、`tsconfig.json`
 - [x] 实现 `KuiklyPage` Fixture 核心方法（goto, waitForRenderComplete, component）
 - [x] 编写 1 个 L0 冒烟测试验证流程打通
-- [x] 额外完成：创建本地测试服务器（`serve.mjs`）
-- [x] 额外完成：编写快速启动指南（`QUICKSTART.md`）
+- [x] 额外完成：创建本地测试服务器（当前主入口为 `web-e2e/scripts/serve.js`）
+- [x] 额外完成：编写快速启动指南（`web-e2e/QUICKSTART.md`）
 
 **验证步骤：** 见 [web-e2e/QUICKSTART.md](./web-e2e/QUICKSTART.md)
 
-### Phase 2：web-test 测试页面生成（预计 3 天）
+### Phase 2：web-test 测试页面生成 ✅ **已完成**
 
 - [x] 在 `demo/src/commonMain/.../pages/` 下创建 `web_test/` 目录结构
-- [ ] 清理现有对非 `web_test` 页面（普通 Demo 页面/示例页/业务页）的 E2E 依赖；若 `web_test` 缺页则先补建页面，再切换 spec
+- [x] 清理现有对非 `web_test` 页面（普通 Demo 页面/示例页/业务页）的 E2E 依赖；完整性以 `node kuikly-web-autotest/scripts/scan-web-test-pages.mjs` 的扫描结果为准，当前扫描结论为无缺口
 - [x] 生成 L0 静态渲染测试页面（components/ + styles/）
 - [x] **AI Review L0 测试页面**：对照实际组件源码核查 API，自动修正问题
 - [x] 生成 L1 简单交互测试页面（interactions/click, input, modal）
@@ -1392,31 +1354,27 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 - [x] **AI Review L2/动画/组合场景测试页面**，自动修正问题（补全 JSFrameAnimTestPage、PropertyAnimTestPage 空文件；创建 composite/SearchTestPage、composite/FormTestPage）
 - [x] 注册所有测试页面路由（通过 @Page 注解自动注册）
 
-### Phase 3：L0 静态用例集（预计 2 天）
+### Phase 3：L0 静态用例集 ✅ **已完成**
 
-- [x] 为每个 L0 测试页面生成对应的 E2E 测试用例（components: 8 spec, styles: 7 spec）
-- [x] 完成全部 CSS 样式的 L0 截图测试（border, gradient, opacity, overflow, shadow, transform + smoke）
-- [x] 生成初始截图基准（38 components + 34 styles = 72 L0 tests, all passed）
+- [x] 为 L0 测试页面生成并持续扩展对应的 E2E 测试用例；实际 spec 清单以 `web-e2e/tests/L0-static/` 当前目录为准
+- [x] 完成全部 CSS 样式的 L0 截图测试（border / gradient / opacity / overflow / shadow / transform）
+- [x] 截图基准已建立并持续随用例扩展维护；具体 test 数不在本文档中固定维护
 
-### Phase 4：L1/L2 交互用例集（预计 3 天）
+### Phase 4：L1/L2 交互用例集 ✅ **已完成**
 
-- [x] 实现 KuiklyPage Fixture 的滚动/手势方法（scrollInContainer, swipeInContainer 已在 Phase 1 实现）
-- [x] 完成 L1 用例（点击 7 tests、输入 4 tests、弹窗 4 tests = 15 L1 tests, all passed）
-- [x] 完成 L2 用例（列表滚动 8 tests、手势交互 9 tests、页面导航 11 tests = 28 L2 tests）
-- [x] 补充 composite 组合场景用例（SearchTestPage 10 tests + FormTestPage 10 tests = 20 tests，all passed）
+- [x] 实现 KuiklyPage Fixture 的滚动/手势方法（`scrollInContainer`、`swipeInContainer` 已在 Phase 1 实现）
+- [x] 基础 L1 用例（click / input / modal 起始集）已完成，并已扩展出 modules、button-events、window-resize 与 managed auto spec；实际规模以 `web-e2e/tests/L1-simple/` 当前目录为准
+- [x] 基础 L2 用例（listscroll / gesture / navigation 起始集）已完成；实际非动画 spec 清单以 `web-e2e/tests/L2-complex/` 当前目录为准
+- [x] composite 组合场景仍由 `search.spec.ts` 与 `form.spec.ts` 覆盖；具体 test 数以当前文件内容为准
 
-### Phase 5：动画测试（预计 2 天）✅ **已完成**
+### Phase 5：动画测试 ✅ **已完成**
 
 - [x] 实现 `captureAnimationFrames`、`waitForAnimationEnd` 等动画辅助方法（已在 Phase 1 实现）
-- [x] 补全 `countFrameDiffs`、`framesDiffer` 帧差异对比辅助方法（kuikly-page.ts）
-- [x] 完成 L2 动画测试用例：
-  - `css-transition.spec.ts` — 7 tests（初始截图、尺寸/颜色/宽度/组合动画终态断言、帧差异验证）
-  - `property-anim.spec.ts` — 7 tests（初始截图、Linear/Spring/颜色/组合属性动画终态断言、帧差异验证）
-  - `js-frame-anim.spec.ts` — 8 tests（初始截图、进度条/跑马灯/颜色轮播/数字递增帧动画终态断言、帧差异验证）
-  - `pag-anim.spec.ts` — 3 tests（全部 skip，待 PAG SDK 集成后解除）
-- [x] 验证四种动画类型的测试覆盖（CSS Transition ✅ / KR 属性动画 ✅ / JS 帧动画 ✅ / PAG 动画 ⏳ 占位）
+- [x] 补全 `countFrameDiffs`、`framesDiffer` 帧差异对比辅助方法（`kuikly-page.ts`）
+- [x] `animations/` 目录同时包含 hand-written spec 与 managed auto spec；实际文件清单以 `web-e2e/tests/L2-complex/animations/` 当前目录为准
+- [x] 已覆盖 CSS Transition、KR 属性动画、JS 帧动画与 PAG 页面基础交互；各 spec 的具体 test 数以当前文件内容为准，如后续补充更深的 PAG SDK 行为验证，可继续在此阶段增量扩展
 
-### Phase 6：覆盖率与 CLI（预计 2 天）✅ **已完成**
+### Phase 6：覆盖率与 CLI ✅ **已完成**
 
 - [x] 实现 Istanbul 插桩流程（`scripts/instrument.mjs`，以目录模式插桩 h5App.js → `instrumented/`）
 - [x] 实现插桩版测试服务器（`scripts/serve-instrumented.mjs`，优先提供 instrumented/ 目录文件）
@@ -1427,11 +1385,11 @@ Skill 定义文件位于 `.codebuddy/rules/kuikly-test.md`，包含：
 - [x] 补充 `package.json` 脚本（`instrument` / `instrument:with-native` / `coverage` / `coverage:check` / `serve:instrumented` / `kuikly-test`，其中 `instrument:with-native` 与 `serve:instrumented` 为调试辅助脚本）
 - [x] 修正 `package.json` 中 `test:L1` 路径（`L1-interaction` → `L1-simple`）
 
-### Phase 7：CI/CD 与 Skill（预计 2 天）
+### Phase 7：CI/CD 与 Skill（收口中）
 
 - [ ] 配置蓝盾 Pipeline，并明确在 CI 中复用与本地一致的 CLI 一键执行入口
-- [x] 编写 CodeBuddy Skill 定义文件（`.codebuddy/rules/kuikly-test.md`，十章节，含 6 处问题修复）
-- [x] 端到端验证完整流程（Skill 文件核查通过；README / QUICKSTART 文档已对齐实际代码）
+- [x] 编写仓内 Skill 定义文件（`kuikly-web-autotest/SKILL.md`；`kuikly-web-autotest/agents/openai.yaml` 提供配套元数据）
+- [x] 完成闭环入口与使用文档核查（`run-autotest-loop.mjs`、README / QUICKSTART 文档已对齐当前代码）
 - [x] 编写使用说明文档（重写 `web-e2e/README.md` + `web-e2e/QUICKSTART.md`，淘汰 Phase 1 旧内容）
 - [x] 落地截图基准一致性方案（见下方「截图基准一致性方案」）
 
@@ -1493,4 +1451,4 @@ npm run test:update-snapshots
 
 ---
 
-> **当前状态：** Phase 1-6 已完成并进入收口阶段；当前文档需要继续与实现对齐，重点是统一 NYC Kotlin 覆盖率口径、确保 CLI 真正本地一键运行，以及清理与 AI 自动化测试目标不一致的旧描述。Phase 7 中蓝盾 Pipeline 仍待推进。
+> **当前状态：** Phase 1-6 已完成并进入收口阶段。当前仓库已落地 `kuikly-web-autotest/SKILL.md` 与闭环执行器 `kuikly-web-autotest/scripts/run-autotest-loop.mjs`，文档应统一以它们为准；Phase 7 中蓝盾 Pipeline 仍待推进，CI 部分目前仍属于目标态设计。

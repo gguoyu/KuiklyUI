@@ -205,7 +205,7 @@ async function buildProject() {
   }
 
   console.log('\nBuilding demo bundle with Gradle...');
-  await execCommand(`${gradleWrapper} ${gradleBuildArgs}`);
+  await execCommand(`${gradleWrapper} ${gradleBuildArgs}`, projectRoot, { KUIKLY_USE_LOCAL_KSP: 'false' });
   console.log('Build completed');
 }
 

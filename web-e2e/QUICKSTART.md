@@ -1,6 +1,6 @@
 # 🚀 Kuikly Web E2E 快速上手指南
 
-5 分钟跑通第一个测试。
+快速跑通第一个测试。
 
 ---
 
@@ -14,7 +14,7 @@ npx playwright install chromium
 
 ---
 
-## 第二步：下载字体（首次，约 1 分钟）
+## 第二步：下载字体（首次）
 
 ```bash
 npm run setup
@@ -143,14 +143,16 @@ node scripts/kuikly-test.mjs --full
 node scripts/kuikly-test.mjs --coverage-only
 ```
 
-### 用 AI 生成新测试用例
+### 用 AI 继续闭环
+
+当前仓库的 AI 自动化测试闭环说明以 `../kuikly-web-autotest/SKILL.md` 为准。
 
 ```bash
-# 分析测试页面源码，按知识库规则自动生成覆盖主要交互路径的 spec 文件
-@skill kuikly-test generate KRListViewTestPage
+# 若当前位于 web-e2e/ 目录，直接触发仓库级闭环入口
+node ../kuikly-web-autotest/scripts/run-autotest-loop.mjs
 
-# 生成后，运行并生成初始截图基准
-npx playwright test tests/L0-static/components/krlist.spec.ts --update-snapshots
+# 若只想跑单轮 canonical CLI，仍使用本目录下的标准入口
+node scripts/kuikly-test.mjs --full
 ```
 
 ---
@@ -236,5 +238,6 @@ node scripts/kuikly-test.mjs --full
 
 - [README.md](./README.md) — 完整功能说明（目录结构、API、CLI 参数等）
 - [../AUTOTEST.md](../AUTOTEST.md) — 测试方案设计文档
-- [../.codebuddy/rules/kuikly-test.md](../.codebuddy/rules/kuikly-test.md) — CodeBuddy Skill 定义
+- [../kuikly-web-autotest/SKILL.md](../kuikly-web-autotest/SKILL.md) — 仓库级 AI 闭环说明
+- [../kuikly-web-autotest/agents/openai.yaml](../kuikly-web-autotest/agents/openai.yaml) — Skill 配套元数据
 - [Playwright 文档](https://playwright.dev)

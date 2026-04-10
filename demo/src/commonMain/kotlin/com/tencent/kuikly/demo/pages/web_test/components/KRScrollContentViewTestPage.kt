@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Tencent is pleased to support the open source community by making KuiklyUI
  * available.
  * Copyright (C) 2025 Tencent. All rights reserved.
@@ -173,7 +173,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                 // === Section 3: 闀垮唴瀹圭旱鍚戞粴鍔?===
                 Text {
                     attr {
-                        text("3. 闀垮唴瀹规粴鍔?)
+                        text("3. Scroll content advanced section")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(12f)
@@ -273,7 +273,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                             }
                             Text {
                                 attr {
-                                    text("杩欐槸涓€娈佃鏄庢枃鏈紝鎻忚堪娣峰悎鍐呭鍖哄煙鐨勫姛鑳姐€?)
+                                    text("Complex scroll content description")
                                     fontSize(12f)
                                     color(Color(0xCCFFFFFF))
                                     marginTop(4f)
