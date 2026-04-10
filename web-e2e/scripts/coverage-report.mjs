@@ -366,14 +366,57 @@ function patchCoverageHtmlFile(filePath) {
     return false;
   }
 
-  if (!html.includes('code-line code-line-') && !html.includes('coverage-code')) {
+  const coverageCellStart = '<td class="line-coverage quiet">';
+  const textCellStart = '</td><td class="text"><pre class="';
+  const preClose = '</pre></td></tr></table></pre>';
+
+  const coverageStartIndex = html.indexOf(coverageCellStart);
+  const textStartIndex = html.indexOf(textCellStart, coverageStartIndex);
+  const preCloseIndex = html.indexOf(preClose, textStartIndex);
+  if (coverageStartIndex === -1 || textStartIndex === -1 || preCloseIndex === -1) {
     return false;
   }
 
-  const patchedHtml = html
-    .replace(/<span class="code-line code-line-(?:yes|no|neutral)">/g, '')
-    .replace(/<\/span>(\r?\n|<\/pre>)/g, '$1')
-    .replace(/prettyprint lang-js coverage-code/g, 'prettyprint lang-js');
+  const coverageSegment = html.slice(coverageStartIndex + coverageCellStart.length, textStartIndex);
+  const preClassStartIndex = textStartIndex + textCellStart.length;
+  const preClassEndIndex = html.indexOf('">', preClassStartIndex);
+  if (preClassEndIndex === -1) {
+    return false;
+  }
+
+  const preClass = html.slice(preClassStartIndex, preClassEndIndex);
+  const codeStartIndex = preClassEndIndex + 2;
+  const codeSegment = html.slice(codeStartIndex, preCloseIndex);
+
+  const lineStatuses = [...coverageSegment.matchAll(/cline-any\s+cline-(yes|no|neutral)/g)].map((match) => match[1]);
+  if (lineStatuses.length === 0) {
+    return false;
+  }
+
+  const rawCodeLines = codeSegment.split(/\r?\n/);
+  const codeLines = rawCodeLines.map((line) => {
+    const hasWrappedCodeLine = /^<span class="code-line code-line-(?:yes|no|neutral)">/.test(line);
+    if (!hasWrappedCodeLine) {
+      return line;
+    }
+    return line
+      .replace(/^<span class="code-line code-line-(?:yes|no|neutral)">/, '')
+      .replace(/<\/span>$/, '');
+  });
+
+  if (codeLines.length !== lineStatuses.length) {
+    return false;
+  }
+
+  const wrappedCode = codeLines
+    .map((line, index) => `<span class="code-line code-line-${lineStatuses[index]}">${line}</span>`)
+    .join('\n');
+
+  const normalizedPreClass = [...new Set([
+    ...preClass.split(/\s+/).filter(Boolean).filter((className) => className !== 'prettyprint' && className !== 'lang-js'),
+    'coverage-code',
+  ])].join(' ');
+  const patchedHtml = `${html.slice(0, preClassStartIndex)}${normalizedPreClass}">${wrappedCode}${html.slice(preCloseIndex)}`;
 
   writeFileSync(filePath, patchedHtml);
   return true;
@@ -396,17 +439,56 @@ function patchCoverageStyles() {
   const cssPatch = `
 
 ${marker}
+.coverage td.text {
+  width: 100%;
+}
+
+.coverage-code {
+  white-space: normal;
+}
+
+.coverage-code .code-line {
+  display: block;
+  white-space: pre;
+  margin: 0 -6px;
+  padding: 0 6px;
+  border-left: 4px solid transparent;
+}
+
+.coverage-code .code-line-yes {
+  background: rgba(77, 146, 33, 0.44);
+  border-left-color: rgb(35, 102, 10);
+}
+
+.coverage-code .code-line-no {
+  background: rgba(194, 31, 57, 0.38);
+  border-left-color: #8F1128;
+}
+
+.coverage-code .code-line-neutral {
+  background: transparent;
+}
+
+.coverage-code .cstat-yes,
+.coverage-code .cstat-no,
+.coverage-code .fstat-yes,
+.coverage-code .fstat-no,
+.coverage-code .cbranch-no,
+.coverage-code .cbranch-skip,
+.coverage-code .cstat-skip,
+.coverage-code .fstat-skip {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.coverage-code .cbranch-no {
+  border-bottom: 2px solid #f9cd0b;
+}
 `;
 
   const baseCss = readFileSync(baseCssPath, 'utf8');
   const cleanedBaseCss = removeCoverageStyleMarker(baseCss, marker);
-  if (cleanedBaseCss !== baseCss) {
-    writeFileSync(baseCssPath, cleanedBaseCss);
-    return;
-  }
-  if (!baseCss.includes(marker)) {
-    writeFileSync(baseCssPath, `${baseCss}${cssPatch}`);
-  }
+  writeFileSync(baseCssPath, `${cleanedBaseCss.trimEnd()}${cssPatch}\n`);
 }
 
 function postProcessCoverageReport() {
