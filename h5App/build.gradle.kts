@@ -1,6 +1,7 @@
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
+import org.jetbrains.kotlin.gradle.dsl.JsSourceMapEmbedMode
 
 plugins {
     // Import KMM plugin
@@ -34,14 +35,9 @@ kotlin {
         // Package render code and h5App code together and execute directly
         binaries.executable()
 
-        // Ensure Kotlin compiler emits source maps for all compilations (IR default is on, explicit for safety)
-        compilations.all {
-            kotlinOptions {
-                sourceMap = true
-                // Reference Kotlin sources by path rather than embedding them inline,
-                // keeping the .js.map file small while still enabling coverage remapping
-                sourceMapEmbedSources = "never"
-            }
+        compilerOptions {
+            sourceMap.set(true)
+            sourceMapEmbedSources.set(JsSourceMapEmbedMode.SOURCE_MAP_SOURCE_CONTENT_ALWAYS)
         }
     }
     sourceSets {

@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JsSourceMapEmbedMode
+
 plugins {
     // Import KMM plugin
     kotlin("multiplatform")
@@ -46,10 +48,16 @@ kotlin {
 
             commonWebpackConfig {
                 output?.library = null // Don't export global objects, only export necessary entry functions
+                sourceMaps = true
             }
         }
         // Output executable JS rather than library
         binaries.executable()
+
+        compilerOptions {
+            sourceMap.set(true)
+            sourceMapEmbedSources.set(JsSourceMapEmbedMode.SOURCE_MAP_SOURCE_CONTENT_ALWAYS)
+        }
     }
 
     sourceSets {

@@ -104,6 +104,53 @@ function log(msg)  { console.log(`[instrument] ${msg}`); }
 function warn(msg) { console.warn(`[instrument] ⚠️  ${msg}`); }
 function err(msg)  { console.error(`[instrument] ❌ ${msg}`); }
 
+function extractInlineSourceMap(code) {
+  const match = code.match(/\/\/# sourceMappingURL=data:application\/json(?:;charset=[^;,]+)?;base64,([^\s]+)/);
+  if (!match) {
+    return null;
+  }
+  return JSON.parse(Buffer.from(match[1], 'base64').toString('utf8'));
+}
+
+function stripSourceMapComments(code) {
+  return code
+    .replace(/\/\/[@#]\s+sourceMappingURL=[^\r\n]*/g, '')
+    .replace(/\/\*[@#]\s+sourceMappingURL=[\s\S]*?\*\//g, '')
+    .trimEnd();
+}
+
+function normalizeInstrumentedModuleSourceMaps() {
+  for (const name of TARGET_MODULES) {
+    const jsPath = join(MODULES_OUT_DIR, name);
+    const mapName = `${name}.map`;
+    const mapPath = join(MODULES_OUT_DIR, mapName);
+    const fallbackMapPath = join(KOTLIN_MODULES_DIR, mapName);
+
+    if (!existsSync(jsPath)) {
+      warn(`Instrumented module not found: ${jsPath}`);
+      continue;
+    }
+
+    const code = readFileSync(jsPath, 'utf8');
+    const inlineMap = extractInlineSourceMap(code);
+
+    if (inlineMap) {
+      writeFileSync(mapPath, JSON.stringify(inlineMap), 'utf8');
+      writeFileSync(
+        jsPath,
+        `${stripSourceMapComments(code)}\n//# sourceMappingURL=${mapName}\n`,
+        'utf8'
+      );
+      log(`Normalized instrumented source map: ${mapName}`);
+    } else if (existsSync(fallbackMapPath)) {
+      copyFileSync(fallbackMapPath, mapPath);
+      log(`Copied original source map as fallback: ${mapName}`);
+    } else {
+      warn(`Source map not found (coverage will be JS-level only): ${mapName}`);
+    }
+  }
+}
+
 // ── 插桩 Kotlin 模块目录 ───────────────────────────────────────────────────────
 
 function instrumentModules() {
@@ -139,7 +186,7 @@ function instrumentModules() {
 
   try {
     execSyncWithNodePath(
-      `npx nyc instrument --source-map=true "${relSrc}" "${relOut}"`,
+      `npx nyc instrument --source-map=true --no-compact "${relSrc}" "${relOut}"`,
       { cwd: projectRoot, stdio: 'inherit' }
     );
     log('✅ Instrumentation done');
@@ -148,20 +195,7 @@ function instrumentModules() {
     process.exit(1);
   }
 
-  // 复制 source map 文件（.js.map）
-  for (const name of TARGET_MODULES) {
-    const mapName = name + '.map';
-    const mapSrc  = join(KOTLIN_MODULES_DIR, mapName);
-    const mapDst  = join(MODULES_OUT_DIR, mapName);
-    if (existsSync(mapDst)) {
-      log(`Keeping instrumented source map: ${mapName}`);
-    } else if (existsSync(mapSrc)) {
-      copyFileSync(mapSrc, mapDst);
-      log(`Copied original source map as fallback: ${mapName}`);
-    } else {
-      warn(`Source map not found (coverage will be JS-level only): ${mapName}`);
-    }
-  }
+  normalizeInstrumentedModuleSourceMaps();
 }
 
 // ── 生成 h5App.js loader 脚本 ──────────────────────────────────────────────────

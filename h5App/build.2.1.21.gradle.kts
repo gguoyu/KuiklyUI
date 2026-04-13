@@ -1,6 +1,7 @@
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
+import org.jetbrains.kotlin.gradle.dsl.JsSourceMapEmbedMode
 
 plugins {
     // Import KMM plugin
@@ -27,10 +28,17 @@ kotlin {
             commonWebpackConfig {
                 // Do not export global objects, only export necessary entry methods
                 output?.library = null
+                // Generate source maps so Istanbul/NYC can remap JS coverage back to Kotlin source lines
+                sourceMaps = true
             }
         }
         // Package render code and h5App code together and execute directly
         binaries.executable()
+
+        compilerOptions {
+            sourceMap.set(true)
+            sourceMapEmbedSources.set(JsSourceMapEmbedMode.SOURCE_MAP_SOURCE_CONTENT_ALWAYS)
+        }
     }
     sourceSets {
         val jsMain by getting {

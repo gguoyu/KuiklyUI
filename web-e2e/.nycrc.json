@@ -26,5 +26,9 @@
     "functions": [70, 80],
     "branches": [55, 75],
     "statements": [70, 80]
-  }
+  },
+  "parser-plugins": [
+    "variableDeclaration", 
+    "assignmentExpression"
+  ]
 }

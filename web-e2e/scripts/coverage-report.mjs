@@ -9,7 +9,8 @@
 
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
-import { join, dirname, normalize } from 'path';
+import { join, dirname, normalize, resolve } from 'path';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 
 function execSyncWithLocalNyc(command, options = {}) {
@@ -22,6 +23,8 @@ function execSyncWithLocalNyc(command, options = {}) {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const require = createRequire(import.meta.url);
+const { SourceMapConsumer } = require('source-map');
 
 const e2eRoot = join(__dirname, '..');
 const projectRoot = join(e2eRoot, '..');
@@ -41,6 +44,10 @@ const coverageScopeRoots = [
   normalize(join(projectRoot, 'core-render-web', 'base', 'src', 'jsMain', 'kotlin')),
   normalize(join(projectRoot, 'core-render-web', 'h5', 'src', 'jsMain', 'kotlin')),
 ];
+const generatedKotlinOutputRoot = normalize(
+  join(projectRoot, 'h5App', 'build', 'compileSync', 'js', 'main', 'developmentExecutable', 'kotlin')
+);
+const sourceMapConsumerCache = new Map();
 
 if (!existsSync(nycOutputDir)) {
   console.error('.nyc_output does not exist, run instrumented coverage tests first');
@@ -78,6 +85,285 @@ function writeMergedCoverage(coverage) {
     Object.entries(coverage).sort(([left], [right]) => left.localeCompare(right))
   );
   writeFileSync(mergedJson, `${JSON.stringify(sortedCoverage, null, 2)}\n`);
+}
+
+function isGeneratedKotlinModule(filePath) {
+  const normalizedPath = normalize(filePath);
+  return normalizedPath.startsWith(generatedKotlinOutputRoot) && normalizedPath.endsWith('.js');
+}
+
+function mergeRawGeneratedJsCoverage() {
+  const merged = {};
+
+  for (const entry of readdirSync(nycOutputDir)) {
+    if (!entry.endsWith('.json')) {
+      continue;
+    }
+
+    const fullPath = join(nycOutputDir, entry);
+    const coverage = JSON.parse(readFileSync(fullPath, 'utf8'));
+
+    for (const [filePath, fileCoverage] of Object.entries(coverage)) {
+      if (!isGeneratedKotlinModule(filePath)) {
+        continue;
+      }
+
+      const normalizedPath = normalize(filePath);
+      if (!merged[normalizedPath]) {
+        merged[normalizedPath] = {
+          statementMap: fileCoverage.statementMap ?? {},
+          s: { ...(fileCoverage.s ?? {}) },
+        };
+        continue;
+      }
+
+      for (const [statementId, hits] of Object.entries(fileCoverage.s ?? {})) {
+        merged[normalizedPath].s[statementId] = (merged[normalizedPath].s[statementId] ?? 0) + hits;
+      }
+    }
+  }
+
+  return merged;
+}
+
+function originalPositionTryBoth(sourceMap, line, column) {
+  const mapping = sourceMap.originalPositionFor({
+    line,
+    column,
+    bias: SourceMapConsumer.GREATEST_LOWER_BOUND,
+  });
+  if (mapping.source === null) {
+    return sourceMap.originalPositionFor({
+      line,
+      column,
+      bias: SourceMapConsumer.LEAST_UPPER_BOUND,
+    });
+  }
+  return mapping;
+}
+
+function isKotlinSource(source) {
+  return typeof source === 'string' && source.endsWith('.kt');
+}
+
+function isKotlinJsTailMismatch(expectedSource, actualSource) {
+  return (
+    isKotlinSource(expectedSource) &&
+    (actualSource === null ||
+      (actualSource !== expectedSource &&
+        typeof actualSource === 'string' &&
+        actualSource.startsWith('src/kotlin/')))
+  );
+}
+
+function originalEndPositionForMapping(sourceMap, beforeEndMapping) {
+  const afterEndMapping = sourceMap.generatedPositionFor({
+    source: beforeEndMapping.source,
+    line: beforeEndMapping.line,
+    column: beforeEndMapping.column + 1,
+    bias: SourceMapConsumer.LEAST_UPPER_BOUND,
+  });
+
+  if (
+    afterEndMapping.line === null ||
+    sourceMap.originalPositionFor(afterEndMapping).line !== beforeEndMapping.line
+  ) {
+    return {
+      source: beforeEndMapping.source,
+      line: beforeEndMapping.line,
+      column: Infinity,
+    };
+  }
+
+  return sourceMap.originalPositionFor(afterEndMapping);
+}
+
+function sameCoverageColumn(left, right) {
+  const normalizeColumn = (value) => (value === Infinity ? null : value);
+  return normalizeColumn(left) === normalizeColumn(right);
+}
+
+function findMatchingStatementId(fileCoverage, loc) {
+  for (const [statementId, statementLoc] of Object.entries(fileCoverage.statementMap ?? {})) {
+    if (
+      statementLoc.start.line === loc.start.line &&
+      statementLoc.start.column === loc.start.column &&
+      statementLoc.end.line === loc.end.line &&
+      sameCoverageColumn(statementLoc.end.column, loc.end.column)
+    ) {
+      return statementId;
+    }
+  }
+  return null;
+}
+
+function buildStatementLineStats(fileCoverage) {
+  const stats = {};
+
+  for (const [statementId, statementLoc] of Object.entries(fileCoverage.statementMap ?? {})) {
+    const lineNumber = statementLoc.start.line;
+    if (!stats[lineNumber]) {
+      stats[lineNumber] = {
+        count: 0,
+        covered: false,
+      };
+    }
+    stats[lineNumber].count += 1;
+    if ((fileCoverage.s?.[statementId] ?? 0) > 0) {
+      stats[lineNumber].covered = true;
+    }
+  }
+
+  return stats;
+}
+
+function shouldRepairSyntheticStatement(lineStats, lineNumber) {
+  if (lineStats?.[lineNumber]) {
+    return false;
+  }
+
+  const nextLine = lineStats?.[lineNumber + 1];
+  if (nextLine?.covered) {
+    return true;
+  }
+
+  return !nextLine && Boolean(lineStats?.[lineNumber + 2]?.covered);
+}
+
+async function getSourceMapConsumerFor(jsFilePath) {
+  const normalizedPath = normalize(jsFilePath);
+  if (sourceMapConsumerCache.has(normalizedPath)) {
+    return sourceMapConsumerCache.get(normalizedPath);
+  }
+
+  const mapPath = `${normalizedPath}.map`;
+  if (!existsSync(mapPath)) {
+    sourceMapConsumerCache.set(normalizedPath, null);
+    return null;
+  }
+
+  const rawSourceMap = JSON.parse(readFileSync(mapPath, 'utf8'));
+  const consumer = await new SourceMapConsumer(rawSourceMap);
+  sourceMapConsumerCache.set(normalizedPath, consumer);
+  return consumer;
+}
+
+function resolveOriginalSourcePath(jsFilePath, source) {
+  return normalize(resolve(dirname(jsFilePath), source));
+}
+
+function mapJsStatementToSyntheticKotlinStatement(sourceMap, jsFilePath, statementLoc) {
+  if (!statementLoc?.start || !statementLoc?.end || statementLoc.end.column <= 0) {
+    return null;
+  }
+
+  const start = originalPositionTryBoth(sourceMap, statementLoc.start.line, statementLoc.start.column);
+  if (!start?.source || !isKotlinSource(start.source) || start.line === null || start.column === null) {
+    return null;
+  }
+
+  const directTail = originalPositionTryBoth(sourceMap, statementLoc.end.line, statementLoc.end.column - 1);
+  if (!isKotlinJsTailMismatch(start.source, directTail.source)) {
+    return null;
+  }
+
+  let repairedTail = null;
+  for (let column = statementLoc.end.column - 2; column >= statementLoc.start.column; column -= 1) {
+    const candidate = originalPositionTryBoth(sourceMap, statementLoc.end.line, column);
+    if (candidate.source === start.source) {
+      repairedTail = candidate;
+      break;
+    }
+  }
+
+  if (!repairedTail) {
+    return null;
+  }
+
+  const end = originalEndPositionForMapping(sourceMap, repairedTail);
+  if (!end?.source || end.source !== start.source || end.line === null) {
+    return null;
+  }
+
+  const kotlinPath = resolveOriginalSourcePath(jsFilePath, start.source);
+  if (!isInCoverageScope(kotlinPath)) {
+    return null;
+  }
+
+  return {
+    filePath: kotlinPath,
+    loc: {
+      start: {
+        line: start.line,
+        column: start.column,
+      },
+      end: {
+        line: end.line,
+        column: end.column,
+      },
+    },
+  };
+}
+
+async function repairKotlinInlineTailMappings() {
+  const mergedCoverage = readMergedCoverage();
+  const originalLineStats = Object.fromEntries(
+    Object.entries(mergedCoverage).map(([filePath, fileCoverage]) => [filePath, buildStatementLineStats(fileCoverage)])
+  );
+  const rawGeneratedCoverage = mergeRawGeneratedJsCoverage();
+  let added = 0;
+  let updated = 0;
+  const touchedFiles = new Set();
+
+  for (const [jsFilePath, jsCoverage] of Object.entries(rawGeneratedCoverage)) {
+    const sourceMap = await getSourceMapConsumerFor(jsFilePath);
+    if (!sourceMap) {
+      continue;
+    }
+
+    for (const [statementId, statementLoc] of Object.entries(jsCoverage.statementMap ?? {})) {
+      const hits = jsCoverage.s?.[statementId] ?? 0;
+      if (!hits) {
+        continue;
+      }
+
+      const synthetic = mapJsStatementToSyntheticKotlinStatement(sourceMap, jsFilePath, statementLoc);
+      if (!synthetic) {
+        continue;
+      }
+
+      const fileCoverage = mergedCoverage[synthetic.filePath];
+      if (!fileCoverage) {
+        continue;
+      }
+
+      if (!shouldRepairSyntheticStatement(originalLineStats[synthetic.filePath], synthetic.loc.start.line)) {
+        continue;
+      }
+
+      const existingId = findMatchingStatementId(fileCoverage, synthetic.loc);
+      if (existingId) {
+        const previousHits = fileCoverage.s[existingId] ?? 0;
+        if (previousHits < hits) {
+          fileCoverage.s[existingId] = hits;
+          updated += 1;
+          touchedFiles.add(synthetic.filePath);
+        }
+        continue;
+      }
+
+      const newId = String(Object.keys(fileCoverage.statementMap).length);
+      fileCoverage.statementMap[newId] = synthetic.loc;
+      fileCoverage.s[newId] = hits;
+      added += 1;
+      touchedFiles.add(synthetic.filePath);
+    }
+  }
+
+  writeMergedCoverage(mergedCoverage);
+  console.log(
+    `Kotlin inline tail repair added ${added} statements and updated ${updated} statements across ${touchedFiles.size} files`
+  );
 }
 
 function filterMergedCoverage() {
@@ -509,6 +795,7 @@ function postProcessCoverageReport() {
 }
 
 prepareMergedCoverage();
+await repairKotlinInlineTailMappings();
 const baseFlags = buildBaseFlags();
 
 if (checkOnly) {
