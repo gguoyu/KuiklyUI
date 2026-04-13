@@ -66,7 +66,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                 // === Section 1: 鍨傜洿婊氬姩 ===
                 Text {
                     attr {
-                        text("1. 鍨傜洿婊氬姩")
+                        text("1. 垂直滚动")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(16f)
@@ -99,7 +99,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                 }
                                 Text {
                                     attr {
-                                        text("鍨傜洿椤?$i")
+                                        text("垂直项 $i")
                                         fontSize(14f)
                                         color(Color.WHITE)
                                         fontWeightBold()
@@ -119,7 +119,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                 // === Section 2: 姘村钩婊氬姩 ===
                 Text {
                     attr {
-                        text("2. 姘村钩婊氬姩")
+                        text("2. 水平滚动")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(12f)
@@ -173,7 +173,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                 // === Section 3: 闀垮唴瀹圭旱鍚戞粴鍔?===
                 Text {
                     attr {
-                        text("3. Scroll content advanced section")
+                        text("3. 长内容滚动")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(12f)
@@ -216,7 +216,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                 }
                                 Text {
                                     attr {
-                                        text("闀垮垪琛ㄦ粴鍔ㄩ」 Item $i")
+                                        text("长列表滚动项 Item $i")
                                         fontSize(13f)
                                         color(Color(0xFF333333))
                                         marginLeft(8f)
@@ -235,7 +235,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                 // === Section 4: 娣峰悎鍐呭婊氬姩 ===
                 Text {
                     attr {
-                        text("4. 娣峰悎鍐呭婊氬姩")
+                        text("4. 混合内容滚动")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(12f)
@@ -265,7 +265,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                             }
                             Text {
                                 attr {
-                                    text("娣峰悎鍐呭鏍囬鍖哄煙")
+                                    text("混合内容标题区域")
                                     fontSize(16f)
                                     color(Color.WHITE)
                                     fontWeightBold()
@@ -273,7 +273,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                             }
                             Text {
                                 attr {
-                                    text("Complex scroll content description")
+                                    text("这是一段说明文本，描述混合内容区域的功能。")
                                     fontSize(12f)
                                     color(Color(0xCCFFFFFF))
                                     marginTop(4f)
@@ -298,7 +298,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                     }
                                     Text {
                                         attr {
-                                            text("鍧?i")
+                                            text("块$i")
                                             fontSize(13f)
                                             color(Color.WHITE)
                                             fontWeightBold()
@@ -328,7 +328,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                                 }
                                 Text {
                                     attr {
-                                        text("搴曢儴淇℃伅琛?$i")
+                                        text("底部信息行 $i")
                                         fontSize(13f)
                                         color(Color(0xFF333333))
                                         marginLeft(8f)
@@ -347,7 +347,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                 // === Section 5: 宓屽甯冨眬楠岃瘉 ===
                 Text {
                     attr {
-                        text("5. 宓屽甯冨眬楠岃瘉")
+                        text("5. 嵌套布局验证")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(12f)
@@ -371,7 +371,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                         }
                         Text {
                             attr {
-                                text("宸︿晶婊氬姩")
+                                text("左侧滚动")
                                 fontSize(11f)
                                 color(Color(0xFF333333))
                                 marginLeft(8f)
@@ -414,7 +414,7 @@ internal class KRScrollContentViewTestPage : Pager() {
                         }
                         Text {
                             attr {
-                                text("鍙充晶婊氬姩")
+                                text("右侧滚动")
                                 fontSize(11f)
                                 color(Color(0xFF333333))
                                 marginLeft(8f)

@@ -9,15 +9,15 @@ async function getScrollTop(locator: Locator): Promise<number> {
   });
 }
 
-test.describe('KRScrollContentView 娓叉煋娴嬭瘯', () => {
-  test('搴旇鎴愬姛鍔犺浇 KRScrollContentViewTestPage 椤甸潰', async ({ kuiklyPage }) => {
+test.describe('KRScrollContentView 滚动内容测试', () => {
+  test('应该成功加载 KRScrollContentViewTestPage 页面', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('KRScrollContentViewTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.locator('text=1. 鍨傜洿婊氬姩')).toBeVisible();
+    await expect(kuiklyPage.page.locator('text=1. 垂直滚动')).toBeVisible();
   });
 
-  test('搴旇姝ｇ‘娓叉煋婊氬姩瀹瑰櫒缁勪欢', async ({ kuiklyPage }) => {
+  test('应该正确渲染滚动容器组件', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('KRScrollContentViewTestPage');
     await kuiklyPage.waitForRenderComplete();
 
@@ -27,32 +27,32 @@ test.describe('KRScrollContentView 娓叉煋娴嬭瘯', () => {
     expect(scrollViews.length + scrollContentViews.length).toBeGreaterThan(0);
   });
 
-  test('搴旇姝ｇ‘娓叉煋鍨傜洿婊氬姩鍐呭', async ({ kuiklyPage }) => {
+  test('应该正确渲染垂直滚动内容', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('KRScrollContentViewTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('鍨傜洿椤?1', { exact: true })).toBeVisible();
-    await expect(kuiklyPage.page.getByText('鍨傜洿椤?2', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('垂直项 1', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('垂直项 2', { exact: true })).toBeVisible();
   });
 
-  test('搴旇姝ｇ‘娓叉煋姘村钩婊氬姩鍐呭', async ({ kuiklyPage }) => {
+  test('应该正确渲染水平滚动内容', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('KRScrollContentViewTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.locator('text=2. 姘村钩婊氬姩')).toBeVisible();
+    await expect(kuiklyPage.page.locator('text=2. 水平滚动')).toBeVisible();
     await expect(kuiklyPage.page.getByText('H1', { exact: true })).toBeVisible();
   });
 
-  test('搴旇姝ｇ‘娓叉煋宓屽甯冨眬', async ({ kuiklyPage }) => {
+  test('应该正确渲染嵌套布局', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('KRScrollContentViewTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.locator('text=5. 宓屽甯冨眬楠岃瘉')).toBeVisible();
-    await expect(kuiklyPage.page.locator('text=宸︿晶婊氬姩')).toBeVisible();
-    await expect(kuiklyPage.page.locator('text=鍙充晶婊氬姩')).toBeVisible();
+    await expect(kuiklyPage.page.locator('text=5. 嵌套布局验证')).toBeVisible();
+    await expect(kuiklyPage.page.locator('text=左侧滚动')).toBeVisible();
+    await expect(kuiklyPage.page.locator('text=右侧滚动')).toBeVisible();
   });
 
-  test('瑙嗚鍥炲綊锛欿RScrollContentViewTestPage 鎴浘瀵规瘮', async ({ kuiklyPage }) => {
+  test('视觉回归：KRScrollContentViewTestPage 截图对比', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('KRScrollContentViewTestPage');
     await kuiklyPage.waitForRenderComplete();
     await kuiklyPage.page.waitForTimeout(500);
@@ -71,7 +71,7 @@ test.describe('KRScrollContentView 娓叉煋娴嬭瘯', () => {
     expect(verticalScroller).toBeTruthy();
 
     await kuiklyPage.scrollInContainer(verticalScroller, { deltaY: 480, smooth: false });
-    await expect(kuiklyPage.page.getByText('鍨傜洿椤?9', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('垂直项 9', { exact: true })).toBeVisible();
   });
 
   test('scrolling the row container should reveal later horizontal tiles', async ({ kuiklyPage }) => {
