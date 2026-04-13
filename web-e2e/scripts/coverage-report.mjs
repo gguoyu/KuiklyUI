@@ -48,6 +48,8 @@ const generatedKotlinOutputRoot = normalize(
   join(projectRoot, 'h5App', 'build', 'compileSync', 'js', 'main', 'developmentExecutable', 'kotlin')
 );
 const sourceMapConsumerCache = new Map();
+const sourceLineCache = new Map();
+const declarationOnlyInterfaceDefaultParamLinesCache = new Map();
 
 if (!existsSync(nycOutputDir)) {
   console.error('.nyc_output does not exist, run instrumented coverage tests first');
@@ -146,14 +148,21 @@ function isKotlinSource(source) {
   return typeof source === 'string' && source.endsWith('.kt');
 }
 
-function isKotlinJsTailMismatch(expectedSource, actualSource) {
-  return (
-    isKotlinSource(expectedSource) &&
-    (actualSource === null ||
-      (actualSource !== expectedSource &&
-        typeof actualSource === 'string' &&
-        actualSource.startsWith('src/kotlin/')))
-  );
+function classifyKotlinJsTailMismatch(expectedSource, actualSource) {
+  if (!isKotlinSource(expectedSource)) {
+    return null;
+  }
+  if (actualSource === null) {
+    return 'null-tail';
+  }
+  if (
+    actualSource !== expectedSource &&
+    typeof actualSource === 'string' &&
+    actualSource.startsWith('src/kotlin/')
+  ) {
+    return 'cross-source';
+  }
+  return null;
 }
 
 function originalEndPositionForMapping(sourceMap, beforeEndMapping) {
@@ -197,6 +206,40 @@ function findMatchingStatementId(fileCoverage, loc) {
   return null;
 }
 
+function normalizeCoverageColumn(column) {
+  if (column === null || column === undefined || column === Infinity) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return column;
+}
+
+function findReusableStatementId(fileCoverage, loc, repairKind) {
+  const exactId = findMatchingStatementId(fileCoverage, loc);
+  if (exactId || repairKind !== 'null-tail') {
+    return exactId;
+  }
+
+  let bestId = null;
+  let bestScore = Infinity;
+  for (const [statementId, statementLoc] of Object.entries(fileCoverage.statementMap ?? {})) {
+    if (statementLoc.start.line !== loc.start.line) {
+      continue;
+    }
+
+    const startDistance = Math.abs(statementLoc.start.column - loc.start.column);
+    const endDistance = Math.abs(
+      normalizeCoverageColumn(statementLoc.end.column) - normalizeCoverageColumn(loc.end.column)
+    );
+    const score = startDistance * 100000 + endDistance;
+    if (score < bestScore) {
+      bestId = statementId;
+      bestScore = score;
+    }
+  }
+
+  return bestId;
+}
+
 function buildStatementLineStats(fileCoverage) {
   const stats = {};
 
@@ -217,7 +260,64 @@ function buildStatementLineStats(fileCoverage) {
   return stats;
 }
 
-function shouldRepairSyntheticStatement(lineStats, lineNumber) {
+function markStatementLineCovered(lineStats, lineNumber, hits, incrementCount = false) {
+  if (!lineStats[lineNumber]) {
+    lineStats[lineNumber] = {
+      count: 0,
+      covered: false,
+    };
+  }
+  if (incrementCount) {
+    lineStats[lineNumber].count += 1;
+  }
+  if (hits > 0) {
+    lineStats[lineNumber].covered = true;
+  }
+}
+
+function readSourceLines(filePath) {
+  const normalizedPath = normalize(filePath);
+  if (!sourceLineCache.has(normalizedPath)) {
+    sourceLineCache.set(normalizedPath, readFileSync(normalizedPath, 'utf8').split(/\r?\n/));
+  }
+  return sourceLineCache.get(normalizedPath);
+}
+
+function getSourceLine(filePath, lineNumber) {
+  return readSourceLines(filePath)[lineNumber - 1] ?? '';
+}
+
+function isAssignmentLikeSourceLine(filePath, lineNumber) {
+  const trimmedLine = getSourceLine(filePath, lineNumber).trim();
+  if (!trimmedLine) {
+    return false;
+  }
+  if (trimmedLine.startsWith('//') || trimmedLine.startsWith('*')) {
+    return false;
+  }
+  if (/^(package|import)\b/.test(trimmedLine)) {
+    return false;
+  }
+  if (/^(private|public|internal|protected)?\s*(var|val)\s+[A-Za-z0-9_]+.*=/.test(trimmedLine)) {
+    return true;
+  }
+  return /^[A-Za-z0-9_$.()[\]<>?]+\s*=/.test(trimmedLine);
+}
+
+function hasCoveredNeighbor(lineStats, lineNumber, maxDistance) {
+  for (let distance = 1; distance <= maxDistance; distance += 1) {
+    if (lineStats?.[lineNumber - distance]?.covered || lineStats?.[lineNumber + distance]?.covered) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function shouldRepairSyntheticStatement(filePath, lineStats, lineNumber, repairKind) {
+  if (repairKind === 'null-tail') {
+    return true;
+  }
+
   if (lineStats?.[lineNumber]) {
     return false;
   }
@@ -227,7 +327,11 @@ function shouldRepairSyntheticStatement(lineStats, lineNumber) {
     return true;
   }
 
-  return !nextLine && Boolean(lineStats?.[lineNumber + 2]?.covered);
+  if (!nextLine && lineStats?.[lineNumber + 2]?.covered) {
+    return true;
+  }
+
+  return isAssignmentLikeSourceLine(filePath, lineNumber) && hasCoveredNeighbor(lineStats, lineNumber, 3);
 }
 
 async function getSourceMapConsumerFor(jsFilePath) {
@@ -263,7 +367,8 @@ function mapJsStatementToSyntheticKotlinStatement(sourceMap, jsFilePath, stateme
   }
 
   const directTail = originalPositionTryBoth(sourceMap, statementLoc.end.line, statementLoc.end.column - 1);
-  if (!isKotlinJsTailMismatch(start.source, directTail.source)) {
+  const repairKind = classifyKotlinJsTailMismatch(start.source, directTail.source);
+  if (!repairKind) {
     return null;
   }
 
@@ -302,6 +407,7 @@ function mapJsStatementToSyntheticKotlinStatement(sourceMap, jsFilePath, stateme
         column: end.column,
       },
     },
+    repairKind,
   };
 }
 
@@ -337,15 +443,17 @@ async function repairKotlinInlineTailMappings() {
         continue;
       }
 
-      if (!shouldRepairSyntheticStatement(originalLineStats[synthetic.filePath], synthetic.loc.start.line)) {
+      const fileLineStats = originalLineStats[synthetic.filePath];
+      if (!shouldRepairSyntheticStatement(synthetic.filePath, fileLineStats, synthetic.loc.start.line, synthetic.repairKind)) {
         continue;
       }
 
-      const existingId = findMatchingStatementId(fileCoverage, synthetic.loc);
+      const existingId = findReusableStatementId(fileCoverage, synthetic.loc, synthetic.repairKind);
       if (existingId) {
         const previousHits = fileCoverage.s[existingId] ?? 0;
         if (previousHits < hits) {
           fileCoverage.s[existingId] = hits;
+          markStatementLineCovered(fileLineStats, synthetic.loc.start.line, hits - previousHits);
           updated += 1;
           touchedFiles.add(synthetic.filePath);
         }
@@ -355,6 +463,7 @@ async function repairKotlinInlineTailMappings() {
       const newId = String(Object.keys(fileCoverage.statementMap).length);
       fileCoverage.statementMap[newId] = synthetic.loc;
       fileCoverage.s[newId] = hits;
+      markStatementLineCovered(fileLineStats, synthetic.loc.start.line, hits, true);
       added += 1;
       touchedFiles.add(synthetic.filePath);
     }
@@ -363,6 +472,53 @@ async function repairKotlinInlineTailMappings() {
   writeMergedCoverage(mergedCoverage);
   console.log(
     `Kotlin inline tail repair added ${added} statements and updated ${updated} statements across ${touchedFiles.size} files`
+  );
+}
+
+function filterDeclarationOnlyInterfaceDefaultHelperCoverage() {
+  const mergedCoverage = readMergedCoverage();
+  let touchedFiles = 0;
+  let removedStatements = 0;
+  let removedBranches = 0;
+
+  for (const [filePath, fileCoverage] of Object.entries(mergedCoverage)) {
+    const filteredLines = getDeclarationOnlyInterfaceDefaultParameterLines(filePath);
+    if (filteredLines.size === 0) {
+      continue;
+    }
+
+    let fileTouched = false;
+    for (const statementId of Object.keys(fileCoverage.statementMap ?? {})) {
+      const statementLoc = fileCoverage.statementMap[statementId];
+      if (!filteredLines.has(statementLoc.start.line)) {
+        continue;
+      }
+      delete fileCoverage.statementMap[statementId];
+      delete fileCoverage.s[statementId];
+      removedStatements += 1;
+      fileTouched = true;
+    }
+
+    for (const branchId of Object.keys(fileCoverage.branchMap ?? {})) {
+      const branchMeta = fileCoverage.branchMap[branchId];
+      const branchLine = branchMeta.line ?? branchMeta.loc?.start?.line;
+      if (!filteredLines.has(branchLine)) {
+        continue;
+      }
+      delete fileCoverage.branchMap[branchId];
+      delete fileCoverage.b[branchId];
+      removedBranches += 1;
+      fileTouched = true;
+    }
+
+    if (fileTouched) {
+      touchedFiles += 1;
+    }
+  }
+
+  writeMergedCoverage(mergedCoverage);
+  console.log(
+    `Declaration-only interface default-helper filter removed ${removedStatements} statements and ${removedBranches} branches across ${touchedFiles} files`
   );
 }
 
@@ -467,6 +623,71 @@ function isInterfaceDeclarationLine(trimmedLine) {
   return /^interface\s+[A-Za-z0-9_]+/.test(trimmedLine);
 }
 
+function isTypeDeclarationLine(trimmedLine) {
+  return /^(?:public|private|protected|internal|open|final|sealed|abstract|data|enum|annotation|inner|value)?\s*(?:class|object|interface)\b/.test(
+    trimmedLine
+  );
+}
+
+function isPropertyAccessorOnlyLine(trimmedLine) {
+  return /^(?:public|private|protected|internal)\s+(?:get|set)\b$/.test(trimmedLine);
+}
+
+function isDeclarationOnlyMemberLine(trimmedLine) {
+  if (!/^(?:(?:public|private|protected|internal|open|override|abstract|final|lateinit|const|expect|actual|sealed|data|inner|external|suspend|operator|infix|tailrec|vararg|reified)\s+)*(?:val|var)\b/.test(trimmedLine)) {
+    return false;
+  }
+  if (trimmedLine.includes('=')) {
+    return false;
+  }
+  if (/\bby\b/.test(trimmedLine)) {
+    return false;
+  }
+  if (trimmedLine.endsWith('{')) {
+    return false;
+  }
+  return true;
+}
+
+function isElseLikeStructuralLine(trimmedLine) {
+  return /^(?:}\s*)?(?:else|try|finally|do)\b.*\{$/.test(trimmedLine);
+}
+
+function isInitBlockLine(trimmedLine) {
+  return /^init\s*\{$/.test(trimmedLine);
+}
+
+function isLambdaHeaderContinuationLine(trimmedLine) {
+  if (!trimmedLine.startsWith('{')) {
+    return false;
+  }
+  const arrowIndex = trimmedLine.indexOf('->');
+  if (arrowIndex === -1) {
+    return false;
+  }
+  const afterArrow = trimmedLine.slice(arrowIndex + 2).trim();
+  return afterArrow === '' || afterArrow === '{';
+}
+
+function isWhenBranchStructuralLine(trimmedLine) {
+  const arrowIndex = trimmedLine.indexOf('->');
+  if (arrowIndex === -1) {
+    return false;
+  }
+  const beforeArrow = trimmedLine.slice(0, arrowIndex);
+  if (beforeArrow.includes('{')) {
+    return false;
+  }
+  const afterArrow = trimmedLine.slice(arrowIndex + 2).trim();
+  return afterArrow === '' || afterArrow === '{';
+}
+
+function isFunctionDeclarationLine(trimmedLine) {
+  return /^fun\b|^(?:public|private|protected|internal|open|override|suspend|inline|operator|infix|tailrec|expect|actual|final|sealed|data|const|lateinit|vararg|reified|abstract|external)\b.*\bfun\b/.test(
+    trimmedLine
+  );
+}
+
 function isDeclarationOnlyFunctionLine(trimmedLine) {
   if (!/\bfun\b/.test(trimmedLine)) {
     return false;
@@ -476,12 +697,73 @@ function isDeclarationOnlyFunctionLine(trimmedLine) {
     return true;
   }
 
-  const hasBody = trimmedLine.includes('{') || trimmedLine.includes('=');
-  if (hasBody) {
+  if (trimmedLine.includes('{')) {
     return false;
   }
 
-  return /^fun\b|^(?:public|private|protected|internal|open|override|suspend|inline|operator|infix|tailrec|expect|actual|final|sealed|data|const|lateinit|vararg|reified|abstract|external)\b/.test(trimmedLine);
+  const lastEqualsIndex = trimmedLine.lastIndexOf('=');
+  if (lastEqualsIndex !== -1) {
+    const closingParenIndex = trimmedLine.lastIndexOf(')');
+    if (closingParenIndex === -1 || lastEqualsIndex > closingParenIndex) {
+      return false;
+    }
+  }
+
+  return isFunctionDeclarationLine(trimmedLine);
+}
+
+function isMultilineContinuationLine(trimmedLine, previousTrimmedLine) {
+  if (!previousTrimmedLine) {
+    return false;
+  }
+
+  if (/^(?:&&|\|\||\?:|\.\?|\.|,)/.test(trimmedLine)) {
+    return true;
+  }
+
+  if (trimmedLine.startsWith('(') && /(?:\|\||&&|,|\()\s*$/.test(previousTrimmedLine)) {
+    return true;
+  }
+
+  if (/(?:\|\||&&|,|\.|\.\?|\?:|=)\s*$/.test(previousTrimmedLine)) {
+    return true;
+  }
+
+  return false;
+}
+
+function shouldAddBaselineStatement(trimmedLine, previousTrimmedLine) {
+  if (isTypeDeclarationLine(trimmedLine)) {
+    return false;
+  }
+  if (isPropertyAccessorOnlyLine(trimmedLine)) {
+    return false;
+  }
+  if (isDeclarationOnlyMemberLine(trimmedLine)) {
+    return false;
+  }
+  if (isElseLikeStructuralLine(trimmedLine)) {
+    return false;
+  }
+  if (isInitBlockLine(trimmedLine)) {
+    return false;
+  }
+  if (isLambdaHeaderContinuationLine(trimmedLine)) {
+    return false;
+  }
+  if (isWhenBranchStructuralLine(trimmedLine)) {
+    return false;
+  }
+  if (isMultilineContinuationLine(trimmedLine, previousTrimmedLine)) {
+    return false;
+  }
+  if (isFunctionDeclarationLine(trimmedLine) && trimmedLine.endsWith('{')) {
+    return false;
+  }
+  if (/^(?:get|set)\s*\([^)]*\)\s*\{$/.test(trimmedLine)) {
+    return false;
+  }
+  return true;
 }
 
 function createPosition(lineNumber, column) {
@@ -556,10 +838,29 @@ function buildZeroBaselineCoverage(filePath) {
     b: {},
   };
 
+  let previousMeaningfulLine = '';
+  let inFunctionSignature = false;
   sanitizedLines.forEach((lineText, index) => {
     const lineNumber = index + 1;
     const originalLine = originalLines[index] ?? lineText;
     const trimmedLine = lineText.trim();
+    const previousTrimmedLine = previousMeaningfulLine;
+
+    if (trimmedLine) {
+      previousMeaningfulLine = trimmedLine;
+    }
+
+    const continuesFunctionSignature =
+      inFunctionSignature ||
+      (isDeclarationOnlyFunctionLine(trimmedLine) && !trimmedLine.includes(')') && !trimmedLine.includes('{') && !trimmedLine.includes('='));
+
+    if (trimmedLine) {
+      if (continuesFunctionSignature) {
+        inFunctionSignature = !trimmedLine.includes(')') && !trimmedLine.includes('{') && !trimmedLine.includes('=');
+      } else {
+        inFunctionSignature = false;
+      }
+    }
 
     if (isIgnorableCoverageLine(trimmedLine)) {
       return;
@@ -569,53 +870,228 @@ function buildZeroBaselineCoverage(filePath) {
       return;
     }
 
+    if (continuesFunctionSignature) {
+      return;
+    }
+
     if (isDeclarationOnlyFunctionLine(trimmedLine)) {
       return;
     }
 
-    addStatement(fileCoverage, lineNumber, originalLine);
+    const shouldAddStatement = shouldAddBaselineStatement(trimmedLine, previousTrimmedLine);
+    if (shouldAddStatement) {
+      addStatement(fileCoverage, lineNumber, originalLine);
+    }
 
     if (/\bfun\b/.test(trimmedLine)) {
       addFunction(fileCoverage, lineNumber, originalLine);
     }
 
-    if (/\bif\b/.test(trimmedLine)) {
+    if (/\bif\b/.test(trimmedLine) && shouldAddStatement) {
       addBranch(fileCoverage, lineNumber, originalLine, 2, 'if');
     }
-    if (/\bwhen\b/.test(trimmedLine)) {
+    if (/\bwhen\b/.test(trimmedLine) && shouldAddStatement) {
       addBranch(fileCoverage, lineNumber, originalLine, 2, 'switch');
     }
-    if (trimmedLine.includes('?:')) {
+    if (trimmedLine.includes('?:') && shouldAddStatement) {
       addBranch(fileCoverage, lineNumber, originalLine, 2, 'cond-expr');
     }
 
-    const conditionalOps = countMatches(trimmedLine, /&&/g) + countMatches(trimmedLine, /\|\|/g);
+    const conditionalOps = shouldAddStatement ? countMatches(trimmedLine, /&&/g) + countMatches(trimmedLine, /\|\|/g) : 0;
     for (let branchIndex = 0; branchIndex < conditionalOps; branchIndex += 1) {
       addBranch(fileCoverage, lineNumber, originalLine, 2, 'binary-expr');
     }
   });
 
-  if (Object.keys(fileCoverage.statementMap).length === 0) {
-    fileCoverage.statementMap['0'] = createRange(1, 0, 0);
-    fileCoverage.s['0'] = 0;
+  return fileCoverage;
+}
+
+function hasCoverageEntries(fileCoverage) {
+  return (
+    Object.keys(fileCoverage.statementMap ?? {}).length > 0 ||
+    Object.keys(fileCoverage.fnMap ?? {}).length > 0 ||
+    Object.keys(fileCoverage.branchMap ?? {}).length > 0
+  );
+}
+
+function getDeclarationOnlyInterfaceDefaultParameterLines(filePath) {
+  const normalizedPath = normalize(filePath);
+  if (declarationOnlyInterfaceDefaultParamLinesCache.has(normalizedPath)) {
+    return declarationOnlyInterfaceDefaultParamLinesCache.get(normalizedPath);
   }
 
-  return fileCoverage;
+  const source = readFileSync(normalizedPath, 'utf8');
+  if (!/\binterface\b/.test(source)) {
+    const empty = new Set();
+    declarationOnlyInterfaceDefaultParamLinesCache.set(normalizedPath, empty);
+    return empty;
+  }
+
+  const baselineCoverage = buildZeroBaselineCoverage(normalizedPath);
+  if (hasCoverageEntries(baselineCoverage)) {
+    const empty = new Set();
+    declarationOnlyInterfaceDefaultParamLinesCache.set(normalizedPath, empty);
+    return empty;
+  }
+
+  const sanitizedLines = stripComments(source.split(/\r?\n/));
+  const matchedLines = new Set();
+  let inFunctionSignature = false;
+
+  sanitizedLines.forEach((lineText, index) => {
+    const trimmedLine = lineText.trim();
+    const lineNumber = index + 1;
+
+    if (!trimmedLine) {
+      return;
+    }
+
+    const continuesFunctionSignature =
+      inFunctionSignature ||
+      (isDeclarationOnlyFunctionLine(trimmedLine) && !trimmedLine.includes('{') && !trimmedLine.includes('='));
+
+    if (continuesFunctionSignature && trimmedLine.includes('=')) {
+      matchedLines.add(lineNumber);
+    }
+
+    if (/\bfun\b/.test(trimmedLine) && trimmedLine.includes('=') && !trimmedLine.includes('{')) {
+      matchedLines.add(lineNumber);
+    }
+
+    if (trimmedLine) {
+      if (continuesFunctionSignature) {
+        inFunctionSignature = !/^\)\s*,?$/.test(trimmedLine) && !trimmedLine.includes('{');
+      } else {
+        inFunctionSignature = false;
+      }
+    }
+  });
+
+  declarationOnlyInterfaceDefaultParamLinesCache.set(normalizedPath, matchedLines);
+  return matchedLines;
+}
+
+function appendStatementCoverage(targetCoverage, loc, hits = 0) {
+  const key = String(Object.keys(targetCoverage.statementMap).length);
+  targetCoverage.statementMap[key] = loc;
+  targetCoverage.s[key] = hits;
+}
+
+function appendFunctionCoverage(targetCoverage, fnMeta, hits = 0) {
+  const key = String(Object.keys(targetCoverage.fnMap).length);
+  targetCoverage.fnMap[key] = fnMeta;
+  targetCoverage.f[key] = hits;
+}
+
+function appendBranchCoverage(targetCoverage, branchMeta, hits = []) {
+  const key = String(Object.keys(targetCoverage.branchMap).length);
+  targetCoverage.branchMap[key] = branchMeta;
+  targetCoverage.b[key] = hits;
+}
+
+function getBranchLine(branchMeta) {
+  return branchMeta.line ?? branchMeta.loc?.start?.line ?? null;
+}
+
+function mergeBaselineCoverage(targetCoverage, baselineCoverage) {
+  const existingStatementLines = new Set(
+    Object.values(targetCoverage.statementMap ?? {}).map((statementLoc) => statementLoc.start.line)
+  );
+  const existingFunctionLines = new Set(Object.values(targetCoverage.fnMap ?? {}).map((fnMeta) => fnMeta.line));
+  const existingBranchLines = new Set(
+    Object.values(targetCoverage.branchMap ?? {})
+      .map((branchMeta) => getBranchLine(branchMeta))
+      .filter((lineNumber) => lineNumber !== null)
+  );
+
+  let addedStatements = 0;
+  let addedFunctions = 0;
+  let addedBranches = 0;
+
+  for (const statementLoc of Object.values(baselineCoverage.statementMap ?? {})) {
+    const lineNumber = statementLoc.start.line;
+    if (existingStatementLines.has(lineNumber)) {
+      continue;
+    }
+    appendStatementCoverage(targetCoverage, statementLoc, 0);
+    existingStatementLines.add(lineNumber);
+    addedStatements += 1;
+  }
+
+  for (const fnMeta of Object.values(baselineCoverage.fnMap ?? {})) {
+    if (existingFunctionLines.has(fnMeta.line)) {
+      continue;
+    }
+    appendFunctionCoverage(targetCoverage, fnMeta, 0);
+    existingFunctionLines.add(fnMeta.line);
+    addedFunctions += 1;
+  }
+
+  for (const branchMeta of Object.values(baselineCoverage.branchMap ?? {})) {
+    const branchLine = getBranchLine(branchMeta);
+    if (branchLine !== null && existingBranchLines.has(branchLine)) {
+      continue;
+    }
+    appendBranchCoverage(targetCoverage, branchMeta, Array(branchMeta.locations.length).fill(0));
+    if (branchLine !== null) {
+      existingBranchLines.add(branchLine);
+    }
+    addedBranches += 1;
+  }
+
+  return {
+    addedStatements,
+    addedFunctions,
+    addedBranches,
+  };
 }
 
 function supplementZeroBaselineCoverage() {
   const mergedCoverage = readMergedCoverage();
   const scopedFiles = collectScopedKotlinFiles();
-  const coveredFiles = new Set(Object.keys(mergedCoverage).map((filePath) => normalize(filePath)));
-  const missingFiles = scopedFiles.filter((filePath) => !coveredFiles.has(filePath));
+  let missingFiles = 0;
+  let supplementedFiles = 0;
+  let skippedDeclarationOnlyFiles = 0;
+  let addedStatements = 0;
+  let addedFunctions = 0;
+  let addedBranches = 0;
 
-  for (const filePath of missingFiles) {
-    mergedCoverage[filePath] = buildZeroBaselineCoverage(filePath);
+  for (const filePath of scopedFiles) {
+    const baselineCoverage = buildZeroBaselineCoverage(filePath);
+    const existingCoverage = mergedCoverage[filePath];
+    const baselineHasEntries = hasCoverageEntries(baselineCoverage);
+
+    if (!existingCoverage) {
+      if (!baselineHasEntries) {
+        skippedDeclarationOnlyFiles += 1;
+        continue;
+      }
+
+      mergedCoverage[filePath] = baselineCoverage;
+      missingFiles += 1;
+      supplementedFiles += 1;
+      addedStatements += Object.keys(baselineCoverage.statementMap).length;
+      addedFunctions += Object.keys(baselineCoverage.fnMap).length;
+      addedBranches += Object.keys(baselineCoverage.branchMap).length;
+      continue;
+    }
+
+    if (!baselineHasEntries) {
+      continue;
+    }
+
+    const mergeResult = mergeBaselineCoverage(existingCoverage, baselineCoverage);
+    if (mergeResult.addedStatements || mergeResult.addedFunctions || mergeResult.addedBranches) {
+      supplementedFiles += 1;
+      addedStatements += mergeResult.addedStatements;
+      addedFunctions += mergeResult.addedFunctions;
+      addedBranches += mergeResult.addedBranches;
+    }
   }
 
   writeMergedCoverage(mergedCoverage);
   console.log(
-    `Coverage scope contains ${scopedFiles.length} Kotlin files; supplemented ${missingFiles.length} missing files with zero-hit baselines`
+    `Coverage scope contains ${scopedFiles.length} Kotlin files; baseline supplemented ${supplementedFiles} files (${missingFiles} previously missing), skipped ${skippedDeclarationOnlyFiles} declaration-only files, adding ${addedStatements} statements, ${addedFunctions} functions, and ${addedBranches} branches`
   );
 }
 
@@ -796,6 +1272,7 @@ function postProcessCoverageReport() {
 
 prepareMergedCoverage();
 await repairKotlinInlineTailMappings();
+filterDeclarationOnlyInterfaceDefaultHelperCoverage();
 const baseFlags = buildBaseFlags();
 
 if (checkOnly) {
