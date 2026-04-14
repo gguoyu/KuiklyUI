@@ -691,8 +691,12 @@ function isTypeDeclarationLine(trimmedLine) {
   );
 }
 
+function isTypeDeclarationContinuationLine(trimmedLine) {
+  return /^\)\s*(?::\s*.+)?\{$/.test(trimmedLine) || /^:\s*.+\{$/.test(trimmedLine);
+}
+
 function isStructuralDeclarationLine(trimmedLine) {
-  return isIgnorableCoverageLine(trimmedLine) || isTypeDeclarationLine(trimmedLine);
+  return isIgnorableCoverageLine(trimmedLine) || isTypeDeclarationLine(trimmedLine) || isTypeDeclarationContinuationLine(trimmedLine);
 }
 
 function isPropertyAccessorOnlyLine(trimmedLine) {
@@ -803,7 +807,7 @@ function isStandaloneTypeAssertionLine(trimmedLine) {
 }
 
 function shouldAddBaselineStatement(trimmedLine, previousTrimmedLine) {
-  if (isTypeDeclarationLine(trimmedLine)) {
+  if (isStructuralDeclarationLine(trimmedLine)) {
     return false;
   }
   if (isPropertyAccessorOnlyLine(trimmedLine)) {
