@@ -519,6 +519,71 @@ function filterDeclarationOnlyInterfaceDefaultHelperCoverage() {
   );
 }
 
+function shouldFilterStructuralCoverageLine(filePath, lineNumber) {
+  if (!Number.isInteger(lineNumber) || lineNumber < 1) {
+    return false;
+  }
+
+  const trimmedLine = getSourceLine(filePath, lineNumber).trim();
+  return isStructuralDeclarationLine(trimmedLine);
+}
+
+function filterStructuralDeclarationCoverage() {
+  const mergedCoverage = readMergedCoverage();
+  let touchedFiles = 0;
+  let removedStatements = 0;
+  let removedFunctions = 0;
+  let removedBranches = 0;
+
+  for (const [filePath, fileCoverage] of Object.entries(mergedCoverage)) {
+    let fileTouched = false;
+
+    for (const statementId of Object.keys(fileCoverage.statementMap ?? {})) {
+      const statementLoc = fileCoverage.statementMap[statementId];
+      if (!shouldFilterStructuralCoverageLine(filePath, statementLoc.start.line)) {
+        continue;
+      }
+      delete fileCoverage.statementMap[statementId];
+      delete fileCoverage.s[statementId];
+      removedStatements += 1;
+      fileTouched = true;
+    }
+
+    for (const functionId of Object.keys(fileCoverage.fnMap ?? {})) {
+      const functionMeta = fileCoverage.fnMap[functionId];
+      const functionLine = functionMeta.line ?? functionMeta.decl?.start?.line ?? functionMeta.loc?.start?.line;
+      if (!shouldFilterStructuralCoverageLine(filePath, functionLine)) {
+        continue;
+      }
+      delete fileCoverage.fnMap[functionId];
+      delete fileCoverage.f[functionId];
+      removedFunctions += 1;
+      fileTouched = true;
+    }
+
+    for (const branchId of Object.keys(fileCoverage.branchMap ?? {})) {
+      const branchMeta = fileCoverage.branchMap[branchId];
+      const branchLine = branchMeta.line ?? branchMeta.loc?.start?.line;
+      if (!shouldFilterStructuralCoverageLine(filePath, branchLine)) {
+        continue;
+      }
+      delete fileCoverage.branchMap[branchId];
+      delete fileCoverage.b[branchId];
+      removedBranches += 1;
+      fileTouched = true;
+    }
+
+    if (fileTouched) {
+      touchedFiles += 1;
+    }
+  }
+
+  writeMergedCoverage(mergedCoverage);
+  console.log(
+    `Structural declaration filter removed ${removedStatements} statements, ${removedFunctions} functions, and ${removedBranches} branches across ${touchedFiles} files`
+  );
+}
+
 function filterMergedCoverage() {
   const mergedCoverage = readMergedCoverage();
   const filteredCoverage = Object.fromEntries(
@@ -621,9 +686,13 @@ function isInterfaceDeclarationLine(trimmedLine) {
 }
 
 function isTypeDeclarationLine(trimmedLine) {
-  return /^(?:public|private|protected|internal|open|final|sealed|abstract|data|enum|annotation|inner|value)?\s*(?:class|object|interface)\b/.test(
+  return /^(?:(?:public|private|protected|internal|open|final|sealed|abstract|data|enum|annotation|inner|value|expect|actual|companion)\s+)*(?:class|object|interface)\b/.test(
     trimmedLine
   );
+}
+
+function isStructuralDeclarationLine(trimmedLine) {
+  return isIgnorableCoverageLine(trimmedLine) || isTypeDeclarationLine(trimmedLine);
 }
 
 function isPropertyAccessorOnlyLine(trimmedLine) {
@@ -1270,6 +1339,7 @@ function postProcessCoverageReport() {
 prepareMergedCoverage();
 await repairKotlinInlineTailMappings();
 filterDeclarationOnlyInterfaceDefaultHelperCoverage();
+filterStructuralDeclarationCoverage();
 const baseFlags = buildBaseFlags();
 
 if (checkOnly) {
