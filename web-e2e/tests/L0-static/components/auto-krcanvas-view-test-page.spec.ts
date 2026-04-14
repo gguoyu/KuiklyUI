@@ -1,8 +1,6 @@
 // @kuikly-autogen {"pageName":"KRCanvasViewTestPage","category":"components","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/components/KRCanvasViewTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"default"}
 import { test, expect } from '../../../fixtures/test-base';
 
-test.setTimeout(180000);
-
 const PAGE_NAME = "KRCanvasViewTestPage";
 const TITLE_TEXT = "1. 线段绘制";
 const STABLE_TEXTS = [

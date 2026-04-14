@@ -2,11 +2,11 @@
 import { test, expect } from '../../../fixtures/test-base';
 
 const PAGE_NAME = "KRScrollContentViewTestPage";
-const TITLE_TEXT = "1. 鍨傜洿婊氬姩";
+const TITLE_TEXT = "1. 垂直滚动";
 const STABLE_TEXTS = [
-  "1. 鍨傜洿婊氬姩",
-  "鍨傜洿椤?$i",
-  "2. 姘村钩婊氬姩",
+  "1. 垂直滚动",
+  "垂直项 $i",
+  "2. 水平滚动",
   "H$i"
 ];
 const ACTION_LABELS = [];
