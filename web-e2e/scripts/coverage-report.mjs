@@ -1216,6 +1216,10 @@ function isBlockHeaderLine(line) {
   return /^(?:}\s*)?(?:if|else\s+if|when)\b.*\{\s*$/.test(line.trim());
 }
 
+function isCoveredLineStatus(status) {
+  return status === 'yes' || status === 'partial';
+}
+
 function hasCoveredNestedBlockLine(index, plainCodeLines, lineStatuses) {
   const currentIndent = getLineIndent(plainCodeLines[index]);
 
@@ -1231,8 +1235,52 @@ function hasCoveredNestedBlockLine(index, plainCodeLines, lineStatuses) {
       break;
     }
 
-    if (lineStatuses[nextIndex] === 'yes' || lineStatuses[nextIndex] === 'partial') {
+    if (isCoveredLineStatus(lineStatuses[nextIndex])) {
       return true;
+    }
+  }
+
+  return false;
+}
+
+function hasCoveredSiblingLineAfter(index, plainCodeLines, lineStatuses) {
+  const currentIndent = getLineIndent(plainCodeLines[index]);
+
+  for (let nextIndex = index + 1; nextIndex < plainCodeLines.length; nextIndex += 1) {
+    const nextLine = plainCodeLines[nextIndex];
+    const trimmedNextLine = nextLine.trim();
+    if (!trimmedNextLine) {
+      continue;
+    }
+
+    const nextIndent = getLineIndent(nextLine);
+    if (nextIndent < currentIndent) {
+      break;
+    }
+    if (nextIndent === currentIndent) {
+      return isCoveredLineStatus(lineStatuses[nextIndex]);
+    }
+  }
+
+  return false;
+}
+
+function hasCoveredParentBlockHeader(index, plainCodeLines, lineStatuses) {
+  const currentIndent = getLineIndent(plainCodeLines[index]);
+
+  for (let previousIndex = index - 1; previousIndex >= 0; previousIndex -= 1) {
+    const previousLine = plainCodeLines[previousIndex];
+    const trimmedPreviousLine = previousLine.trim();
+    if (!trimmedPreviousLine) {
+      continue;
+    }
+
+    const previousIndent = getLineIndent(previousLine);
+    if (previousIndent < currentIndent) {
+      return isCoveredLineStatus(lineStatuses[previousIndex]) && trimmedPreviousLine.endsWith('{');
+    }
+    if (previousIndent === currentIndent && !/^(?:\/\/|\/\*|\*)/.test(trimmedPreviousLine)) {
+      return false;
     }
   }
 
@@ -1257,6 +1305,25 @@ function fixFalseNegativeBlockHeaderStatus(lineStatuses, plainCodeLines) {
     }
 
     return hasCoveredNestedBlockLine(index, plainCodeLines, lineStatuses) ? 'yes' : status;
+  });
+}
+
+function fixFalseNegativeBlockBodyStatus(lineStatuses, plainCodeLines, codeLines) {
+  return lineStatuses.map((status, index) => {
+    if (status !== 'no') {
+      return status;
+    }
+
+    const trimmedLine = plainCodeLines[index].trim();
+    if (!trimmedLine || isBlockHeaderLine(plainCodeLines[index]) || hasUncoveredBranchMarker(codeLines[index])) {
+      return status;
+    }
+
+    if (!hasCoveredParentBlockHeader(index, plainCodeLines, lineStatuses)) {
+      return status;
+    }
+
+    return hasCoveredSiblingLineAfter(index, plainCodeLines, lineStatuses) ? 'yes' : status;
   });
 }
 
@@ -1312,7 +1379,8 @@ function patchCoverageHtmlFile(filePath) {
   const provisionalLineStatuses = lineStatuses.map((status, index) =>
     getEffectiveLineStatus(status, codeLines[index])
   );
-  const effectiveLineStatuses = fixFalseNegativeBlockHeaderStatus(provisionalLineStatuses, plainCodeLines);
+  const headerFixedLineStatuses = fixFalseNegativeBlockHeaderStatus(provisionalLineStatuses, plainCodeLines);
+  const effectiveLineStatuses = fixFalseNegativeBlockBodyStatus(headerFixedLineStatuses, plainCodeLines, codeLines);
 
   const wrappedCode = codeLines
     .map((line, index) => `<span class="code-line code-line-${effectiveLineStatuses[index]}">${line}</span>`)
