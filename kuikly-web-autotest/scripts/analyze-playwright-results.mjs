@@ -1,27 +1,12 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { playwrightReportPath } from './lib/paths.mjs';
+import { parseJsonOrExit, requireTextFile } from './lib/json-io.mjs';
 
-const repoRoot = process.cwd();
-const reportPath = join(repoRoot, 'web-e2e', 'reports', 'test-results.json');
-
-if (!existsSync(reportPath)) {
-  console.error(JSON.stringify({ error: `Missing report: ${reportPath}` }, null, 2));
-  process.exit(1);
-}
-
-const raw = readFileSync(reportPath, 'utf8');
+const raw = requireTextFile(playwrightReportPath, `Missing report: ${playwrightReportPath}`);
 const statusMatch = raw.match(/"status"\s*:\s*"(failed|timedOut|interrupted)"/);
 const hasFailureSignal = Boolean(statusMatch);
-
-let report;
-try {
-  report = JSON.parse(raw);
-} catch (error) {
-  console.error(JSON.stringify({ error: `Failed to parse Playwright report: ${error.message}` }, null, 2));
-  process.exit(1);
-}
+const report = parseJsonOrExit(raw, 'Failed to parse Playwright report');
 
 function classifyFailure(message) {
   const text = message || '';

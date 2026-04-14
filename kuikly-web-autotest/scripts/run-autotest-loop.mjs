@@ -1,28 +1,20 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 
-import { execFileSync, spawnSync } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
-import { basename, dirname, join, relative, sep } from 'path';
+import { spawnSync } from 'child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { basename, dirname, join, relative } from 'path';
+import { repoRoot, reportsDir as baseReportsDir, testsRoot, webTestRoot } from './lib/paths.mjs';
+import { toPosix, unique, walkFiles } from './lib/fs-utils.mjs';
+import { runSiblingScriptJson } from './lib/script-runner.mjs';
+import {
+  extractGotoTargets,
+  extractLegacyGotoTarget,
+  normalizeLegacyGotoCalls,
+  replaceLiteralGotoTarget,
+} from './lib/spec-utils.mjs';
 
-const repoRoot = process.cwd();
-const skillRoot = join(repoRoot, 'kuikly-web-autotest');
-const skillScripts = join(skillRoot, 'scripts');
-const webTestRoot = join(
-  repoRoot,
-  'demo',
-  'src',
-  'commonMain',
-  'kotlin',
-  'com',
-  'tencent',
-  'kuikly',
-  'demo',
-  'pages',
-  'web_test'
-);
-const testsRoot = join(repoRoot, 'web-e2e', 'tests');
 const fixtureEntry = join(repoRoot, 'web-e2e', 'fixtures', 'test-base');
-const reportsDir = join(repoRoot, 'web-e2e', 'reports', 'autotest');
+const reportsDir = join(baseReportsDir, 'autotest');
 
 const rawArgs = process.argv.slice(2);
 
@@ -82,39 +74,6 @@ const options = {
   test: getArg('--test'),
 };
 
-function toPosix(filePath) {
-  return filePath.split(sep).join('/');
-}
-
-function unique(values) {
-  return [...new Set(values.filter(Boolean))];
-}
-
-function walkFiles(root, predicate) {
-  const results = [];
-  const stack = [root];
-
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current || !existsSync(current)) {
-      continue;
-    }
-
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const fullPath = join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(fullPath);
-        continue;
-      }
-      if (predicate(fullPath)) {
-        results.push(fullPath);
-      }
-    }
-  }
-
-  return results.sort();
-}
-
 function ensureDirectoryFor(filePath) {
   const dirPath = dirname(filePath);
   if (!existsSync(dirPath)) {
@@ -122,17 +81,9 @@ function ensureDirectoryFor(filePath) {
   }
 }
 
-function runNodeScript(scriptName) {
-  const output = execFileSync(process.execPath, [join(skillScripts, scriptName)], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  });
-  return JSON.parse(output);
-}
-
 function tryLoadJson(scriptName) {
   try {
-    return runNodeScript(scriptName);
+    return runSiblingScriptJson(scriptName);
   } catch (error) {
     return {
       error: error.message,
@@ -279,44 +230,6 @@ function maybeReadFile(filePath) {
   return readFileSync(filePath, 'utf8');
 }
 
-function extractGotoTargets(content) {
-  const targets = [];
-  const pattern = /kuiklyPage\.goto\(\s*['"]([^'"]+)['"]\s*\)/g;
-  let match = pattern.exec(content);
-  while (match) {
-    targets.push(match[1]);
-    match = pattern.exec(content);
-  }
-  return unique(targets);
-}
-
-function replaceLiteralGotoTarget(content, fromPageName, toPageName) {
-  const escapedFrom = fromPageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`(kuiklyPage\\.goto\\(\\s*['"])${escapedFrom}(['"]\\s*\\))`, 'g');
-  return content.replace(pattern, `$1${toPageName}$2`);
-}
-
-function extractLegacyGotoTarget(content) {
-  const patterns = [
-    /kuiklyPage\.page\.goto\(\s*['"]\?page_name=([^'"]+)['"]\s*\)/,
-    /page\.goto\(\s*['"]\?page_name=([^'"]+)['"]\s*\)/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = content.match(pattern);
-    if (match?.[1]) {
-      return match[1];
-    }
-  }
-
-  return null;
-}
-
-function normalizeLegacyGotoCalls(content, targetPageName) {
-  return content
-    .replace(/await\s+kuiklyPage\.page\.goto\(\s*['"]\?page_name=[^'"]+['"]\s*\);?/g, `await kuiklyPage.goto('${targetPageName}');`)
-    .replace(/await\s+page\.goto\(\s*['"]\?page_name=[^'"]+['"]\s*\);?/g, `await kuiklyPage.goto('${targetPageName}');`);
-}
 
 function loadPageCatalog() {
   const pageFiles = walkFiles(webTestRoot, (filePath) => filePath.endsWith('.kt'));
@@ -1859,7 +1772,7 @@ function recordMutationBatch(loopReport, mutationContext, phase) {
 }
 
 function refreshScanIfNeeded(skipScan) {
-  return skipScan ? emptyScanResult() : runNodeScript('scan-web-test-pages.mjs');
+  return skipScan ? emptyScanResult() : runSiblingScriptJson('scan-web-test-pages.mjs');
 }
 
 function runAnalysisBundle() {

@@ -1,59 +1,33 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync } from 'fs';
-import { join, relative } from 'path';
+import { relative } from 'path';
+import { computeFileMetrics } from './lib/coverage-utils.mjs';
+import { toPosix } from './lib/fs-utils.mjs';
+import { requireJsonFile } from './lib/json-io.mjs';
+import { coveragePath, nycrcPath, repoRoot } from './lib/paths.mjs';
 
-const repoRoot = process.cwd();
-const coveragePath = join(repoRoot, 'web-e2e', 'reports', 'coverage', 'coverage-final.json');
-const nycrcPath = join(repoRoot, 'web-e2e', '.nycrc.json');
-
-if (!existsSync(coveragePath)) {
-  console.error(JSON.stringify({ error: `Missing coverage report: ${coveragePath}` }, null, 2));
-  process.exit(1);
-}
-
-const coverage = JSON.parse(readFileSync(coveragePath, 'utf8'));
+const coverage = requireJsonFile(
+  coveragePath,
+  `Missing coverage report: ${coveragePath}`,
+  'Failed to parse coverage report'
+);
 const thresholds = existsSync(nycrcPath)
   ? JSON.parse(readFileSync(nycrcPath, 'utf8'))
   : { lines: 70, functions: 70, statements: 70, branches: 55 };
 
-function summarizeCounter(counterMap) {
-  const values = Object.values(counterMap || {});
-  const total = values.length;
-  const covered = values.filter((value) => Number(value) > 0).length;
-  const pct = total === 0 ? 100 : (covered / total) * 100;
-  return { covered, total, pct };
-}
-
-function summarizeBranches(branchMap) {
-  const values = Object.values(branchMap || {}).flatMap((value) => (Array.isArray(value) ? value : []));
-  const total = values.length;
-  const covered = values.filter((value) => Number(value) > 0).length;
-  const pct = total === 0 ? 100 : (covered / total) * 100;
-  return { covered, total, pct };
-}
-
 const files = Object.entries(coverage).map(([absolutePath, info]) => {
-  const statements = summarizeCounter(info.s);
-  const functions = summarizeCounter(info.f);
-  const branches = summarizeBranches(info.b);
-  const lineExecutionValues = Object.keys(info.statementMap || {}).map((key) => Number((info.s || {})[key] || 0));
-  const lines = summarizeCounter(lineExecutionValues);
+  const metrics = computeFileMetrics(info);
 
   return {
-    file: relative(repoRoot, absolutePath).split('\\').join('/'),
+    file: toPosix(relative(repoRoot, absolutePath)),
     absolutePath,
-    metrics: {
-      statements,
-      functions,
-      branches,
-      lines,
-    },
+    metrics,
     deficits: {
-      statements: statements.total - statements.covered,
-      functions: functions.total - functions.covered,
-      branches: branches.total - branches.covered,
-      lines: lines.total - lines.covered,
+      statements: metrics.statements.total - metrics.statements.covered,
+      functions: metrics.functions.total - metrics.functions.covered,
+      branches: metrics.branches.total - metrics.branches.covered,
+      lines: metrics.lines.total - metrics.lines.covered,
     },
   };
 });

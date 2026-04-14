@@ -1,29 +1,18 @@
 #!/usr/bin/env node
 
-import { execFileSync } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
-import { join, relative } from 'path';
+import { relative } from 'path';
+import { computeFileMetrics } from './lib/coverage-utils.mjs';
+import { toPosix, unique } from './lib/fs-utils.mjs';
+import { requireJsonFile } from './lib/json-io.mjs';
+import { coveragePath, repoRoot } from './lib/paths.mjs';
+import { runSiblingScriptJson } from './lib/script-runner.mjs';
 
-const repoRoot = process.cwd();
-const coveragePath = join(repoRoot, 'web-e2e', 'reports', 'coverage', 'coverage-final.json');
-const scanScriptPath = join(repoRoot, 'kuikly-web-autotest', 'scripts', 'scan-web-test-pages.mjs');
-
-if (!existsSync(coveragePath)) {
-  console.error(JSON.stringify({ error: `Missing coverage report: ${coveragePath}` }, null, 2));
-  process.exit(1);
-}
-
-const coverage = JSON.parse(readFileSync(coveragePath, 'utf8'));
-
-function loadScanResult() {
-  const output = execFileSync(process.execPath, [scanScriptPath], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  });
-  return JSON.parse(output);
-}
-
-const scan = loadScanResult();
+const coverage = requireJsonFile(
+  coveragePath,
+  `Missing coverage report: ${coveragePath}`,
+  'Failed to parse coverage report'
+);
+const scan = runSiblingScriptJson('scan-web-test-pages.mjs');
 
 const pageList = scan.pages || [];
 const pageNames = pageList.map((page) => page.pageName);
@@ -69,44 +58,24 @@ function componentSpecCandidates(filePath) {
     }
   }
 
-  return [...new Set(candidates)];
-}
-
-function metrics(info) {
-  const statementValues = Object.values(info.s || {});
-  const functionValues = Object.values(info.f || {});
-  const branchValues = Object.values(info.b || {}).flatMap((value) => Array.isArray(value) ? value : []);
-  const lineValues = Object.keys(info.statementMap || {}).map((key) => Number((info.s || {})[key] || 0));
-
-  const summarize = (values) => {
-    const total = values.length;
-    const covered = values.filter((value) => Number(value) > 0).length;
-    const pct = total === 0 ? 100 : (covered / total) * 100;
-    return { covered, total, pct };
-  };
-
-  return {
-    statements: summarize(statementValues),
-    functions: summarize(functionValues),
-    branches: summarize(branchValues),
-    lines: summarize(lineValues),
-  };
+  return unique(candidates);
 }
 
 const suggestions = Object.entries(coverage)
   .map(([absolutePath, info]) => {
-    const file = relative(repoRoot, absolutePath).split('\\').join('/');
-    const summary = metrics(info);
+    const file = toPosix(relative(repoRoot, absolutePath));
+    const metrics = computeFileMetrics(info);
+    const suggestedPages = componentSpecCandidates(file);
     return {
       file,
-      metrics: summary,
+      metrics,
       uncoveredWeight:
-        (summary.branches.total - summary.branches.covered) * 3 +
-        (summary.lines.total - summary.lines.covered) * 2 +
-        (summary.statements.total - summary.statements.covered),
-      suggestedPages: componentSpecCandidates(file),
+        (metrics.branches.total - metrics.branches.covered) * 3 +
+        (metrics.lines.total - metrics.lines.covered) * 2 +
+        (metrics.statements.total - metrics.statements.covered),
+      suggestedPages,
       existingSpecs: scan.specTargets
-        .filter((spec) => spec.targets.some((target) => componentSpecCandidates(file).includes(target)))
+        .filter((spec) => spec.targets.some((target) => suggestedPages.includes(target)))
         .map((spec) => spec.file),
     };
   })
