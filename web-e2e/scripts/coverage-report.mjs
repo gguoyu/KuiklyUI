@@ -1188,6 +1188,17 @@ function walkHtmlFiles(dir) {
 
 
 
+function hasUncoveredBranchMarker(codeLine) {
+  return /\b(?:missing-if-branch|cbranch-no)\b/.test(codeLine);
+}
+
+function getEffectiveLineStatus(status, codeLine) {
+  if (status === 'yes' && hasUncoveredBranchMarker(codeLine)) {
+    return 'partial';
+  }
+  return status;
+}
+
 function patchCoverageHtmlFile(filePath) {
   const html = readFileSync(filePath, 'utf8');
   if (!html.includes('<table class="coverage">')) {
@@ -1223,12 +1234,12 @@ function patchCoverageHtmlFile(filePath) {
 
   const rawCodeLines = codeSegment.split(/\r?\n/);
   const codeLines = rawCodeLines.map((line) => {
-    const hasWrappedCodeLine = /^<span class="code-line code-line-(?:yes|no|neutral)">/.test(line);
+    const hasWrappedCodeLine = /^<span class="code-line code-line-(?:yes|no|neutral|partial)">/.test(line);
     if (!hasWrappedCodeLine) {
       return line;
     }
     return line
-      .replace(/^<span class="code-line code-line-(?:yes|no|neutral)">/, '')
+      .replace(/^<span class="code-line code-line-(?:yes|no|neutral|partial)">/, '')
       .replace(/<\/span>$/, '');
   });
 
@@ -1236,8 +1247,12 @@ function patchCoverageHtmlFile(filePath) {
     return false;
   }
 
+  const effectiveLineStatuses = lineStatuses.map((status, index) =>
+    getEffectiveLineStatus(status, codeLines[index])
+  );
+
   const wrappedCode = codeLines
-    .map((line, index) => `<span class="code-line code-line-${lineStatuses[index]}">${line}</span>`)
+    .map((line, index) => `<span class="code-line code-line-${effectiveLineStatuses[index]}">${line}</span>`)
     .join('\n');
 
   const normalizedPreClass = [...new Set([
@@ -1291,6 +1306,11 @@ ${marker}
 .coverage-code .code-line-no {
   background: rgba(194, 31, 57, 0.38);
   border-left-color: #8F1128;
+}
+
+.coverage-code .code-line-partial {
+  background: rgba(249, 205, 11, 0.28);
+  border-left-color: #f9cd0b;
 }
 
 .coverage-code .code-line-neutral {
