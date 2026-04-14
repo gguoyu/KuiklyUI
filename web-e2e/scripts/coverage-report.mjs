@@ -814,6 +814,10 @@ function countTripleQuoteDelimiters(lineText) {
   return (lineText.match(/"""/g) || []).length;
 }
 
+function startsFunctionTypeMemberDeclaration(trimmedLine) {
+  return /^(?:(?:public|private|protected|internal)\s+)?(?:val|var)\b.*:\s*\(\(?\s*$/.test(trimmedLine);
+}
+
 function shouldAddBaselineStatement(trimmedLine, previousTrimmedLine) {
   if (isStructuralDeclarationLine(trimmedLine)) {
     return false;
@@ -929,6 +933,7 @@ function buildZeroBaselineCoverage(filePath) {
   let previousMeaningfulLine = '';
   let inFunctionSignature = false;
   let inTripleQuotedString = false;
+  let inFunctionTypeMemberDeclaration = false;
   sanitizedLines.forEach((lineText, index) => {
     const lineNumber = index + 1;
     const originalLine = originalLines[index] ?? lineText;
@@ -936,12 +941,20 @@ function buildZeroBaselineCoverage(filePath) {
     const previousTrimmedLine = previousMeaningfulLine;
     const tripleQuoteCount = countTripleQuoteDelimiters(lineText);
     const startsInsideTripleQuotedString = inTripleQuotedString;
+    const startsInsideFunctionTypeMemberDeclaration = inFunctionTypeMemberDeclaration;
 
     if (startsInsideTripleQuotedString) {
       if (tripleQuoteCount % 2 === 1) {
         inTripleQuotedString = !inTripleQuotedString;
       }
       return;
+    }
+
+    if (startsInsideFunctionTypeMemberDeclaration && !trimmedLine.includes('->')) {
+      return;
+    }
+    if (startsInsideFunctionTypeMemberDeclaration && trimmedLine.includes('->')) {
+      inFunctionTypeMemberDeclaration = false;
     }
 
     if (trimmedLine) {
@@ -962,6 +975,9 @@ function buildZeroBaselineCoverage(filePath) {
 
     if (tripleQuoteCount % 2 === 1) {
       inTripleQuotedString = !inTripleQuotedString;
+    }
+    if (startsFunctionTypeMemberDeclaration(trimmedLine) && !trimmedLine.includes('->')) {
+      inFunctionTypeMemberDeclaration = true;
     }
 
     if (isIgnorableCoverageLine(trimmedLine)) {
