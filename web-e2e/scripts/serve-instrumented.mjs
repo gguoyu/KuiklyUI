@@ -3,31 +3,24 @@ import { createServer } from 'http';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import webE2EConfig from '../config/index.cjs';
 
 const require = createRequire(import.meta.url);
 const { applyCorsHeaders, findFirstFile, handleNetworkMock, sendFile } = require('./serve-common.cjs');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const { build, coverage, runtime } = webE2EConfig;
 
-const PORT = process.env.PORT || 8080;
+const PORT = runtime.resolvePort();
 const PROJECT_ROOT = join(__dirname, '..', '..');
 const E2E_ROOT = join(__dirname, '..');
-const INSTRUMENTED_DIR = join(E2E_ROOT, 'instrumented');
-const MODULES_DIR = join(INSTRUMENTED_DIR, 'modules');
-const KOTLIN_MODULES_DIR = join(
-  PROJECT_ROOT,
-  'h5App',
-  'build',
-  'compileSync',
-  'js',
-  'main',
-  'developmentExecutable',
-  'kotlin'
-);
-const BUILD_DIR = join(PROJECT_ROOT, 'h5App', 'build', 'processedResources', 'js', 'main');
-const NATIVE_DIST_DIR = join(PROJECT_ROOT, 'demo', 'build', 'dist', 'js', 'developmentExecutable');
-const FONTS_DIR = join(E2E_ROOT, 'fonts');
+const INSTRUMENTED_DIR = join(E2E_ROOT, build.instrumentedDirName);
+const MODULES_DIR = join(INSTRUMENTED_DIR, build.instrumentedModulesDirName);
+const KOTLIN_MODULES_DIR = join(PROJECT_ROOT, coverage.generatedKotlinOutputDir);
+const BUILD_DIR = join(PROJECT_ROOT, build.processedResourcesDir);
+const NATIVE_DIST_DIR = join(PROJECT_ROOT, build.demoDistBaseDir, build.developmentDistSubdir);
+const FONTS_DIR = join(E2E_ROOT, build.fontsDirName);
 
 function findFile(requestPath) {
   if (requestPath === '/' || requestPath === '') {
@@ -55,7 +48,7 @@ function findFile(requestPath) {
     join(INSTRUMENTED_DIR, cleanPath),
     join(BUILD_DIR, cleanPath),
     join(NATIVE_DIST_DIR, cleanPath),
-    join(NATIVE_DIST_DIR, 'composeResources', cleanPath),
+    join(NATIVE_DIST_DIR, build.composeResourcesDirName, cleanPath),
   ]);
 }
 

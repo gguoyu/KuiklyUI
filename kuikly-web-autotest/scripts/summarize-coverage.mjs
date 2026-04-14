@@ -3,6 +3,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { relative } from 'path';
 import { computeFileMetrics } from './lib/coverage-utils.mjs';
+import { displayConfig } from './lib/config.mjs';
 import { toPosix } from './lib/fs-utils.mjs';
 import { requireJsonFile } from './lib/json-io.mjs';
 import { coveragePath, nycrcPath, repoRoot } from './lib/paths.mjs';
@@ -63,7 +64,7 @@ const lowCoverageFiles = [...files]
     return (right.deficits.branches + right.deficits.lines + right.deficits.statements) -
       (left.deficits.branches + left.deficits.lines + left.deficits.statements);
   })
-  .slice(0, 20);
+  .slice(0, displayConfig.maxLowCoverageFiles);
 
 console.log(JSON.stringify({
   generatedAt: new Date().toISOString(),

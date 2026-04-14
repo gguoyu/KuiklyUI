@@ -6,18 +6,19 @@
 
 const http = require('http');
 const path = require('path');
+const { build, runtime } = require('../config/index.cjs');
 const { findFirstFile, handleNetworkMock, sendFile } = require('./serve-common.cjs');
 
-const PORT = process.env.PORT || 8080;
-const BUILD_TYPE = process.env.BUILD_TYPE || 'productionExecutable';
+const PORT = runtime.resolvePort();
+const BUILD_TYPE = process.env.BUILD_TYPE || build.defaultBuildType;
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 const E2E_ROOT = path.join(__dirname, '..');
-const BUILD_DIR = path.join(PROJECT_ROOT, 'h5App', 'build', 'processedResources', 'js', 'main');
-const DIST_DIR = path.join(PROJECT_ROOT, 'demo', 'build', 'dist', 'js', BUILD_TYPE);
-const DIST_DEV_DIR = path.join(PROJECT_ROOT, 'demo', 'build', 'dist', 'js', 'developmentExecutable');
-const WEBPACK_DIR = path.join(PROJECT_ROOT, 'h5App', 'build', 'kotlin-webpack', 'js', 'developmentExecutable');
-const WHISTLE_DIR = path.join(PROJECT_ROOT, 'node_modules', 'whistle', 'biz', 'webui', 'htdocs');
-const FONTS_DIR = path.join(E2E_ROOT, 'fonts');
+const BUILD_DIR = path.join(PROJECT_ROOT, build.processedResourcesDir);
+const DIST_DIR = path.join(PROJECT_ROOT, build.demoDistBaseDir, BUILD_TYPE);
+const DIST_DEV_DIR = path.join(PROJECT_ROOT, build.demoDistBaseDir, build.developmentDistSubdir);
+const WEBPACK_DIR = path.join(PROJECT_ROOT, build.kotlinWebpackDir);
+const WHISTLE_DIR = path.join(PROJECT_ROOT, build.whistleHtdocsDir);
+const FONTS_DIR = path.join(E2E_ROOT, build.fontsDirName);
 
 function findFile(requestPath) {
   if (requestPath === '/' || requestPath === '') {

@@ -12,6 +12,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, wri
 import { join, dirname, normalize, resolve } from 'path';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
+import webE2EConfig from '../config/index.cjs';
 
 function execSyncWithLocalNyc(command, options = {}) {
   let rewrittenCommand = command;
@@ -25,6 +26,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
 const { SourceMapConsumer } = require('source-map');
+const { coverage: coverageConfig, reporting } = webE2EConfig;
 
 const e2eRoot = join(__dirname, '..');
 const projectRoot = join(e2eRoot, '..');
@@ -34,19 +36,14 @@ const NYC_BIN = join(
   '.bin',
   process.platform === 'win32' ? 'nyc.cmd' : 'nyc'
 );
-const nycOutputDir = join(e2eRoot, '.nyc_output');
-const mergedTempDir = join(e2eRoot, '.nyc_merged');
+const nycOutputDir = join(e2eRoot, reporting.nycTempDirName);
+const mergedTempDir = join(e2eRoot, reporting.nycMergedDirName);
 const mergedJson = join(mergedTempDir, 'out.json');
-const reportDir = join(e2eRoot, 'reports', 'coverage');
+const reportDir = join(e2eRoot, reporting.coverageDir);
 const nycrcPath = join(e2eRoot, '.nycrc.json');
 const checkOnly = process.argv.includes('--check');
-const coverageScopeRoots = [
-  normalize(join(projectRoot, 'core-render-web', 'base', 'src', 'jsMain', 'kotlin')),
-  normalize(join(projectRoot, 'core-render-web', 'h5', 'src', 'jsMain', 'kotlin')),
-];
-const generatedKotlinOutputRoot = normalize(
-  join(projectRoot, 'h5App', 'build', 'compileSync', 'js', 'main', 'developmentExecutable', 'kotlin')
-);
+const coverageScopeRoots = coverageConfig.scopeRoots.map((scopeRoot) => normalize(join(projectRoot, scopeRoot)));
+const generatedKotlinOutputRoot = normalize(join(projectRoot, coverageConfig.generatedKotlinOutputDir));
 const sourceMapConsumerCache = new Map();
 const sourceLineCache = new Map();
 const declarationOnlyInterfaceDefaultParamLinesCache = new Map();

@@ -2,6 +2,7 @@
 
 import { relative } from 'path';
 import { computeFileMetrics } from './lib/coverage-utils.mjs';
+import { displayConfig } from './lib/config.mjs';
 import { toPosix, unique } from './lib/fs-utils.mjs';
 import { requireJsonFile } from './lib/json-io.mjs';
 import { coveragePath, repoRoot } from './lib/paths.mjs';
@@ -81,7 +82,7 @@ const suggestions = Object.entries(coverage)
   })
   .filter((item) => item.uncoveredWeight > 0)
   .sort((left, right) => right.uncoveredWeight - left.uncoveredWeight)
-  .slice(0, 20);
+  .slice(0, displayConfig.maxSuggestions);
 
 console.log(JSON.stringify({
   generatedAt: new Date().toISOString(),

@@ -1,5 +1,6 @@
 const { existsSync, readFileSync, statSync } = require('fs');
 const { extname, join } = require('path');
+const { build } = require('../config/index.cjs');
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -65,7 +66,7 @@ function sendText(res, statusCode, body) {
 }
 
 function buildFontInjection(fontsDir) {
-  const fontFile = join(fontsDir, 'NotoSansSC-Regular.woff2');
+  const fontFile = join(fontsDir, build.fontFileName);
   if (!isFile(fontFile)) {
     return '';
   }
@@ -73,7 +74,7 @@ function buildFontInjection(fontsDir) {
   return `<style>
   @font-face {
     font-family: 'KuiklyTestFont';
-    src: url('/fonts/NotoSansSC-Regular.woff2') format('woff2');
+    src: url('/fonts/${build.fontFileName}') format('woff2');
     font-display: block;
   }
   * { font-family: 'KuiklyTestFont', sans-serif !important; }
@@ -82,7 +83,7 @@ function buildFontInjection(fontsDir) {
 
 function transformIndexHtml(content, fontsDir) {
   let html = content.toString('utf-8');
-  html = html.replace(/src="http:\/\/127\.0\.0\.1:8083\/nativevue2\.js"/g, 'src="nativevue2.js"');
+  html = html.replaceAll(`src="${build.nativeVueRemoteUrl}"`, `src="${build.nativeVueLocalFileName}"`);
 
   const fontInjection = buildFontInjection(fontsDir);
   if (fontInjection) {

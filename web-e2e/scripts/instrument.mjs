@@ -46,27 +46,26 @@ import { existsSync, copyFileSync, readFileSync, writeFileSync, mkdirSync, readd
 import { join, dirname, basename } from 'path';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import webE2EConfig from '../config/index.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const { build, coverage } = webE2EConfig;
 
-const e2eRoot    = join(__dirname, '..');
+const e2eRoot = join(__dirname, '..');
 const projectRoot = join(e2eRoot, '..');
 
 // 源文件路径
 // Kotlin 模块 JS 文件（webpack 打包前，Istanbul 可正常插桩）
-const KOTLIN_MODULES_DIR = join(
-  projectRoot,
-  'h5App', 'build', 'compileSync', 'js', 'main', 'developmentExecutable', 'kotlin'
-);
+const KOTLIN_MODULES_DIR = join(projectRoot, coverage.generatedKotlinOutputDir);
 // nativevue2.js 来自 demo 模块
-const NATIVE_BUILD_DIR = join(projectRoot, 'demo', 'build', 'dist', 'js', 'developmentExecutable');
+const NATIVE_BUILD_DIR = join(projectRoot, build.demoDistBaseDir, build.developmentDistSubdir);
 // index.html 模板
-const INDEX_HTML_SRC = join(projectRoot, 'h5App', 'build', 'processedResources', 'js', 'main', 'index.html');
+const INDEX_HTML_SRC = join(projectRoot, build.indexHtmlRelativePath);
 
 // 输出目录
-const INSTRUMENTED_DIR  = join(e2eRoot, 'instrumented');
-const MODULES_OUT_DIR   = join(INSTRUMENTED_DIR, 'modules');
+const INSTRUMENTED_DIR = join(e2eRoot, build.instrumentedDirName);
+const MODULES_OUT_DIR = join(INSTRUMENTED_DIR, build.instrumentedModulesDirName);
 const NYC_BIN = join(
   e2eRoot,
   'node_modules',
@@ -75,11 +74,7 @@ const NYC_BIN = join(
 );
 
 // 需要插桩的核心模块（不含 kotlin-stdlib，避免覆盖率被标准库拉低）
-const TARGET_MODULES = [
-  'KuiklyCore-render-web-base.js',
-  'KuiklyCore-render-web-h5.js',
-  'KuiklyUI-h5App.js',
-];
+const TARGET_MODULES = coverage.targetModules;
 
 // 解析参数
 const args = process.argv.slice(2);
@@ -322,9 +317,9 @@ function patchIndexHtml() {
   let html = readFileSync(INDEX_HTML_SRC, 'utf8');
 
   // 将 nativevue2.js 远程 URL 改为本地
-  html = html.replace(
-    /src="http:\/\/127\.0\.0\.1:8083\/nativevue2\.js"/g,
-    'src="nativevue2.js"'
+  html = html.replaceAll(
+    `src="${build.nativeVueRemoteUrl}"`,
+    `src="${build.nativeVueLocalFileName}"`
   );
   log('Patched index.html: nativevue2.js URL → local');
 

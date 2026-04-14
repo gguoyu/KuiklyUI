@@ -4,6 +4,7 @@ import { spawnSync } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { basename, dirname, join, relative } from 'path';
 import { repoRoot, reportsDir as baseReportsDir, testsRoot, webTestRoot } from './lib/paths.mjs';
+import { loopConfig, displayConfig, reportingConfig } from './lib/config.mjs';
 import { toPosix, unique, walkFiles } from './lib/fs-utils.mjs';
 import { runSiblingScriptJson } from './lib/script-runner.mjs';
 import {
@@ -55,12 +56,12 @@ function parseIntegerArg(flag, fallback) {
   return parsed;
 }
 
-const parsedRetries = parseIntegerArg('--retries', 2);
+const parsedRetries = parseIntegerArg('--retries', loopConfig.defaultRetries);
 
 const options = {
   retries: parsedRetries,
-  maxRounds: parseIntegerArg('--max-rounds', parsedRetries + 1),
-  maxNewSpecs: parseIntegerArg('--max-new-specs', 3),
+  maxRounds: parseIntegerArg('--max-rounds', parsedRetries + loopConfig.maxRoundsOffsetFromRetries),
+  maxNewSpecs: parseIntegerArg('--max-new-specs', loopConfig.defaultMaxNewSpecs),
   dryRun: hasFlag('--dry-run'),
   mutateOnly: hasFlag('--mutate-only'),
   skipScan: hasFlag('--skip-scan'),
@@ -250,9 +251,9 @@ function loadPageCatalog() {
       ]
         .map(normalizeActionLabel)
         .filter(Boolean)
-    ).slice(0, 12);
+    ).slice(0, displayConfig.maxExtractedActionLabels);
 
-    const stableTexts = textStrings.filter((text) => !actionLabels.includes(text)).slice(0, 8);
+    const stableTexts = textStrings.filter((text) => !actionLabels.includes(text)).slice(0, displayConfig.maxExtractedStableTexts);
     const titleText = textStrings.find((text) => text.includes(pageName)) || stableTexts[0] || null;
 
     return {
@@ -412,7 +413,7 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await expectPageReady(kuiklyPage);
 
     let clicked = false;
-    for (const label of ACTION_LABELS.slice(0, 3)) {
+    for (const label of ACTION_LABELS.slice(0, displayConfig.maxActionAssertionsPerSpec)) {
       clicked = await clickLabelIfPresent(kuiklyPage, label);
       if (clicked) {
         break;
@@ -1580,7 +1581,7 @@ function ensureReportsDir() {
 
 function writeLoopReport(report) {
   ensureReportsDir();
-  const outputPath = join(reportsDir, 'loop-report.json');
+  const outputPath = join(reportsDir, reportingConfig.loopReportFileName);
   writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   return outputPath;
 }
@@ -1633,7 +1634,7 @@ function classifyActions(scan, failureAnalysis, coverage, suggestions, warnings,
       type: 'ADD_COVERAGE_TESTS',
       severity: 'needs_edit',
       failedMetrics,
-      topTargets: (suggestions?.suggestions || []).slice(0, 5),
+      topTargets: (suggestions?.suggestions || []).slice(0, displayConfig.maxTopCoverageTargets),
     });
   }
 

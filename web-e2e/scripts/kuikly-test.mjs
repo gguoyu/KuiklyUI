@@ -5,15 +5,17 @@ import { existsSync, rmSync } from 'fs';
 import http from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import webE2EConfig from '../config/index.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '../..');
 const e2eRoot = join(__dirname, '..');
-const defaultPort = process.env.KUIKLY_PORT || '8080';
+const { build, reporting, runtime } = webE2EConfig;
+const defaultPort = String(runtime.resolvePort());
 const gradleWrapper = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
-const gradleBuildArgs = ':demo:packLocalJSBundleDebug -Pkuikly.useLocalKsp=false';
-const instrumentedDefaultWorkers = '2';
+const gradleBuildArgs = build.gradleBuildArgs;
+const instrumentedDefaultWorkers = String(runtime.instrumentedDefaultWorkers);
 
 const args = process.argv.slice(2);
 
@@ -107,7 +109,7 @@ function waitForHttpReady(port, timeoutMs, child) {
           hostname: '127.0.0.1',
           port: Number(port),
           path: '/',
-          timeout: 1500,
+          timeout: runtime.httpProbeTimeoutMs,
         },
         (res) => {
           res.resume();
@@ -119,7 +121,7 @@ function waitForHttpReady(port, timeoutMs, child) {
             reject(new Error(`Instrumented server did not become ready on port ${port}`));
             return;
           }
-          setTimeout(tryConnect, 500);
+          setTimeout(tryConnect, runtime.httpProbeRetryDelayMs);
         }
       );
 
@@ -128,7 +130,7 @@ function waitForHttpReady(port, timeoutMs, child) {
           reject(new Error(`Instrumented server did not become ready on port ${port}`));
           return;
         }
-        setTimeout(tryConnect, 500);
+        setTimeout(tryConnect, runtime.httpProbeRetryDelayMs);
       });
 
       req.on('timeout', () => {
@@ -153,7 +155,7 @@ async function startInstrumentedServer(port) {
     console.error('Failed to start instrumented server:', error.message);
   });
 
-  await waitForHttpReady(port, 30_000, child);
+  await waitForHttpReady(port, runtime.instrumentedServerReadyTimeoutMs, child);
   console.log('Instrumented server is ready');
   return child;
 }
@@ -171,14 +173,14 @@ async function stopInstrumentedServer(child) {
       windowsHide: true,
     });
     await new Promise((resolve) => killer.on('close', resolve));
-    const exited = await waitForChildExit(child, 5_000);
+    const exited = await waitForChildExit(child, runtime.instrumentedServerStopTimeoutMs);
     if (exited) {
       console.log('Instrumented server stopped');
       return;
     }
   } else {
     child.kill('SIGINT');
-    const exited = await waitForChildExit(child, 5_000);
+    const exited = await waitForChildExit(child, runtime.instrumentedServerStopTimeoutMs);
     if (exited) {
       console.log('Instrumented server stopped');
       return;
@@ -186,12 +188,12 @@ async function stopInstrumentedServer(child) {
   }
 
   child.kill();
-  const exited = await waitForChildExit(child, 3_000);
+  const exited = await waitForChildExit(child, runtime.instrumentedServerForceStopTimeoutMs);
   console.log(exited ? 'Instrumented server stopped' : 'Instrumented server was force closed');
 }
 
 function clearCoverageOutput() {
-  const nycOutputDir = join(e2eRoot, '.nyc_output');
+  const nycOutputDir = join(e2eRoot, reporting.nycTempDirName);
   if (existsSync(nycOutputDir)) {
     rmSync(nycOutputDir, { recursive: true, force: true });
     console.log(`Cleared previous coverage data: ${nycOutputDir}`);
@@ -255,7 +257,7 @@ async function runTests({ instrumented = false } = {}) {
 }
 
 async function generateCoverageReport() {
-  const nycOutputDir = join(e2eRoot, '.nyc_output');
+  const nycOutputDir = join(e2eRoot, reporting.nycTempDirName);
 
   if (!existsSync(nycOutputDir)) {
     throw new Error('.nyc_output does not exist, run instrumented tests first');
@@ -264,7 +266,7 @@ async function generateCoverageReport() {
   console.log('\nGenerating official NYC Kotlin coverage report...');
   await execCommand('node scripts/coverage-report.mjs', e2eRoot);
   console.log('NYC Kotlin coverage report generated');
-  console.log(`Report: ${join(e2eRoot, 'reports/coverage/index.html')}`);
+  console.log(`Report: ${join(e2eRoot, reporting.coverageIndexFile)}`);
 }
 
 async function checkCoverageThresholds() {
