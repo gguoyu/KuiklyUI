@@ -525,7 +525,7 @@ function shouldFilterStructuralCoverageLine(filePath, lineNumber) {
   }
 
   const trimmedLine = getSourceLine(filePath, lineNumber).trim();
-  return isStructuralDeclarationLine(trimmedLine);
+  return isStructuralDeclarationLine(trimmedLine) || isDeclarationOnlyMemberLine(trimmedLine);
 }
 
 function filterStructuralDeclarationCoverage() {
@@ -787,7 +787,11 @@ function isMultilineContinuationLine(trimmedLine, previousTrimmedLine) {
     return false;
   }
 
-  if (/^(?:&&|\|\||\?:|\.\?|\.|,)/.test(trimmedLine)) {
+  if (/^(?:&&|\|\||\?:|\?\.|\.|,)/.test(trimmedLine)) {
+    return true;
+  }
+
+  if (/^[)}]\s*(?:\?:|\?\.|\.)/.test(trimmedLine)) {
     return true;
   }
 
@@ -795,7 +799,7 @@ function isMultilineContinuationLine(trimmedLine, previousTrimmedLine) {
     return true;
   }
 
-  if (/(?:\|\||&&|,|\.|\.\?|\?:|=)\s*$/.test(previousTrimmedLine)) {
+  if (/(?:\|\||&&|,|\.|\?\.|\?:|=)\s*$/.test(previousTrimmedLine)) {
     return true;
   }
 
