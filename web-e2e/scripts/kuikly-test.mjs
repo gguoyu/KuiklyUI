@@ -206,7 +206,7 @@ async function buildProject() {
     return;
   }
 
-  console.log('\nBuilding demo bundle with Gradle...');
+  console.log('\nBuilding h5App compileSync modules and demo bundle with Gradle...');
   await execCommand(`${gradleWrapper} ${gradleBuildArgs}`, projectRoot, { KUIKLY_USE_LOCAL_KSP: 'false' });
   console.log('Build completed');
 }

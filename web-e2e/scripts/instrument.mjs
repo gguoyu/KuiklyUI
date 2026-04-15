@@ -151,7 +151,7 @@ function normalizeInstrumentedModuleSourceMaps() {
 function instrumentModules() {
   if (!existsSync(KOTLIN_MODULES_DIR)) {
     err(`Kotlin modules dir not found: ${KOTLIN_MODULES_DIR}`);
-    err('Please run: ./gradlew :h5App:compileDevelopmentExecutableKotlinJs');
+    err('Please run: ./gradlew :h5App:jsDevelopmentExecutableCompileSync');
     process.exit(1);
   }
 

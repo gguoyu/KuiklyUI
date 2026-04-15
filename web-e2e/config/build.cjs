@@ -1,6 +1,6 @@
 module.exports = {
   defaultBuildType: 'productionExecutable',
-  gradleBuildArgs: ':demo:packLocalJSBundleDebug -Pkuikly.useLocalKsp=false',
+  gradleBuildArgs: ':h5App:jsDevelopmentExecutableCompileSync :demo:packLocalJSBundleDebug -Pkuikly.useLocalKsp=false -Pkuikly.coverageBuild=true',
   processedResourcesDir: 'h5App/build/processedResources/js/main',
   demoDistBaseDir: 'demo/build/dist/js',
   developmentDistSubdir: 'developmentExecutable',

@@ -2,6 +2,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
 import org.jetbrains.kotlin.gradle.dsl.JsSourceMapEmbedMode
+import org.jetbrains.kotlin.gradle.dsl.JsSourceMapNamesPolicy
 
 plugins {
     // Import KMM plugin
@@ -37,7 +38,24 @@ kotlin {
 
         compilerOptions {
             sourceMap.set(true)
+            // 将 Kotlin 源文件内容内嵌到 sourcemap 中，确保 remap 时能定位到 .kt 源行
             sourceMapEmbedSources.set(JsSourceMapEmbedMode.SOURCE_MAP_SOURCE_CONTENT_ALWAYS)
+            // 在 sourcemap 的 names 字段中保留原始函数名/变量名（Kotlin 2.0.20+）
+            // FULLY_QUALIFIED: 输出完整限定名，有助于 nyc remap 还原符号，显著减少 unmapped 数量
+            sourceMapNamesPolicy.set(JsSourceMapNamesPolicy.SOURCE_MAP_NAMES_POLICY_FQ_NAMES)
+        }
+
+        val coverageBuildEnabled = project.findProperty("kuikly.coverageBuild")?.toString() == "true"
+
+        // 仅在 coverage 构建关闭 DCE（死代码消除），防止 DCE 裁剪掉有 sourcemap 映射的代码段
+        compilations.all {
+            compileTaskProvider.configure {
+                compilerOptions {
+                    if (coverageBuildEnabled) {
+                        freeCompilerArgs.add("-Xir-dce=false")
+                    }
+                }
+            }
         }
     }
     sourceSets {

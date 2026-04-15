@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JsSourceMapEmbedMode
+import org.jetbrains.kotlin.gradle.dsl.JsSourceMapNamesPolicy
 
 plugins {
     // Import KMM plugin
@@ -49,7 +50,6 @@ kotlin {
 
             commonWebpackConfig {
                 output?.library = null // Don't export global objects, only export necessary entry functions
-                sourceMaps = true
             }
         }
         // Output executable JS rather than library
@@ -57,7 +57,10 @@ kotlin {
 
         compilerOptions {
             sourceMap.set(true)
+            // 将 Kotlin 源文件内容内嵌到 sourcemap 中，确保 remap 时能定位到 .kt 源行
             sourceMapEmbedSources.set(JsSourceMapEmbedMode.SOURCE_MAP_SOURCE_CONTENT_ALWAYS)
+            // 在 sourcemap 的 names 字段中保留原始函数名/变量名（Kotlin 2.0.20+）
+            sourceMapNamesPolicy.set(JsSourceMapNamesPolicy.SOURCE_MAP_NAMES_POLICY_FQ_NAMES)
         }
     }
 

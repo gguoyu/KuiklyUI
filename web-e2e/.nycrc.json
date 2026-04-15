@@ -11,7 +11,7 @@
     "**/test/**",
     "**/tests/**"
   ],
-  "reporter": ["text", "html", "lcov", "json"],
+  "reporter": ["text", "html", "lcov", "json", "json-summary"],
   "report-dir": "reports/coverage",
   "temp-dir": ".nyc_output",
   "sourceMap": true,
