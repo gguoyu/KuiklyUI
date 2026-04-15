@@ -525,7 +525,11 @@ function shouldFilterStructuralCoverageLine(filePath, lineNumber) {
   }
 
   const trimmedLine = getSourceLine(filePath, lineNumber).trim();
-  return isStructuralDeclarationLine(trimmedLine) || isDeclarationOnlyMemberLine(trimmedLine);
+  return (
+    isStructuralDeclarationLine(trimmedLine) ||
+    isDeclarationOnlyMemberLine(trimmedLine) ||
+    isDeclarationOnlyConstructorLine(trimmedLine)
+  );
 }
 
 function filterStructuralDeclarationCoverage() {
@@ -686,7 +690,7 @@ function isInterfaceDeclarationLine(trimmedLine) {
 }
 
 function isTypeDeclarationLine(trimmedLine) {
-  return /^(?:(?:public|private|protected|internal|open|final|sealed|abstract|data|enum|annotation|inner|value|expect|actual|companion)\s+)*(?:class|object|interface)\b/.test(
+  return /^(?:(?:public|private|protected|internal|open|final|sealed|abstract|data|enum|annotation|inner|value|expect|actual|companion|external)\s+)*(?:class|object|interface)\b/.test(
     trimmedLine
   );
 }
@@ -707,6 +711,9 @@ function isDeclarationOnlyMemberLine(trimmedLine) {
   if (!/^(?:(?:public|private|protected|internal|open|override|abstract|final|lateinit|const|expect|actual|sealed|data|inner|external|suspend|operator|infix|tailrec|vararg|reified)\s+)*(?:val|var)\b/.test(trimmedLine)) {
     return false;
   }
+  if (/\bconst\s+val\b/.test(trimmedLine)) {
+    return true;
+  }
   if (trimmedLine.includes('=')) {
     return false;
   }
@@ -717,6 +724,10 @@ function isDeclarationOnlyMemberLine(trimmedLine) {
     return false;
   }
   return true;
+}
+
+function isDeclarationOnlyConstructorLine(trimmedLine) {
+  return /^(?:(?:public|private|protected|internal)\s+)?constructor\([^)]*\)\s*$/.test(trimmedLine);
 }
 
 function isElseLikeStructuralLine(trimmedLine) {
@@ -830,6 +841,9 @@ function shouldAddBaselineStatement(trimmedLine, previousTrimmedLine) {
     return false;
   }
   if (isDeclarationOnlyMemberLine(trimmedLine)) {
+    return false;
+  }
+  if (isDeclarationOnlyConstructorLine(trimmedLine)) {
     return false;
   }
   if (isElseLikeStructuralLine(trimmedLine)) {
@@ -1249,7 +1263,14 @@ function hasUncoveredBranchMarker(codeLine) {
 }
 
 function stripHtmlTags(line) {
-  return line.replace(/<[^>]+>/g, '');
+  return line
+    .replace(/<[^>]+>/g, '')
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
 }
 
 function getLineIndent(line) {
@@ -1332,6 +1353,55 @@ function hasCoveredParentBlockHeader(index, plainCodeLines, lineStatuses) {
   return false;
 }
 
+function isWhenExpressionArmLine(line) {
+  const trimmedLine = line.trim();
+  if (!trimmedLine.includes('->')) {
+    return false;
+  }
+  if (/^(?:\/\/|\/\*|\*)/.test(trimmedLine)) {
+    return false;
+  }
+  const arrowIndex = trimmedLine.indexOf('->');
+  const beforeArrow = trimmedLine.slice(0, arrowIndex).trim();
+  const afterArrow = trimmedLine.slice(arrowIndex + 2).trim();
+  if (!beforeArrow || !afterArrow) {
+    return false;
+  }
+  if (afterArrow === '{') {
+    return false;
+  }
+  return true;
+}
+
+function hasCoveredConditionalBranchOnLine(fileCoverage, lineNumber) {
+  if (!fileCoverage?.branchMap || !fileCoverage?.b) {
+    return false;
+  }
+
+  return Object.entries(fileCoverage.branchMap).some(([branchId, branchMeta]) => {
+    if (branchMeta.type !== 'cond-expr') {
+      return false;
+    }
+    const branchLine = branchMeta.line ?? branchMeta.loc?.start?.line;
+    if (branchLine !== lineNumber) {
+      return false;
+    }
+    return (fileCoverage.b[branchId] ?? []).some((hit) => hit > 0);
+  });
+}
+
+function fixFalseNegativeWhenExpressionArmStatus(lineStatuses, plainCodeLines, fileCoverage) {
+  return lineStatuses.map((status, index) => {
+    if (status !== 'no') {
+      return status;
+    }
+    if (!isWhenExpressionArmLine(plainCodeLines[index])) {
+      return status;
+    }
+    return hasCoveredConditionalBranchOnLine(fileCoverage, index + 1) ? 'yes' : status;
+  });
+}
+
 function getEffectiveLineStatus(status, codeLine) {
   if (status === 'yes' && hasUncoveredBranchMarker(codeLine)) {
     return 'partial';
@@ -1370,6 +1440,61 @@ function fixFalseNegativeBlockBodyStatus(lineStatuses, plainCodeLines, codeLines
 
     return hasCoveredSiblingLineAfter(index, plainCodeLines, lineStatuses) ? 'yes' : status;
   });
+}
+
+let cachedFinalCoverageIndex;
+
+function toPosixPath(filePath) {
+  return normalize(filePath).replace(/\\/g, '/');
+}
+
+function getSourceFilePathFromCoverageHtml(filePath) {
+  const posixFilePath = toPosixPath(filePath);
+  const posixReportDir = toPosixPath(reportDir);
+  const reportPrefix = `${posixReportDir}/`;
+  const lcovPrefix = `${posixReportDir}/lcov-report/`;
+
+  let relativeHtmlPath;
+  if (posixFilePath.startsWith(lcovPrefix)) {
+    relativeHtmlPath = posixFilePath.slice(lcovPrefix.length);
+  } else if (posixFilePath.startsWith(reportPrefix)) {
+    relativeHtmlPath = posixFilePath.slice(reportPrefix.length);
+  } else {
+    return null;
+  }
+
+  const sourceRelativePath = relativeHtmlPath.replace(/\.html$/, '');
+  if (!/^(?:base|h5)\/src\//.test(sourceRelativePath)) {
+    return null;
+  }
+
+  return normalize(join(projectRoot, 'core-render-web', sourceRelativePath));
+}
+
+function getFinalCoverageIndex() {
+  if (cachedFinalCoverageIndex) {
+    return cachedFinalCoverageIndex;
+  }
+
+  const finalCoveragePath = join(reportDir, 'coverage-final.json');
+  if (!existsSync(finalCoveragePath)) {
+    cachedFinalCoverageIndex = new Map();
+    return cachedFinalCoverageIndex;
+  }
+
+  const finalCoverage = JSON.parse(readFileSync(finalCoveragePath, 'utf8'));
+  cachedFinalCoverageIndex = new Map(
+    Object.entries(finalCoverage).map(([coveredFilePath, fileCoverage]) => [normalize(coveredFilePath), fileCoverage])
+  );
+  return cachedFinalCoverageIndex;
+}
+
+function getFileCoverageForHtml(filePath) {
+  const sourceFilePath = getSourceFilePathFromCoverageHtml(filePath);
+  if (!sourceFilePath) {
+    return null;
+  }
+  return getFinalCoverageIndex().get(normalize(sourceFilePath)) ?? null;
 }
 
 function patchCoverageHtmlFile(filePath) {
@@ -1421,11 +1546,17 @@ function patchCoverageHtmlFile(filePath) {
   }
 
   const plainCodeLines = codeLines.map((line) => stripHtmlTags(line));
+  const fileCoverage = getFileCoverageForHtml(filePath);
   const provisionalLineStatuses = lineStatuses.map((status, index) =>
     getEffectiveLineStatus(status, codeLines[index])
   );
   const headerFixedLineStatuses = fixFalseNegativeBlockHeaderStatus(provisionalLineStatuses, plainCodeLines);
-  const effectiveLineStatuses = fixFalseNegativeBlockBodyStatus(headerFixedLineStatuses, plainCodeLines, codeLines);
+  const blockBodyFixedLineStatuses = fixFalseNegativeBlockBodyStatus(headerFixedLineStatuses, plainCodeLines, codeLines);
+  const effectiveLineStatuses = fixFalseNegativeWhenExpressionArmStatus(
+    blockBodyFixedLineStatuses,
+    plainCodeLines,
+    fileCoverage
+  );
 
   const wrappedCode = codeLines
     .map((line, index) => `<span class="code-line code-line-${effectiveLineStatuses[index]}">${line}</span>`)
