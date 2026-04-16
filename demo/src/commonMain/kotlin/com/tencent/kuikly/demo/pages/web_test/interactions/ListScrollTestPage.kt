@@ -50,6 +50,7 @@ internal class ListScrollTestPage : Pager() {
     // === 响应式状态 ===
     private var selectedIndex by observable(-1)
     private var clickedItemText by observable("未选择")
+    private var listGestureText by observable("未触发")
     private var scrollReachedBottom by observable(false)
 
     override fun body(): ViewBuilder {
@@ -77,12 +78,25 @@ internal class ListScrollTestPage : Pager() {
                         flex(1f)
                     }
                 }
-                // 当前选中指示
-                Text {
+                View {
                     attr {
-                        text("选中: ${ctx.clickedItemText}")
-                        fontSize(12f)
-                        color(Color(0xCCFFFFFF))
+                        alignItemsFlexEnd()
+                    }
+                    // 当前选中指示
+                    Text {
+                        attr {
+                            text("选中: ${ctx.clickedItemText}")
+                            fontSize(12f)
+                            color(Color(0xCCFFFFFF))
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("列表手势: ${ctx.listGestureText}")
+                            fontSize(11f)
+                            color(Color(0xAAFFFFFF))
+                            marginTop(2f)
+                        }
                     }
                 }
             }
@@ -91,6 +105,14 @@ internal class ListScrollTestPage : Pager() {
             List {
                 attr {
                     flex(1f)
+                }
+                event {
+                    click {
+                        ctx.listGestureText = "单击"
+                    }
+                    doubleClick {
+                        ctx.listGestureText = "双击"
+                    }
                 }
 
                 // 生成 5 组 × 10 项 = 50 项

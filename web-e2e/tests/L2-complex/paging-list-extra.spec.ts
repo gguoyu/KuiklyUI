@@ -77,4 +77,77 @@ test.describe('H5ListPagingHelper extra coverage', () => {
     await expect(kuiklyPage.page.getByText('tab3', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
     expect(await getLeft(page3Item)).toBe(boundaryLeft);
   });
+
+  test('wheel scrolling backward should page back and stop at the first page boundary', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PageListTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const pageList = kuiklyPage.component('KRListView').first();
+    const box = await pageList.boundingBox();
+    expect(box).toBeTruthy();
+
+    await kuiklyPage.page.getByText('tab2', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(500);
+    await kuiklyPage.page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+
+    await kuiklyPage.page.mouse.wheel(-500, 0);
+    await kuiklyPage.page.waitForTimeout(500);
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(kuiklyPage.page.getByText('pageIndex:1 listIndex:0'))).toBeGreaterThanOrEqual(0);
+
+    await kuiklyPage.page.mouse.wheel(-500, 0);
+    await kuiklyPage.page.waitForTimeout(500);
+    await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+
+    const page0Item = kuiklyPage.page.getByText('pageIndex:0 listIndex:0');
+    const boundaryLeft = await getLeft(page0Item);
+
+    await kuiklyPage.page.mouse.wheel(-500, 0);
+    await kuiklyPage.page.waitForTimeout(500);
+
+    await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(page0Item)).toBe(boundaryLeft);
+  });
+
+  test('rapid repeated wheel input should only advance one page before the lock resets', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PageListTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const pageList = kuiklyPage.component('KRListView').first();
+    const box = await pageList.boundingBox();
+    expect(box).toBeTruthy();
+
+    await kuiklyPage.page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await kuiklyPage.page.mouse.wheel(500, 0);
+    await kuiklyPage.page.mouse.wheel(500, 0);
+    await kuiklyPage.page.waitForTimeout(500);
+
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(kuiklyPage.page.getByText('pageIndex:1 listIndex:0'))).toBeGreaterThanOrEqual(0);
+
+    await kuiklyPage.page.mouse.wheel(500, 0);
+    await kuiklyPage.page.waitForTimeout(500);
+
+    await expect(kuiklyPage.page.getByText('tab2', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(kuiklyPage.page.getByText('pageIndex:2 listIndex:0'))).toBeGreaterThanOrEqual(0);
+  });
+
+  test('vertical wheel input should not switch the horizontal pagelist', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PageListTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const pageList = kuiklyPage.component('KRListView').first();
+    const box = await pageList.boundingBox();
+    expect(box).toBeTruthy();
+
+    const page0Item = kuiklyPage.page.getByText('pageIndex:0 listIndex:0');
+    const boundaryLeft = await getLeft(page0Item);
+
+    await kuiklyPage.page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await kuiklyPage.page.mouse.wheel(0, 500);
+    await kuiklyPage.page.waitForTimeout(500);
+
+    await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(page0Item)).toBe(boundaryLeft);
+  });
 });

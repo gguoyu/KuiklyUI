@@ -81,9 +81,9 @@ internal class PAGAnimTestPage : Pager() {
                         attr {
                             size(260f, 180f)
                             backgroundColor(Color(0xFFE5EAF3))
-                            src(ImageUri.pageAssets("user_avatar.pag"))
+                            src(ImageUri.pageAssets("../PAGExamplePage/user_avatar.pag"))
                             replaceTextLayerContent("text_user_note", "Kuikly Web")
-                            replaceImageLayerContent("img_user_avatar", ImageUri.pageAssets("user_portrait.png"))
+                            replaceImageLayerContent("img_user_avatar", ImageUri.pageAssets("../PAGExamplePage/user_portrait.png"))
                             autoPlay(true)
                             repeatCount(1)
                             scaleMode(PAGScaleMode.LETTER_BOX)

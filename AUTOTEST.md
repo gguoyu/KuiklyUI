@@ -1212,6 +1212,34 @@ stages:
 | **AI 自动生成**  | 由闭环执行器根据 completeness / coverage 自动生成或刷新 managed `auto-*.spec.ts` |
 | **覆盖率查看**   | 通过 `summarize-coverage.mjs` / `build-autotest-report.mjs` 查看 NYC Kotlin 覆盖率摘要 |
 
+#### 推荐触发 Prompt（可直接复制）
+
+以下 Prompt 适合直接发给 CodeBuddy，用来稳定触发 `kuikly-web-autotest` 的当前默认工作流。
+
+1. **完整回归**
+
+   ```text
+   请按 kuikly-web-autotest 的标准闭环跑一轮 web autotest，并汇总测试、coverage、自动修复和阻塞项。
+   ```
+
+2. **继续推进**
+
+   ```text
+   请继续 kuikly-web-autotest 闭环，优先修失败项和 coverage 未达标问题，并在安全修复范围内自动推进。
+   ```
+
+3. **单点修复**
+
+   ```text
+   请只重跑并修复这个 spec：<spec 路径>。跳过 build，修完后复验，并告诉我是否需要回到完整闭环。
+   ```
+
+4. **只看报告**
+
+   ```text
+   请先不要重跑，先读取 web-e2e/reports/autotest/loop-report.json，分析当前状态、阻塞项和下一步建议。
+   ```
+
 ### 14.2 AI 自动生成流程
 
 当前仓库的实际闭环入口已经不是“单页 generate spec”的线性流程，而是以 `kuikly-web-autotest/scripts/run-autotest-loop.mjs` 为入口的多轮闭环执行器。下面这版流程图用于替换旧参考图，反映当前实现中的真实节点与分支。

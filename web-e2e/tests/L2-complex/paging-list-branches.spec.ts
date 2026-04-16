@@ -42,6 +42,22 @@ async function dragTowardsPreviousPage(page: Page, container: Locator): Promise<
   await page.waitForTimeout(800);
 }
 
+async function dragPageListByOffset(page: Page, container: Locator, deltaX: number, deltaY: number, waitMs = 800): Promise<void> {
+  const box = await container.boundingBox();
+  if (!box) {
+    throw new Error('PageList container is not visible');
+  }
+
+  const startX = box.x + box.width / 2;
+  const startY = box.y + box.height / 2;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + deltaX, startY + deltaY, { steps: 14 });
+  await page.mouse.up();
+  await page.waitForTimeout(waitMs);
+}
+
 test.describe('H5ListPagingHelper branch coverage', () => {
   test('dragging right after entering the next page should keep page 1 visible without advancing further', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('PageListTestPage');
@@ -94,5 +110,58 @@ test.describe('H5ListPagingHelper branch coverage', () => {
     await expect(kuiklyPage.page.getByText('tab0')).toHaveCSS('color', 'rgb(255, 0, 0)');
     expect(await getLeft(page0Item)).toBeGreaterThanOrEqual(0);
     expect(await getLeft(page2Item)).toBeGreaterThan(600);
+  });
+
+  test('short right drag on page 2 should snap back to tab2 without switching pages', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PageListTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const pageList = kuiklyPage.component('KRListView').first();
+    const page1Item = kuiklyPage.page.getByText('pageIndex:1 listIndex:0');
+    const page2Item = kuiklyPage.page.getByText('pageIndex:2 listIndex:0');
+
+    await kuiklyPage.page.getByText('tab2', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(500);
+
+    await dragPageList(kuiklyPage.page, pageList, 40);
+
+    await expect(kuiklyPage.page.getByText('tab2', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(page2Item)).toBeGreaterThanOrEqual(0);
+    expect(await getLeft(page1Item)).toBeLessThan(0);
+  });
+
+  test('vertical dominant drag should not switch the horizontal pagelist', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PageListTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const pageList = kuiklyPage.component('KRListView').first();
+    const page0Item = kuiklyPage.page.getByText('pageIndex:0 listIndex:0');
+    const page1Item = kuiklyPage.page.getByText('pageIndex:1 listIndex:0');
+    const initialPage0Left = await getLeft(page0Item);
+    const initialPage1Left = await getLeft(page1Item);
+
+    await dragPageListByOffset(kuiklyPage.page, pageList, 40, 220);
+
+    await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    expect(await getLeft(page0Item)).toBe(initialPage0Left);
+    expect(await getLeft(page1Item)).toBe(initialPage1Left);
+  });
+
+  test('small horizontal drag below threshold should keep the first page selected', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PageListTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const pageList = kuiklyPage.component('KRListView').first();
+    const page0Item = kuiklyPage.page.getByText('pageIndex:0 listIndex:0');
+    const page1Item = kuiklyPage.page.getByText('pageIndex:1 listIndex:0');
+    const initialPage0Left = await getLeft(page0Item);
+    const initialPage1Left = await getLeft(page1Item);
+
+    await dragPageListByOffset(kuiklyPage.page, pageList, -30, 0, 1500);
+
+    await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', 'rgb(255, 0, 0)');
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', 'rgb(0, 0, 0)');
+    expect(await getLeft(page0Item)).toBe(initialPage0Left);
+    expect(await getLeft(page1Item)).toBe(initialPage1Left);
   });
 });

@@ -275,8 +275,8 @@ class KRPagView : IKuiklyRenderViewExport {
             // If it's an assets resource image, remove assets prefix and replace with assets path
             newSrc = KuiklyProcessor.imageProcessor.getImageAssetsSource(newSrc)
         }
-        if (src == newSrc || !newSrc.startsWith("https")) {
-            // Source file unchanged, or non-https source file, skip processing
+        if (src == newSrc || newSrc.isBlank()) {
+            // Source file unchanged, or empty source file, skip processing
             return
         }
         src = newSrc

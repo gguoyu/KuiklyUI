@@ -1182,6 +1182,75 @@ function mergeBaselineCoverage(targetCoverage, baselineCoverage) {
   };
 }
 
+function inferFunctionHitsFromCoveredStatements() {
+  const mergedCoverage = readMergedCoverage();
+  let touchedFiles = 0;
+  let inferredFunctions = 0;
+
+  for (const [filePath, fileCoverage] of Object.entries(mergedCoverage)) {
+    const functionEntries = Object.entries(fileCoverage.fnMap ?? {})
+      .map(([functionId, fnMeta]) => ({
+        functionId,
+        functionLine: fnMeta.line ?? fnMeta.decl?.start?.line ?? fnMeta.loc?.start?.line ?? null,
+      }))
+      .filter(({ functionLine }) => Number.isInteger(functionLine))
+      .sort((left, right) => left.functionLine - right.functionLine);
+
+    if (functionEntries.length === 0) {
+      continue;
+    }
+
+    const coveredStatements = Object.entries(fileCoverage.s ?? {})
+      .map(([statementId, hits]) => ({
+        hits,
+        lineNumber: fileCoverage.statementMap?.[statementId]?.start?.line ?? null,
+      }))
+      .filter(({ hits, lineNumber }) => hits > 0 && Number.isInteger(lineNumber))
+      .sort((left, right) => left.lineNumber - right.lineNumber);
+
+    if (coveredStatements.length === 0) {
+      continue;
+    }
+
+    let fileTouched = false;
+
+    for (let index = 0; index < functionEntries.length; index += 1) {
+      const { functionId, functionLine } = functionEntries[index];
+      if ((fileCoverage.f?.[functionId] ?? 0) > 0) {
+        continue;
+      }
+
+      const sourceLine = getSourceLine(filePath, functionLine).trim();
+      if (!isFunctionDeclarationLine(sourceLine)) {
+        continue;
+      }
+
+      const nextFunctionLine = functionEntries[index + 1]?.functionLine ?? Number.POSITIVE_INFINITY;
+      const inferredHits = coveredStatements.reduce((maxHits, statement) => {
+        if (statement.lineNumber < functionLine || statement.lineNumber >= nextFunctionLine) {
+          return maxHits;
+        }
+        return Math.max(maxHits, Number(statement.hits) || 0);
+      }, 0);
+
+      if (inferredHits <= 0) {
+        continue;
+      }
+
+      fileCoverage.f[functionId] = inferredHits;
+      inferredFunctions += 1;
+      fileTouched = true;
+    }
+
+    if (fileTouched) {
+      touchedFiles += 1;
+    }
+  }
+
+  writeMergedCoverage(mergedCoverage);
+  console.log(`Function hit inference updated ${inferredFunctions} functions across ${touchedFiles} files`);
+}
+
 function supplementZeroBaselineCoverage() {
   const mergedCoverage = readMergedCoverage();
   const scopedFiles = collectScopedKotlinFiles();
@@ -1667,6 +1736,7 @@ prepareMergedCoverage();
 await repairKotlinInlineTailMappings();
 filterDeclarationOnlyInterfaceDefaultHelperCoverage();
 filterStructuralDeclarationCoverage();
+inferFunctionHitsFromCoveredStatements();
 const baseFlags = buildBaseFlags();
 
 if (checkOnly) {
