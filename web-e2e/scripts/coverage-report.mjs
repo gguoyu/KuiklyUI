@@ -110,14 +110,32 @@ function mergeRawGeneratedJsCoverage() {
       const normalizedPath = normalize(filePath);
       if (!merged[normalizedPath]) {
         merged[normalizedPath] = {
-          statementMap: fileCoverage.statementMap ?? {},
+          statementMap: { ...(fileCoverage.statementMap ?? {}) },
           s: { ...(fileCoverage.s ?? {}) },
+          branchMap: { ...(fileCoverage.branchMap ?? {}) },
+          b: Object.fromEntries(
+            Object.entries(fileCoverage.b ?? {}).map(([branchId, hits]) => [branchId, [...hits]])
+          ),
         };
         continue;
       }
 
       for (const [statementId, hits] of Object.entries(fileCoverage.s ?? {})) {
         merged[normalizedPath].s[statementId] = (merged[normalizedPath].s[statementId] ?? 0) + hits;
+      }
+
+      for (const [branchId, branchMeta] of Object.entries(fileCoverage.branchMap ?? {})) {
+        if (!merged[normalizedPath].branchMap[branchId]) {
+          merged[normalizedPath].branchMap[branchId] = branchMeta;
+          merged[normalizedPath].b[branchId] = [...(fileCoverage.b?.[branchId] ?? [])];
+          continue;
+        }
+
+        const existingHits = merged[normalizedPath].b[branchId] ?? [];
+        const incomingHits = fileCoverage.b?.[branchId] ?? [];
+        merged[normalizedPath].b[branchId] = incomingHits.map(
+          (hit, index) => (existingHits[index] ?? 0) + hit
+        );
       }
     }
   }
@@ -187,6 +205,25 @@ function originalEndPositionForMapping(sourceMap, beforeEndMapping) {
 function sameCoverageColumn(left, right) {
   const normalizeColumn = (value) => (value === Infinity ? null : value);
   return normalizeColumn(left) === normalizeColumn(right);
+}
+
+function sameCoverageLocation(left, right) {
+  if (!left || !right) {
+    return left === right;
+  }
+  return (
+    left.start.line === right.start.line &&
+    left.start.column === right.start.column &&
+    left.end.line === right.end.line &&
+    sameCoverageColumn(left.end.column, right.end.column)
+  );
+}
+
+function sameCoverageLocationList(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+    return false;
+  }
+  return left.every((loc, index) => sameCoverageLocation(loc, right[index]));
 }
 
 function findMatchingStatementId(fileCoverage, loc) {
@@ -406,6 +443,167 @@ function mapJsStatementToSyntheticKotlinStatement(sourceMap, jsFilePath, stateme
     },
     repairKind,
   };
+}
+
+function mapJsBranchLocationToSyntheticKotlinLocation(sourceMap, jsFilePath, branchLoc) {
+  if (!branchLoc?.start || !branchLoc?.end || branchLoc.end.column <= 0) {
+    return null;
+  }
+
+  const start = originalPositionTryBoth(sourceMap, branchLoc.start.line, branchLoc.start.column);
+  if (!start?.source || !isKotlinSource(start.source) || start.line === null || start.column === null) {
+    return null;
+  }
+
+  const directTail = originalPositionTryBoth(sourceMap, branchLoc.end.line, branchLoc.end.column - 1);
+  const repairKind = classifyKotlinJsTailMismatch(start.source, directTail.source);
+  if (!repairKind) {
+    return null;
+  }
+
+  const kotlinPath = resolveOriginalSourcePath(jsFilePath, start.source);
+  if (!isInCoverageScope(kotlinPath)) {
+    return null;
+  }
+
+  const lineText = getSourceLine(kotlinPath, start.line);
+  const endColumn = Math.max(start.column, Math.max(0, lineText.length - 1));
+  return {
+    filePath: kotlinPath,
+    loc: {
+      start: {
+        line: start.line,
+        column: start.column,
+      },
+      end: {
+        line: start.line,
+        column: endColumn,
+      },
+    },
+    repairKind,
+  };
+}
+
+function findReusableBranchId(fileCoverage, branchMeta) {
+  for (const [branchId, existingMeta] of Object.entries(fileCoverage.branchMap ?? {})) {
+    if (existingMeta.type !== branchMeta.type) {
+      continue;
+    }
+    if (!sameCoverageLocation(existingMeta.loc, branchMeta.loc)) {
+      continue;
+    }
+    if (!sameCoverageLocationList(existingMeta.locations, branchMeta.locations)) {
+      continue;
+    }
+    return branchId;
+  }
+
+  const branchLine = getBranchLine(branchMeta);
+  const branchCount = branchMeta.locations?.length ?? 0;
+  for (const [branchId, existingMeta] of Object.entries(fileCoverage.branchMap ?? {})) {
+    if (existingMeta.type !== branchMeta.type) {
+      continue;
+    }
+    if (getBranchLine(existingMeta) !== branchLine) {
+      continue;
+    }
+    if ((existingMeta.locations?.length ?? 0) !== branchCount) {
+      continue;
+    }
+    return branchId;
+  }
+
+  return null;
+}
+
+async function repairKotlinBranchNullTailMappings() {
+  const mergedCoverage = readMergedCoverage();
+  const rawGeneratedCoverage = mergeRawGeneratedJsCoverage();
+  let added = 0;
+  let updated = 0;
+  const touchedFiles = new Set();
+
+  for (const [jsFilePath, jsCoverage] of Object.entries(rawGeneratedCoverage)) {
+    const sourceMap = await getSourceMapConsumerFor(jsFilePath);
+    if (!sourceMap) {
+      continue;
+    }
+
+    for (const [branchId, branchMeta] of Object.entries(jsCoverage.branchMap ?? {})) {
+      const hits = jsCoverage.b?.[branchId] ?? [];
+      if (!Array.isArray(hits) || !hits.some((hit) => hit > 0)) {
+        continue;
+      }
+
+      const mappedLocations = (branchMeta.locations ?? [])
+        .map((loc, index) => {
+          const mapped = mapJsBranchLocationToSyntheticKotlinLocation(sourceMap, jsFilePath, loc);
+          if (!mapped) {
+            return null;
+          }
+          return {
+            ...mapped,
+            hits: hits[index] ?? 0,
+          };
+        })
+        .filter(Boolean);
+      if (mappedLocations.length === 0) {
+        continue;
+      }
+
+      const filePath = mappedLocations[0].filePath;
+      if (mappedLocations.some((mapped) => mapped.filePath !== filePath)) {
+        continue;
+      }
+
+      const fileCoverage = mergedCoverage[filePath];
+      if (!fileCoverage) {
+        continue;
+      }
+
+      const mappedLoc = branchMeta.loc
+        ? mapJsBranchLocationToSyntheticKotlinLocation(sourceMap, jsFilePath, branchMeta.loc)
+        : null;
+      const loc = mappedLoc?.filePath === filePath ? mappedLoc.loc : mappedLocations[0].loc;
+      const syntheticBranchMeta = {
+        loc,
+        type: branchMeta.type,
+        locations: mappedLocations.map((mapped) => mapped.loc),
+        line: loc.start.line,
+      };
+      const mappedHits = mappedLocations.map((mapped) => mapped.hits);
+
+      const existingId = findReusableBranchId(fileCoverage, syntheticBranchMeta);
+      if (existingId !== null) {
+        const previousMeta = fileCoverage.branchMap[existingId];
+        const previousHits = fileCoverage.b?.[existingId] ?? [];
+        const nextHits = mappedHits.map((hit, index) => Math.max(previousHits[index] ?? 0, hit));
+        const shouldUpdate =
+          !sameCoverageLocation(previousMeta?.loc, syntheticBranchMeta.loc) ||
+          !sameCoverageLocationList(previousMeta?.locations, syntheticBranchMeta.locations) ||
+          previousHits.length !== nextHits.length ||
+          nextHits.some((hit, index) => (previousHits[index] ?? 0) !== hit);
+        if (!shouldUpdate) {
+          continue;
+        }
+
+        fileCoverage.branchMap[existingId] = syntheticBranchMeta;
+        fileCoverage.b[existingId] = nextHits;
+        updated += 1;
+        touchedFiles.add(filePath);
+        continue;
+      }
+
+      appendBranchCoverage(fileCoverage, syntheticBranchMeta, mappedHits);
+      added += 1;
+      touchedFiles.add(filePath);
+    }
+  }
+
+  writeMergedCoverage(mergedCoverage);
+  console.log(
+    `Kotlin branch null-tail repair added ${added} branches and updated ${updated} branches across ${touchedFiles.size} files`
+  );
 }
 
 async function repairKotlinInlineTailMappings() {
@@ -1733,6 +1931,7 @@ function postProcessCoverageReport() {
 }
 
 prepareMergedCoverage();
+await repairKotlinBranchNullTailMappings();
 await repairKotlinInlineTailMappings();
 filterDeclarationOnlyInterfaceDefaultHelperCoverage();
 filterStructuralDeclarationCoverage();
