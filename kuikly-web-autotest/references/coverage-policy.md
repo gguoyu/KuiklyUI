@@ -7,7 +7,7 @@
 - statements >= 70
 - branches >= 55
 
-These values come from `web-e2e/.nycrc.json` and are enforced through `web-e2e/scripts/coverage-report.mjs --check`.
+These values come from `web-e2e/config/coverage.cjs`. HTML/LCOV/JSON coverage artifacts are generated through `web-e2e/scripts/coverage-report.mjs` from `.v8_output`, and the thresholds are enforced through `web-e2e/scripts/coverage-report.mjs --check`.
 
 ## Scope
 
@@ -45,4 +45,4 @@ Do not assume that other Kotlin modules are part of the enforcement scope unless
 
 ## Final gate
 
-Coverage work is complete only when the canonical full run passes and `coverage-report.mjs --check` succeeds.
+Coverage work is complete only when the canonical full run passes, the Monocart Kotlin report is generated successfully from V8 data, and `coverage-report.mjs --check` succeeds.

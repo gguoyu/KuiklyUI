@@ -6,7 +6,6 @@
     "setup": "node scripts/setup-fonts.mjs",
     "serve": "node scripts/serve.js",
     "serve:dev": "BUILD_TYPE=developmentExecutable node scripts/serve.js",
-    "serve:instrumented": "node scripts/serve-instrumented.mjs",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
@@ -22,8 +21,6 @@
     "codegen": "playwright codegen http://localhost:8080",
     "install:browsers": "playwright install",
     "verify": "node verify-phase1.mjs",
-    "instrument": "node scripts/instrument.mjs",
-    "instrument:with-native": "node scripts/instrument.mjs --with-native",
     "coverage": "node scripts/coverage-report.mjs",
     "coverage:check": "node scripts/coverage-report.mjs --check",
     "coverage:js-no-sourcemap": "node scripts/coverage-js-no-sourcemap-report.mjs",
@@ -39,7 +36,7 @@
   "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.40.0",
-    "typescript": "^5.3.0",
-    "nyc": "^15.1.0"
+    "monocart-coverage-reports": "^2.12.10",
+    "typescript": "^5.3.0"
   }
 }

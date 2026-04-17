@@ -49,8 +49,8 @@
 | **功能覆盖**   | 覆盖全部 Web 渲染组件、CSS 样式、Module 的渲染与交互验证             |
 | **分级体系**   | static（确定性断言） / functional（交互状态变化） / visual（截图结论） / hybrid（联合验证） |
 | **截图对比**   | 像素级截图对比（Playwright `toHaveScreenshot()`），不禁用动画         |
-| **覆盖率**     | 以 NYC 官方 Kotlin 文件覆盖率结果为准：对 Kotlin/JS 运行产物执行 Istanbul 插桩，并通过 source map 反向映射为 Kotlin 源文件覆盖率 |
-| **运行方式**   | CLI 本地一键闭环执行（构建 → 插桩 → 启动插桩服务器 → 执行用例 → 收集覆盖率 → 生成/检查 NYC 官方 Kotlin 文件覆盖率报告）；CI 侧应复用同一 CLI 入口 |
+| **覆盖率**     | 以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + 阈值检查）为准：使用 Playwright Chromium V8 native coverage 采集运行数据，再通过 source map 反向映射为 Kotlin 源文件覆盖率 |
+| **运行方式**   | CLI 本地一键闭环执行（构建 → 启动测试服务器 → 执行用例 → 收集 V8 覆盖率 → 生成 Monocart Kotlin 覆盖率报告并执行阈值检查）；CI 侧应复用同一 CLI 入口 |
 | **AI 辅助**    | CodeBuddy Skill 支持一键运行、用例编写指导、AI 自动生成 E2E 用例     |
 
 ---
@@ -65,7 +65,7 @@
 │                  CLI Layer                         │
 │   kuikly-test.mjs                                 │
 │   编排: gradle构建 → 启动插桩服务器 → 执行测试       │
-│         → 收集覆盖率 → 生成 NYC 官方 Kotlin 文件覆盖率报告 │
+│         → 收集覆盖率 → 生成 Monocart Kotlin 覆盖率报告 │
 ├───────────────────────────────────────────────────┤
 │            Test Framework Layer                    │
 │   Playwright + @playwright/test                   │
@@ -75,8 +75,8 @@
 │   KuiklyPage Fixture (封装渲染等待/组件定位/滚动)    │
 ├───────────────────────────────────────────────────┤
 │             Coverage Layer                         │
-│   Istanbul 插桩 Kotlin/JS 产物                     │
-│   NYC 官方 Kotlin 文件覆盖率报告 + 阈值门禁            │
+│   Playwright Chromium V8 native coverage           │
+│   Monocart Kotlin 覆盖率报告 + 阈值门禁             │
 └───────────────────────────────────────────────────┘
 ```
 
@@ -86,14 +86,13 @@
 web-test 测试页面 (demo/src/commonMain/kotlin/.../pages/web_test/)
        ↓ Gradle KMP 编译
 nativevue2.js (仅含测试页面业务代码)
-h5App.js      (含完整渲染引擎：core-render-web/base + core-render-web/h5)
-       ↓ Istanbul 插桩 → instrumented/
-       ↓ Koa 静态服务器提供插桩后的文件
+h5App.js / kotlin-modules/*.js (含完整渲染引擎：core-render-web/base + core-render-web/h5)
+       ↓ 普通测试服务器提供页面与 Kotlin modules loader
 h5App 宿主页面 (index.html 加载 h5App.js + nativevue2.js)
        ↓ 浏览器渲染
 DOM (div + absolute 定位 + data-kuikly-component 属性)
        ↓ Playwright 控制浏览器
-截图对比 / DOM 断言 / 交互验证 / window.__coverage__ 覆盖率收集
+截图对比 / DOM 断言 / 交互验证 / V8 native coverage 覆盖率收集
 ```
 
 ---
@@ -317,17 +316,21 @@ const scrollViews = page.locator('[data-kuikly-component="KRScrollView"]');
 
 ```
 web-e2e/
-├── package.json              # npm 依赖 (playwright, nyc, etc.)
+├── package.json              # npm 依赖 (playwright, monocart-coverage-reports, etc.)
 ├── playwright.config.js      # Playwright 配置（CommonJS 格式）
-├── .nycrc.json               # Istanbul/NYC 覆盖率配置
+├── config/coverage.cjs       # 覆盖率阈值 / 水位线 / V8 参数配置
 ├── tsconfig.json             # TypeScript 配置
 │
 ├── fixtures/
 │   ├── kuikly-page.ts        # KuiklyPage Fixture（核心封装）
-│   └── test-base.ts          # 扩展 test 对象，注入 Fixture
+│   ├── test-base.ts          # 扩展 test 对象，注入 Fixture
+│   └── coverage.ts           # V8 覆盖率采集与落盘
 │
 ├── scripts/
-│   └── kuikly-test.mjs       # CLI 统一入口脚本
+│   ├── kuikly-test.mjs       # CLI 统一入口脚本
+│   ├── serve.js              # 测试服务器（支持 Kotlin modules loader）
+│   ├── coverage-report.mjs   # 生成 Monocart Kotlin 覆盖率报告
+│   └── coverage-js-no-sourcemap-report.mjs # 生成 JS 调试覆盖率报告
 │
 ├── tests/
 │   ├── static/               # static：纯逻辑 / 数据结果 / 静态属性 / 确定性文本输出
@@ -341,7 +344,7 @@ web-e2e/
 │
 └── reports/                  # 生成的报告（.gitignore）
     ├── html/                 # Playwright HTML 报告
-    └── coverage/             # NYC 官方 Kotlin 文件覆盖率报告
+    └── coverage/             # Monocart Kotlin 覆盖率报告 + 相关产物
 ```
 
 > **当前目录规则：** 仓库目录与命名统一按断言意图使用 `static / functional / visual / hybrid`。截图基准继续使用 Playwright 默认的同级 `*.spec.ts-snapshots/` 方案；当某个场景同时需要 functional + visual 结论时，可由成对 spec 共同覆盖，必要时再单独落到 `tests/hybrid/`。
@@ -991,7 +994,7 @@ module.exports = defineConfig({
 
 ### 11.1 设计目标
 
-CLI 必须满足“本地一键运行”原则：开发者执行一条命令后，由脚本自行完成构建、插桩、启动插桩服务器、执行 Playwright、收集覆盖率、生成 NYC 官方 Kotlin 文件覆盖率报告与阈值检查，不要求用户手动再开第二个终端，也不依赖人工确认中间步骤。
+CLI 必须满足“本地一键运行”原则：开发者执行一条命令后，由脚本自行完成构建、插桩、启动插桩服务器、执行 Playwright、收集覆盖率、生成 Monocart Kotlin 覆盖率报告并执行 NYC 阈值检查，不要求用户手动再开第二个终端，也不依赖人工确认中间步骤。
 
 ### 11.2 脚本位置
 
@@ -1017,7 +1020,7 @@ node web-e2e/scripts/kuikly-test.mjs --test tests/static/components/krimage-stat
 # 更新截图基准
 node web-e2e/scripts/kuikly-test.mjs --update-snapshots
 
-# 仅生成 NYC 官方 Kotlin 文件覆盖率报告
+# 仅生成 Monocart Kotlin 覆盖率报告
 node web-e2e/scripts/kuikly-test.mjs --coverage-only
 
 # 仅执行插桩
@@ -1043,30 +1046,25 @@ node web-e2e/scripts/kuikly-test.mjs --level static --dry-run --print-resolved-t
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  3. Istanbul 插桩        │
-│  h5App.js / nativevue2.js│
-└──────────┬──────────────┘
-           ▼
-┌─────────────────────────┐
-│  4. 启动插桩静态服务      │
+│  3. 启动测试服务器        │
 │  自动拉起/复用 8080 端口  │
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  5. 执行 Playwright 测试  │  按 --level / --test 过滤
+│  4. 执行 Playwright 测试  │  按 --level / --test 过滤
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  6. 收集 __coverage__    │  fixture 自动导出到 .nyc_output/
+│  5. 收集 V8 coverage     │  fixture 自动导出到 .v8_output/
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  7. 生成 NYC 官方 Kotlin    │
-│     NYC 官方 Kotlin 文件覆盖率报告并执行阈值检查 │
+│  6. 生成 Monocart Kotlin │
+│     覆盖率报告并执行阈值检查 │
 └──────────┬──────────────┘
            ▼
 ┌─────────────────────────┐
-│  8. 输出测试结果与 NYC 官方 Kotlin 文件覆盖率报告 │
+│  7. 输出测试结果与覆盖率报告 │
 └─────────────────────────┘
 ```
 
@@ -1078,48 +1076,61 @@ node web-e2e/scripts/kuikly-test.mjs --level static --dry-run --print-resolved-t
 
 ### 12.1 覆盖率口径
 
-本方案的覆盖率口径统一为：**以 NYC 官方 Kotlin 文件覆盖率结果作为唯一门禁与对外展示口径，并以 Kotlin 源文件维度解读结果**。
+本方案的覆盖率口径统一为：**以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + 阈值检查）作为唯一门禁与对外展示口径，并以 Kotlin 源文件维度解读结果**。
 
-- 插桩对象仍然是 Kotlin/JS 编译产物，主要是 `h5App.js`，必要时可包含 `nativevue2.js`。
-- 覆盖率采集来源仍然是浏览器运行期间的 `window.__coverage__`。
-- 最终用于门禁、文档、CI 展示的结果，统一表述为“NYC 官方 Kotlin 文件覆盖率结果”。
-- 辅助脚本若存在，只作为兼容层或排障工具，不单独定义为正式覆盖率口径。
+- 覆盖率采集来源是浏览器运行期间的 **Playwright Chromium V8 native coverage**。
+- 正式门禁范围聚焦 `core-render-web/base` 与 `core-render-web/h5` 的 Kotlin 源文件。
+- 报告生成时会把 V8 原始覆盖率结合 compileSync 模块 sourcemap 反向映射回 Kotlin 源文件。
+- JS no-sourcemap 报告仅作为调试视角，不单独定义为正式覆盖率口径。
 
-### 12.2 插桩目标
+### 12.2 运行时覆盖率对象
 
-| 产物文件         | 来源                                          | 说明                                                         | 插桩优先级 |
-| ---------------- | --------------------------------------------- | ------------------------------------------------------------ | ---------- |
-| `h5App.js`       | `h5App` + `core-render-web/base` + `core-render-web/h5` 打包 | **主要插桩目标**，包含完整渲染引擎代码（组件渲染、样式计算、事件处理、动画等核心路径） | ⭐ 必须 |
-| `nativevue2.js`  | `demo` 编译（web-test 测试页面）               | 辅助插桩目标，只包含测试页面业务代码，**不含渲染引擎**；可用于补充观测测试页面逻辑，但不作为渲染引擎覆盖率主口径 | 可选 |
+| 运行时脚本 | 来源 | 说明 | 正式口径 |
+| ---------- | ---- | ---- | -------- |
+| `h5App.js` | `serve.js` 动态生成的 loader | 运行时入口，顺序加载 `/kotlin-modules/*.js` | 间接参与 |
+| `kotlin-modules/KuiklyCore-render-web-base.js` | compileSync Kotlin modules | 核心渲染引擎模块之一 | ⭐ 必须 |
+| `kotlin-modules/KuiklyCore-render-web-h5.js` | compileSync Kotlin modules | H5 渲染引擎模块之一 | ⭐ 必须 |
+| `kotlin-modules/KuiklyUI-h5App.js` | compileSync Kotlin modules | 宿主侧 Kotlin/JS 模块 | ⭐ 必须 |
+| `nativevue2.js` | demo 编译产物 | 仅含测试页面业务代码，不纳入正式 Kotlin 覆盖率门禁 | 否 |
 
-> **注意：** `core-render-web/base` 和 `core-render-web/h5` 的代码通过 Gradle 依赖被打包进 `h5App.js`，不会出现在 `nativevue2.js` 中。因此渲染引擎覆盖率的主口径必须以 `h5App.js` 对应的 NYC 报告为准。
+> **注意：** 正式门禁依赖的是 compileSync Kotlin modules 及其 `.map`，而不是对 bundle 做额外插桩。
 
-### 12.3 NYC 配置
+### 12.3 覆盖率配置
 
-```json
-// web-e2e/.nycrc.json
-{
-  "all": false,
-  "exclude": [
-    "**/*.spec.js",
-    "**/*.test.js",
-    "**/node_modules/**",
-    "**/test/**",
-    "**/tests/**"
+覆盖率阈值、水位线、作用域与 V8 参数统一配置在 `web-e2e/config/coverage.cjs`：
+
+```js
+module.exports = {
+  thresholds: {
+    lines: 70,
+    functions: 70,
+    statements: 70,
+    branches: 55,
+  },
+  watermarks: {
+    lines: [70, 80],
+    functions: [70, 80],
+    branches: [55, 75],
+    statements: [70, 80],
+  },
+  scopeRoots: [
+    'core-render-web/base/src/jsMain/kotlin',
+    'core-render-web/h5/src/jsMain/kotlin',
   ],
-  "reporter": ["text", "html", "lcov", "json"],
-  "report-dir": "reports/coverage",
-  "temp-dir": ".nyc_output",
-  "sourceMap": true,
-  "check-coverage": true,
-  "lines": 70,
-  "functions": 70,
-  "statements": 70,
-  "branches": 55
-}
+  generatedKotlinOutputDir: 'h5App/build/compileSync/js/main/developmentExecutable/kotlin',
+  targetModules: [
+    'KuiklyCore-render-web-base.js',
+    'KuiklyCore-render-web-h5.js',
+    'KuiklyUI-h5App.js',
+  ],
+  v8: {
+    reportAnonymousScripts: true,
+    resetOnNavigation: false,
+  },
+};
 ```
 
-> **`"sourceMap": true` 说明：** NYC 读取 `.js.map` 文件，将 JS 级别的覆盖数据反向映射回 Kotlin 源文件，最终以 Kotlin 源文件维度解释覆盖率。
+> **source map 说明：** Monocart 会读取 compileSync 模块 `.js.map`，将 V8 级别的执行数据反向映射为 Kotlin 源文件覆盖率。
 
 ### 12.4 覆盖率阈值
 
@@ -1132,23 +1143,23 @@ node web-e2e/scripts/kuikly-test.mjs --level static --dry-run --print-resolved-t
 | statements | 70% |
 | branches | 55% |
 
-长期目标：在核心渲染路径上继续提高阈值，但文档中的正式门禁口径以当前 `.nycrc.json` 实际配置为准。
+长期目标：在核心渲染路径上继续提高阈值，但文档中的正式门禁口径以当前 `config/coverage.cjs` 实际配置为准。
 
 ### 12.5 覆盖率收集流程
 
-1. **构建产物：** CLI 调用 Gradle 构建 `h5App.js` 及其 source map。
-2. **插桩产物：** CLI 调用插桩脚本，对 `h5App.js` 执行 Istanbul 插桩；必要时可同时处理 `nativevue2.js`，统一输出到 `instrumented/` 目录。
-3. **启动插桩服务器：** CLI 自动启动或复用插桩版静态服务，对外提供 `instrumented/` 中的产物文件。
-4. **运行时收集：** 浏览器执行测试时，插桩代码持续写入 `window.__coverage__`。
-5. **自动导出：** `test-base.ts` fixture teardown 自动调用 `collectCoverage()`，将每个测试的覆盖率数据写入 `.nyc_output/`。
-6. **生成 NYC 官方 Kotlin 文件覆盖率报告：** 由 NYC 基于 `.nyc_output/` 和 source map 生成 HTML/text/lcov/json 报告到 `reports/coverage/`。
-7. **阈值检查：** 由 NYC 基于 `.nycrc.json` 进行覆盖率门禁检查。
+1. **构建产物：** CLI 调用 Gradle 构建 compileSync Kotlin modules 及其 source map。
+2. **启动测试服务器：** CLI 自动启动或复用普通测试服务器；当请求 `h5App.js` 时，由 `serve.js` 动态返回 Kotlin modules loader。
+3. **运行时收集：** 浏览器执行测试时，fixture 为每个 page 启动 Playwright V8 coverage。
+4. **自动导出：** `test-base.ts` fixture teardown 自动停止 coverage，并将每个测试的原始数据写入 `.v8_output/`。
+5. **生成 Kotlin 覆盖率报告：** `coverage-report.mjs` 基于 `.v8_output/`、`distFile` 和 source map 生成 HTML/text-summary/lcov/json/json-summary 报告到 `reports/coverage/`。
+6. **阈值检查：** `coverage-report.mjs --check` 读取生成后的 `coverage-summary.json` totals，并按 `config/coverage.cjs` 执行门禁检查。
+7. **调试视角：** `coverage-js-no-sourcemap-report.mjs` 可基于同一份 `.v8_output/` 生成不走 sourcemap 的 JS 覆盖率 HTML 报告。
 
 ### 12.6 输出约定
 
-- `npm run coverage` 与 CLI 覆盖率步骤的目标应指向 NYC 官方 Kotlin 文件覆盖率报告。
-- 文档、CI 报表、Skill 输出中的“覆盖率”默认均指 NYC 官方 Kotlin 文件覆盖率结果，不再混用“JS 摘要”“自定义 Kotlin 汇总”“笼统 NYC 官方报告”三套说法。
-- 若为兼容 Windows 路径问题而保留辅助脚本，应明确其职责是“为 NYC 官方流程服务的兼容封装”，而不是替代 NYC 口径。
+- `npm run coverage` 与 CLI 覆盖率步骤的目标指向 Monocart 生成的 Kotlin 覆盖率报告。
+- `npm run coverage:js-no-sourcemap` 生成编译后 JS 视角的调试报告，不影响正式门禁。
+- 文档、CI 报表、Skill 输出中的“覆盖率”默认均指修正后的 Kotlin 覆盖率结果，不再混用“JS 摘要”“原始 V8 汇总”“调试报告”三套说法。
 
 ---
 
@@ -1192,7 +1203,7 @@ stages:
 
   - name: "质量门禁"
     steps:
-      - 以 NYC 官方 Kotlin 文件覆盖率结果执行阈值检查
+      - 以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + NYC 阈值检查）执行阈值检查
       - 截图对比失败数 == 0
 ```
 
@@ -1417,13 +1428,12 @@ CLI 闭环入口
 
 ### Phase 6：覆盖率与 CLI ✅ **已完成**
 
-- [x] 实现 Istanbul 插桩流程（`scripts/instrument.mjs`，以目录模式插桩 h5App.js → `instrumented/`）
-- [x] 实现插桩版测试服务器（`scripts/serve-instrumented.mjs`，优先提供 instrumented/ 目录文件）
-- [x] 实现覆盖率收集工具（`fixtures/coverage.ts`，导出 `collectCoverage()` 函数）
-- [x] 配置 NYC 覆盖率阈值（`.nycrc.json`：lines/functions/statements ≥ 70%，branches ≥ 55%）
-- [x] 统一覆盖率方案口径：以 NYC 官方 Kotlin 文件覆盖率结果作为唯一门禁与对外展示结果
-- [x] 实现 `kuikly-test.mjs` CLI 脚本（支持 `--full / --level / --instrument / --coverage-only` 等参数，并作为本地一键闭环标准入口）
-- [x] 补充 `package.json` 脚本（`instrument` / `instrument:with-native` / `coverage` / `coverage:check` / `serve:instrumented` / `kuikly-test`，其中 `instrument:with-native` 与 `serve:instrumented` 为调试辅助脚本）
+- [x] 实现 V8 覆盖率采集流程（`fixtures/coverage.ts`，通过 Playwright coverage API 导出 `.v8_output/`）
+- [x] 改造测试服务器（`scripts/serve.js`，支持 `h5App.js` Kotlin modules loader 与 `/kotlin-modules/*` 路由）
+- [x] 配置覆盖率阈值与 V8 参数（`config/coverage.cjs`：lines/functions/statements ≥ 70%，branches ≥ 55%）
+- [x] 统一覆盖率方案口径：以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + 阈值检查）作为唯一门禁与对外展示结果
+- [x] 实现 `kuikly-test.mjs` CLI 脚本（支持 `--full / --level / --coverage-only` 等参数，并作为本地一键闭环标准入口）
+- [x] 补充 `package.json` 脚本（`coverage` / `coverage:check` / `coverage:js-no-sourcemap` / `kuikly-test` 等）
 - [x] 同步 `package.json` 语义脚本入口（`test:static / test:functional / test:visual / test:hybrid / test:smoke / test:modules`）
 
 ### Phase 7：CI/CD 与 Skill（收口中）
@@ -1451,8 +1461,7 @@ CLI 闭环入口
 |------|------|
 | `web-e2e/playwright.config.js` | `launchOptions.args` 注入 3 个 Chrome 参数；`maxDiffPixelRatio` 调整为 `0.02` |
 | `web-e2e/scripts/setup-fonts.mjs` | 下载 Noto Sans SC WOFF2 到 `fonts/` 目录 |
-| `web-e2e/scripts/serve.js` | 向 HTML 注入字体 CSS；新增 `/fonts/*` 路由 |
-| `web-e2e/scripts/serve-instrumented.mjs` | 同上注入逻辑 |
+| `web-e2e/scripts/serve.js` | 向 HTML 注入字体 CSS；新增 `/fonts/*` 路由，并支持 Kotlin modules loader |
 
 **工作流：**
 
@@ -1483,7 +1492,7 @@ npm run test:update-snapshots
 - [x] **渲染层改动位置**：在 `createRenderViewHandler` 中注入 `data-kuikly-component`，已在 Phase 1 实现；复用路径无需额外处理（已确认）
 - [x] **测试页面路由**：使用格式 `http://localhost:8080?page_name=TestPageName`（已确认）
 - [x] **静态服务器端口**：使用 8080 端口，已在 `playwright.config.js` 的 `webServer` 中配置并固定，用于 Playwright 本地调试路径（已确认）
-- [x] **覆盖率阈值与口径**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%；覆盖率结果统一以 NYC 官方 Kotlin 文件覆盖率结果为准；webpack UMD 包装分支通过在插桩前注入 `/* istanbul ignore next */` 排除，不影响阈值（已确认）
+- [x] **覆盖率阈值与口径**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%；覆盖率结果统一以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + NYC 阈值检查）为准；webpack UMD 包装分支通过在插桩前注入 `/* istanbul ignore next */` 排除，不影响阈值（已确认）
 - [x] **截图基准更新策略**：Chrome 参数 + 内嵌 Web Font 方案（方案 F）— 开发者本地运行 `npm run setup`（下载字体）后执行 `npm run test:update-snapshots` 生成截图，跨平台差异通过技术手段消除，无需 Docker，review 后 git commit（已落地）
 - [x] **浏览器范围**：当前及近期仅配置 Chromium，暂不扩展 WebKit/Firefox（已确认）
 - [x] **Skill 优先级**：Skill 在 Phase 7 实施即可（已确认）

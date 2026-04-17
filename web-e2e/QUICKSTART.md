@@ -28,7 +28,7 @@ npm run setup
 
 ## 第三步：运行测试
 
-标准入口是 CLI 本地一键命令。它会自动完成构建、插桩、启动插桩服务器、执行测试、生成 NYC 官方 Kotlin 文件覆盖率报告并检查阈值，无需手动准备第二个终端。
+标准入口是 CLI 本地一键命令。它会自动完成构建、启动测试服务器、执行测试、采集 V8 coverage、生成 Monocart Kotlin 覆盖率报告，并执行阈值检查，无需手动准备第二个终端。
 
 ```bash
 # 标准入口：本地一键完整闭环
@@ -118,17 +118,20 @@ git add tests/ && git commit -m "chore: update snapshots"
 
 ### 覆盖率模式
 
-覆盖率收集已集成在 fixture 中。覆盖率的唯一门禁与对外展示口径统一为 **NYC 官方 Kotlin 文件覆盖率结果**。
+覆盖率收集已集成在 fixture 中。当前链路使用 **Playwright Chromium V8 native coverage + Monocart**：测试执行时写入 `.v8_output/`，正式报告映射回 Kotlin 源文件，阈值配置来自 `config/coverage.cjs`。
 
 ```bash
-# 标准入口：CLI 一键完成构建、插桩、启动插桩服务器、测试、生成 NYC 官方 Kotlin 文件覆盖率报告、阈值检查
+# 标准入口：CLI 一键完成构建、启动测试服务器、测试、生成 Monocart Kotlin 覆盖率报告、执行阈值检查
 node scripts/kuikly-test.mjs --full
 
-# 若已有 .nyc_output，可单独生成 NYC 官方 Kotlin 文件覆盖率报告
+# 若已有 .v8_output，可单独生成 Monocart Kotlin 覆盖率报告
 npm run coverage
 
-# 单独检查阈值
+# 单独检查阈值（基于 .v8_output 重新生成 summary）
 npm run coverage:check
+
+# 生成不走 sourcemap 的 JS 调试报告
+npm run coverage:js-no-sourcemap
 ```
 
 ### 使用 CLI 统一入口
@@ -137,10 +140,10 @@ npm run coverage:check
 # 本地调试单轮用例时，可跳过构建只跑 functional 测试
 node scripts/kuikly-test.mjs --level functional --skip-build
 
-# 全流程：构建 → 插桩 → 自动启动插桩服务器 → 测试 → NYC 官方 Kotlin 文件覆盖率报告 → 阈值检查
+# 全流程：构建 → 自动启动测试服务器 → 测试（V8 coverage mode）→ Monocart Kotlin 覆盖率报告 → 阈值检查
 node scripts/kuikly-test.mjs --full
 
-# 仅生成 NYC 官方 Kotlin 文件覆盖率报告（基于已有 .nyc_output 数据）
+# 仅生成 Monocart Kotlin 覆盖率报告（基于已有 .v8_output 数据）
 node scripts/kuikly-test.mjs --coverage-only
 ```
 
@@ -210,9 +213,9 @@ npx playwright test --update-snapshots
 
 ---
 
-### NYC 官方 Kotlin 文件覆盖率报告为空 / 没有数据
+### Kotlin 覆盖率报告为空 / 没有数据
 
-**原因**：未以插桩模式运行测试，`window.__coverage__` 不存在，fixture 静默跳过了收集。
+**原因**：未以 V8 coverage 模式运行测试，fixture 没有写入 `.v8_output/`。
 
 **处理**：优先直接执行：
 ```bash

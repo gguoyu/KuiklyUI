@@ -39,7 +39,7 @@ Escalate when:
 First verify:
 - the page exists under `web_test`
 - `kuiklyPage.goto()` points to the right page
-- the server and instrumented assets started correctly
+- the server and Kotlin runtime assets started correctly
 
 Escalate when the runtime still crashes or hangs after those checks.
 

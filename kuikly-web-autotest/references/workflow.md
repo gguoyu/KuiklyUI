@@ -4,7 +4,7 @@
 
 Drive the current repository toward the AUTOTEST closed loop:
 - run `web-e2e` tests through the canonical CLI
-- output NYC Kotlin coverage
+- output Kotlin coverage from V8 data
 - identify broken cases
 - auto-fix test issues when the evidence is clear
 - warn instead of weakening tests when the failure points to product code
@@ -18,11 +18,12 @@ Run the full flow:
 node web-e2e/scripts/kuikly-test.mjs --full
 ```
 
-Rebuild coverage artifacts from existing `.nyc_output`:
+Rebuild coverage artifacts from existing `.v8_output`:
 
 ```bash
 node web-e2e/scripts/coverage-report.mjs
 node web-e2e/scripts/coverage-report.mjs --check
+node web-e2e/scripts/coverage-js-no-sourcemap-report.mjs
 ```
 
 Inspect completeness and analysis artifacts:
@@ -63,8 +64,9 @@ node kuikly-web-autotest/scripts/build-autotest-report.mjs
 
 ## Current repo-specific facts
 
-- `web-e2e/fixtures/test-base.ts` collects `window.__coverage__` after each test in instrumented mode.
-- `web-e2e/scripts/coverage-report.mjs` filters coverage to `core-render-web/base` and `core-render-web/h5` Kotlin roots.
+- `web-e2e/fixtures/test-base.ts` starts and stops Playwright V8 coverage for each test when `KUIKLY_COLLECT_V8_COVERAGE=true`.
+- `web-e2e/scripts/coverage-report.mjs` reads `.v8_output`, filters coverage to `core-render-web/base` and `core-render-web/h5` Kotlin roots, and uses Monocart to emit HTML/LCOV/JSON reports.
+- `web-e2e/scripts/coverage-report.mjs --check` enforces thresholds from `web-e2e/config/coverage.cjs` against the generated `coverage-summary.json` totals.
 - `web-e2e/playwright.config.js` writes a JSON report to `web-e2e/reports/test-results.json`.
 - `web_test` pages currently include components, styles, interactions, animations, composite, and modules categories.
 

@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 /**
- * Generate a JS-level HTML coverage report without sourcemap remapping.
- *
- * It merges raw coverage from .nyc_output, keeps only compiled Kotlin JS modules,
- * removes inputSourceMap from each file coverage entry, and renders HTML directly
- * against the generated JS files.
+ * Generate a JS-level HTML coverage report from Playwright V8 coverage without sourcemap remapping.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
-import { join, dirname, normalize } from 'path';
+import { existsSync, readFileSync, readdirSync } from 'fs';
+import { dirname, join, normalize } from 'path';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import webE2EConfig from '../config/index.cjs';
@@ -16,86 +12,144 @@ import webE2EConfig from '../config/index.cjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
-const libCoverage = require('istanbul-lib-coverage');
-const libReport = require('istanbul-lib-report');
-const reports = require('istanbul-reports');
-const { coverage: coverageConfig } = webE2EConfig;
+const MCR = require('monocart-coverage-reports');
 
+const { coverage: coverageConfig, reporting } = webE2EConfig;
 const e2eRoot = join(__dirname, '..');
 const projectRoot = join(e2eRoot, '..');
-const nycOutputDir = join(e2eRoot, '.nyc_output');
-const generatedJsRoot = normalize(join(projectRoot, coverageConfig.generatedKotlinOutputDir));
+const v8OutputDir = join(e2eRoot, reporting.v8TempDirName);
 const reportDir = join(e2eRoot, 'reports', 'coverage-js-no-sourcemap-html');
-const coverageJsonPath = join(reportDir, 'coverage-final.json');
+const generatedKotlinOutputDir = normalize(join(projectRoot, coverageConfig.generatedKotlinOutputDir));
+const targetModuleSet = new Set(coverageConfig.targetModules);
+const distFileCache = new Map();
 
-if (!existsSync(nycOutputDir)) {
-  console.error('.nyc_output does not exist, run instrumented coverage tests first');
+if (!existsSync(v8OutputDir)) {
+  console.error('.v8_output does not exist, run V8 coverage tests first');
   console.error('Recommended: node scripts/kuikly-test.mjs --full');
   process.exit(1);
 }
 
-function isGeneratedKotlinModule(filePath) {
-  const normalizedPath = normalize(filePath);
-  return normalizedPath.startsWith(generatedJsRoot) && normalizedPath.endsWith('.js');
+function isTargetModuleName(fileName) {
+  return targetModuleSet.has(fileName);
 }
 
-function buildFileCoverage(filePath, fileCoverage) {
-  const clonedCoverage = JSON.parse(JSON.stringify(fileCoverage));
-  delete clonedCoverage.inputSourceMap;
-  clonedCoverage.path = normalize(filePath);
-  return clonedCoverage;
+function getEntryFileName(url) {
+  if (typeof url !== 'string' || !url) {
+    return '';
+  }
+
+  try {
+    return decodeURIComponent(new URL(url).pathname.split('/').pop() || '');
+  } catch {
+    return decodeURIComponent(url.split('/').pop() || '');
+  }
 }
 
-function mergeRawGeneratedJsCoverage() {
-  const mergedCoverage = libCoverage.createCoverageMap({});
+function resolveDistFileFromUrl(url) {
+  if (distFileCache.has(url)) {
+    return distFileCache.get(url);
+  }
 
-  for (const entry of readdirSync(nycOutputDir)) {
-    if (!entry.endsWith('.json')) {
+  const fileName = getEntryFileName(url);
+  if (!isTargetModuleName(fileName)) {
+    distFileCache.set(url, null);
+    return null;
+  }
+
+  const candidate = join(generatedKotlinOutputDir, fileName);
+  const resolvedDistFile = existsSync(candidate) ? candidate : null;
+  distFileCache.set(url, resolvedDistFile);
+  return resolvedDistFile;
+}
+
+function stripSourceMapComments(source = '') {
+  return `${source
+    .replace(/\/\/[@#]\s*sourceMappingURL=[^\r\n]*/g, '')
+    .replace(/\/\*[@#]\s*sourceMappingURL=[\s\S]*?\*\//g, '')
+    .trimEnd()}\n`;
+}
+
+function readJson(filePath) {
+  return JSON.parse(readFileSync(filePath, 'utf8'));
+}
+
+function readRawCoverageEntries() {
+  const entries = [];
+
+  for (const fileName of readdirSync(v8OutputDir)) {
+    if (!fileName.endsWith('.json')) {
       continue;
     }
 
-    const fullPath = join(nycOutputDir, entry);
-    const rawCoverage = JSON.parse(readFileSync(fullPath, 'utf8'));
+    const filePath = join(v8OutputDir, fileName);
+    const payload = readJson(filePath);
+    if (!Array.isArray(payload?.result)) {
+      continue;
+    }
 
-    for (const [filePath, fileCoverage] of Object.entries(rawCoverage)) {
-      if (!isGeneratedKotlinModule(filePath)) {
+    for (const entry of payload.result) {
+      if (!isTargetModuleName(getEntryFileName(entry.url))) {
         continue;
       }
-
-      const normalizedPath = normalize(filePath);
-      mergedCoverage.merge({
-        [normalizedPath]: buildFileCoverage(normalizedPath, fileCoverage),
-      });
+      entries.push(entry);
     }
   }
 
-  return mergedCoverage;
+  return entries;
 }
 
-function writeCoverageJson(coverageMap) {
-  const sortedCoverage = Object.fromEntries(
-    Object.entries(coverageMap.toJSON()).sort(([left], [right]) => left.localeCompare(right))
-  );
-  writeFileSync(coverageJsonPath, `${JSON.stringify(sortedCoverage, null, 2)}\n`);
+function prepareEntriesForJsReport(entries) {
+  return entries.map((entry) => {
+    const distFile = resolveDistFileFromUrl(entry.url);
+    return {
+      ...entry,
+      distFile: distFile || entry.distFile,
+      source: stripSourceMapComments(entry.source),
+      sourceMap: undefined,
+    };
+  });
 }
 
-function generateReport() {
-  const coverageMap = mergeRawGeneratedJsCoverage();
+function resolveSourcePath(filePath, info = {}) {
+  if (info.distFile) {
+    return normalize(info.distFile);
+  }
+  if (/^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('/')) {
+    return normalize(filePath);
+  }
+  return normalize(join(generatedKotlinOutputDir, filePath));
+}
 
-  rmSync(reportDir, { recursive: true, force: true });
-  mkdirSync(reportDir, { recursive: true });
-  writeCoverageJson(coverageMap);
+async function main() {
+  const rawEntries = readRawCoverageEntries();
+  const coverageEntries = prepareEntriesForJsReport(rawEntries);
 
-  const context = libReport.createContext({
-    dir: reportDir,
-    coverageMap,
-    defaultSummarizer: 'flat',
+  if (!coverageEntries.length) {
+    throw new Error('No V8 coverage entries matched the generated Kotlin JS modules');
+  }
+
+  const mcr = MCR({
+    name: 'Kuikly Web JS Coverage (No Sourcemap)',
+    outputDir: reportDir,
+    baseDir: projectRoot,
+    clean: true,
+    logging: 'off',
+    reports: [
+      ['text-summary'],
+      ['html'],
+      ['json'],
+    ],
+    entryFilter: (entry) => isTargetModuleName(getEntryFileName(entry.url)),
+    sourcePath: resolveSourcePath,
+    all: {
+      dir: generatedKotlinOutputDir,
+      filter: (filePath) => isTargetModuleName(filePath.split(/[\\/]/).pop() || ''),
+    },
   });
 
-  reports.create('html').execute(context);
-  reports.create('text-summary').execute(context);
-
-  console.log(`JS coverage report generated: ${reportDir}/index.html`);
+  await mcr.add(coverageEntries);
+  const coverageResults = await mcr.generate();
+  console.log(`JS coverage report generated: ${coverageResults.reportPath}`);
 }
 
-generateReport();
+await main();

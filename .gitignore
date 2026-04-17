@@ -49,9 +49,6 @@ proto/**/*.kt
 ## Claude Code
 .claude/settings.local.json
 reports
-/web-e2e/.nyc_merged/
-/web-e2e/.nyc_output/
-/web-e2e/instrumented/
+/web-e2e/.v8_output/
 /web-e2e/test-results/
 /web-e2e/reports/
-/web-e2e/tmp-instr-test.js/

@@ -2,7 +2,6 @@
 
 import { spawn } from 'child_process';
 import { existsSync, rmSync } from 'fs';
-import http from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import webE2EConfig from '../config/index.cjs';
@@ -12,11 +11,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '../..');
 const e2eRoot = join(__dirname, '..');
-const { build, reporting, runtime } = webE2EConfig;
+const { build, coverage, reporting, runtime } = webE2EConfig;
 const defaultPort = String(runtime.resolvePort());
 const gradleWrapper = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
 const gradleBuildArgs = build.gradleBuildArgs;
-const instrumentedDefaultWorkers = String(runtime.instrumentedDefaultWorkers);
 
 const args = process.argv.slice(2);
 const valueFlags = ['--level', '--test'];
@@ -24,8 +22,6 @@ const booleanFlags = new Set([
   '--full',
   '--update-snapshots',
   '--coverage-only',
-  '--instrument',
-  '--with-native',
   '--skip-build',
   '--headed',
   '--debug',
@@ -74,8 +70,6 @@ const options = {
   test: getArg('--test'),
   updateSnapshots: args.includes('--update-snapshots'),
   coverageOnly: args.includes('--coverage-only'),
-  instrumentOnly: args.includes('--instrument'),
-  withNative: args.includes('--with-native'),
   skipBuild: args.includes('--skip-build'),
   headed: args.includes('--headed'),
   debug: args.includes('--debug'),
@@ -123,137 +117,11 @@ function execCommand(command, cwd = projectRoot, extraEnv = {}) {
   });
 }
 
-function waitForChildExit(child, timeoutMs) {
-  return new Promise((resolve) => {
-    if (!child || child.exitCode !== null) {
-      resolve(true);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      cleanup();
-      resolve(false);
-    }, timeoutMs);
-
-    const handleExit = () => {
-      cleanup();
-      resolve(true);
-    };
-
-    const cleanup = () => {
-      clearTimeout(timer);
-      child.off('exit', handleExit);
-      child.off('close', handleExit);
-    };
-
-    child.once('exit', handleExit);
-    child.once('close', handleExit);
-  });
-}
-
-function waitForHttpReady(port, timeoutMs, child) {
-  const deadline = Date.now() + timeoutMs;
-
-  return new Promise((resolve, reject) => {
-    const tryConnect = () => {
-      if (child.exitCode !== null) {
-        reject(new Error(`Instrumented server exited before becoming ready (exit code ${child.exitCode})`));
-        return;
-      }
-
-      const req = http.get(
-        {
-          hostname: '127.0.0.1',
-          port: Number(port),
-          path: '/',
-          timeout: runtime.httpProbeTimeoutMs,
-        },
-        (res) => {
-          res.resume();
-          if (res.statusCode && res.statusCode < 500) {
-            resolve();
-            return;
-          }
-          if (Date.now() >= deadline) {
-            reject(new Error(`Instrumented server did not become ready on port ${port}`));
-            return;
-          }
-          setTimeout(tryConnect, runtime.httpProbeRetryDelayMs);
-        }
-      );
-
-      req.on('error', () => {
-        if (Date.now() >= deadline) {
-          reject(new Error(`Instrumented server did not become ready on port ${port}`));
-          return;
-        }
-        setTimeout(tryConnect, runtime.httpProbeRetryDelayMs);
-      });
-
-      req.on('timeout', () => {
-        req.destroy();
-      });
-    };
-
-    tryConnect();
-  });
-}
-
-async function startInstrumentedServer(port) {
-  console.log(`\nStarting instrumented test server (port ${port})...`);
-
-  const child = spawn('node', ['scripts/serve-instrumented.mjs'], {
-    cwd: e2eRoot,
-    stdio: 'inherit',
-    env: { ...process.env, PORT: String(port) },
-  });
-
-  child.on('error', (error) => {
-    console.error('Failed to start instrumented server:', error.message);
-  });
-
-  await waitForHttpReady(port, runtime.instrumentedServerReadyTimeoutMs, child);
-  console.log('Instrumented server is ready');
-  return child;
-}
-
-async function stopInstrumentedServer(child) {
-  if (!child || child.exitCode !== null) {
-    return;
-  }
-
-  console.log('\nStopping instrumented test server...');
-
-  if (process.platform === 'win32') {
-    const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-      stdio: 'ignore',
-      windowsHide: true,
-    });
-    await new Promise((resolve) => killer.on('close', resolve));
-    const exited = await waitForChildExit(child, runtime.instrumentedServerStopTimeoutMs);
-    if (exited) {
-      console.log('Instrumented server stopped');
-      return;
-    }
-  } else {
-    child.kill('SIGINT');
-    const exited = await waitForChildExit(child, runtime.instrumentedServerStopTimeoutMs);
-    if (exited) {
-      console.log('Instrumented server stopped');
-      return;
-    }
-  }
-
-  child.kill();
-  const exited = await waitForChildExit(child, runtime.instrumentedServerForceStopTimeoutMs);
-  console.log(exited ? 'Instrumented server stopped' : 'Instrumented server was force closed');
-}
-
 function clearCoverageOutput() {
-  const nycOutputDir = join(e2eRoot, reporting.nycTempDirName);
-  if (existsSync(nycOutputDir)) {
-    rmSync(nycOutputDir, { recursive: true, force: true });
-    console.log(`Cleared previous coverage data: ${nycOutputDir}`);
+  const v8OutputDir = join(e2eRoot, reporting.v8TempDirName);
+  if (existsSync(v8OutputDir)) {
+    rmSync(v8OutputDir, { recursive: true, force: true });
+    console.log(`Cleared previous coverage data: ${v8OutputDir}`);
   }
 }
 
@@ -268,15 +136,8 @@ async function buildProject() {
   console.log('Build completed');
 }
 
-async function instrumentCode() {
-  console.log('\nRunning Istanbul instrumentation...');
-  const nativeFlag = options.withNative ? ' --with-native' : '';
-  await execCommand(`node scripts/instrument.mjs${nativeFlag}`, e2eRoot);
-  console.log('Instrumentation completed');
-}
-
-async function runTests({ instrumented = false } = {}) {
-  console.log(`\nRunning Playwright tests${instrumented ? ' (instrumented mode)' : ''}...`);
+async function runTests({ collectCoverage = false } = {}) {
+  console.log(`\nRunning Playwright tests${collectCoverage ? ' (V8 coverage mode)' : ''}...`);
 
   let cmd = 'npx playwright test';
   const levelResolution = options.level ? resolvePlaywrightTargets(options.level) : null;
@@ -294,10 +155,6 @@ async function runTests({ instrumented = false } = {}) {
   if (options.passthroughArgs.length > 0) {
     cmd += ' ' + options.passthroughArgs.map(quoteArg).join(' ');
   }
-  if (instrumented) {
-    cmd += ' --workers=' + instrumentedDefaultWorkers;
-    console.log('[kuikly-test] instrumented mode fixed workers=2');
-  }
 
   if (levelResolution && (options.dryRun || options.printResolvedTargets)) {
     logResolvedTargets(levelResolution);
@@ -308,12 +165,10 @@ async function runTests({ instrumented = false } = {}) {
     return;
   }
 
-  const extraEnv = instrumented
+  const extraEnv = collectCoverage
     ? {
-        KUIKLY_SKIP_WEBSERVER: 'true',
-        KUIKLY_INSTRUMENTED: 'true',
+        KUIKLY_COLLECT_V8_COVERAGE: 'true',
         KUIKLY_PORT: String(defaultPort),
-        KUIKLY_WORKERS: instrumentedDefaultWorkers,
       }
     : {};
 
@@ -322,42 +177,33 @@ async function runTests({ instrumented = false } = {}) {
 }
 
 async function generateCoverageReport() {
-  const nycOutputDir = join(e2eRoot, reporting.nycTempDirName);
+  const v8OutputDir = join(e2eRoot, reporting.v8TempDirName);
 
-  if (!existsSync(nycOutputDir)) {
-    throw new Error('.nyc_output does not exist, run instrumented tests first');
+  if (!existsSync(v8OutputDir)) {
+    throw new Error('.v8_output does not exist, run V8 coverage tests first');
   }
 
-  console.log('\nGenerating official NYC Kotlin coverage report...');
+  console.log('\nGenerating Kotlin coverage report with Monocart (V8 data)...');
   await execCommand('node scripts/coverage-report.mjs', e2eRoot);
-  console.log('NYC Kotlin coverage report generated');
+  console.log('Kotlin coverage report generated');
   console.log(`Report: ${join(e2eRoot, reporting.coverageIndexFile)}`);
 }
 
 async function checkCoverageThresholds() {
-  console.log('\nChecking coverage thresholds from .nycrc.json...');
+  console.log('\nChecking V8 Kotlin coverage thresholds...');
   await execCommand('node scripts/coverage-report.mjs --check', e2eRoot);
   console.log('Coverage thresholds passed');
 }
 
 async function main() {
-  let serverProcess = null;
-
   try {
     if (options.coverageOnly) {
       await generateCoverageReport();
       await checkCoverageThresholds();
-    } else if (options.instrumentOnly) {
-      await buildProject();
-      await instrumentCode();
     } else if (options.full) {
       await buildProject();
-      await instrumentCode();
       clearCoverageOutput();
-      serverProcess = await startInstrumentedServer(defaultPort);
-      await runTests({ instrumented: true });
-      await stopInstrumentedServer(serverProcess);
-      serverProcess = null;
+      await runTests({ collectCoverage: true });
       await generateCoverageReport();
       await checkCoverageThresholds();
     } else {
@@ -369,8 +215,6 @@ async function main() {
   } catch (error) {
     console.error(`\nError: ${error.message}`);
     process.exitCode = 1;
-  } finally {
-    await stopInstrumentedServer(serverProcess);
   }
 }
 

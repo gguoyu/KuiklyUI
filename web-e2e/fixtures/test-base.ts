@@ -1,27 +1,21 @@
 import { test as base } from '@playwright/test';
 import { KuiklyPage } from './kuikly-page';
-import { collectCoverage } from './coverage';
+import { startV8Coverage, stopV8Coverage } from './coverage';
 
 /**
- * Extended test object with KuiklyPage fixture
- * All test cases should import and use this test object
+ * Extended test object with KuiklyPage fixture.
  *
- * Coverage collection is automatic:
- * - In the standard CLI flow (`node scripts/kuikly-test.mjs --full`),
- *   window.__coverage__ is read after each test and written to .nyc_output/
- * - When using the normal server for local debugging, collectCoverage() silently skips
- *   because window.__coverage__ is absent
+ * When KUIKLY_COLLECT_V8_COVERAGE=true, V8 coverage is started before each test
+ * and persisted to .v8_output/ during teardown.
  */
 export const test = base.extend<{ kuiklyPage: KuiklyPage }>({
   kuiklyPage: async ({ page }, use, testInfo) => {
-    // Create KuiklyPage instance
+    const coverageSession = await startV8Coverage(page);
     const kuiklyPage = new KuiklyPage(page);
 
-    // Provide to test
     await use(kuiklyPage);
 
-    // Auto-collect coverage after each test (no-op when not using instrumented server)
-    await collectCoverage(page, testInfo.title);
+    await stopV8Coverage(coverageSession, testInfo.title);
   },
 });
 

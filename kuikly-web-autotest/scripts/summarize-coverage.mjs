@@ -1,21 +1,26 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from 'fs';
 import { relative } from 'path';
+import { createRequire } from 'module';
 import { computeFileMetrics } from './lib/coverage-utils.mjs';
 import { displayConfig } from './lib/config.mjs';
 import { toPosix } from './lib/fs-utils.mjs';
 import { requireJsonFile } from './lib/json-io.mjs';
-import { coveragePath, nycrcPath, repoRoot } from './lib/paths.mjs';
+import { coverageConfigPath, coveragePath, repoRoot } from './lib/paths.mjs';
 
+const require = createRequire(import.meta.url);
+const coverageConfig = require(coverageConfigPath);
 const coverage = requireJsonFile(
   coveragePath,
   `Missing coverage report: ${coveragePath}`,
   'Failed to parse coverage report'
 );
-const thresholds = existsSync(nycrcPath)
-  ? JSON.parse(readFileSync(nycrcPath, 'utf8'))
-  : { lines: 70, functions: 70, statements: 70, branches: 55 };
+const thresholds = coverageConfig.thresholds || coverageConfig.fallbackThresholds || {
+  lines: 70,
+  functions: 70,
+  statements: 70,
+  branches: 55,
+};
 
 const files = Object.entries(coverage).map(([absolutePath, info]) => {
   const metrics = computeFileMetrics(info);

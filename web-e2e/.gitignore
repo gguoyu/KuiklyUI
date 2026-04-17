@@ -3,8 +3,7 @@ node_modules/
 /playwright-report/
 /playwright/.cache/
 /reports/
-/.nyc_output/
-/instrumented/
+/.v8_output/
 /fonts/
 *.log
 package-lock.json

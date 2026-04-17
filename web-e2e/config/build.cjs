@@ -7,8 +7,6 @@ module.exports = {
   kotlinWebpackDir: 'h5App/build/kotlin-webpack/js/developmentExecutable',
   kotlinModulesDir: 'h5App/build/compileSync/js/main/developmentExecutable/kotlin',
   whistleHtdocsDir: 'node_modules/whistle/biz/webui/htdocs',
-  instrumentedDirName: 'instrumented',
-  instrumentedModulesDirName: 'modules',
   composeResourcesDirName: 'composeResources',
   fontsDirName: 'fonts',
   fontFileName: 'NotoSansSC-Regular.woff2',

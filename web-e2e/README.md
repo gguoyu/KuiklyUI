@@ -61,12 +61,11 @@ web-e2e/
 │   └── visual/                 # visual：依赖截图结论的视觉回归与动画终态验证
 ├── scripts/
 │   ├── kuikly-test.mjs         # CLI 统一入口
-│   ├── serve.js                # 普通测试服务器（port 8080）
-│   ├── serve-instrumented.mjs  # 插桩版服务器（覆盖率用）
-│   ├── instrument.mjs          # Istanbul 插桩脚本
-│   └── coverage-report.mjs     # NYC 官方 Kotlin 文件覆盖率报告生成（内部辅助脚本，跨平台路径封装）
+│   ├── serve.js                # 测试服务器（port 8080，支持 Kotlin modules loader）
+│   ├── coverage-report.mjs     # 基于 V8 data 生成 Monocart Kotlin 覆盖率报告
+│   └── coverage-js-no-sourcemap-report.mjs # 基于 V8 data 生成 JS 调试报告
+├── config/coverage.cjs         # 覆盖率阈值 / 水位线 / V8 参数配置
 ├── playwright.config.js        # Playwright 配置（viewport: 375×812，Chromium）
-├── .nycrc.json                 # 覆盖率阈值配置
 └── package.json
 ```
 
@@ -217,22 +216,27 @@ kuiklyPage.countFrameDiffs(frames, { threshold? });         // number
 
 ## 📊 覆盖率
 
-覆盖率收集已集成在测试 fixture 中，**每个测试结束后自动将 `window.__coverage__` 写入 `.nyc_output/`**。覆盖率的唯一门禁与对外展示口径统一为：**NYC 官方 Kotlin 文件覆盖率结果**。
+覆盖率收集已集成在测试 fixture 中，**每个测试结束后会通过 Playwright Chromium V8 native coverage 将结果写入 `.v8_output/`**。正式报告使用 **Monocart** 将 V8 原始覆盖率映射回 Kotlin 源文件；阈值配置统一来自 `config/coverage.cjs`，检查时读取生成后的 `coverage-summary.json` totals。
 
 ```bash
-# 标准入口：CLI 一键完成构建、插桩、启动插桩服务器、执行测试、生成 NYC 官方 Kotlin 文件覆盖率报告、阈值检查
+# 标准入口：CLI 一键完成构建、启动测试服务器、执行测试、采集 V8 coverage、生成 Monocart Kotlin 覆盖率报告、执行阈值检查
 node scripts/kuikly-test.mjs --full
 
-# 若只基于已有 .nyc_output 生成 NYC 官方 Kotlin 文件覆盖率报告
+# 若只基于已有 .v8_output 生成 Monocart Kotlin 覆盖率报告
 npm run coverage
 
-# 仅检查是否达到阈值
+# 仅检查是否达到阈值（基于 .v8_output 重新生成 summary）
 npm run coverage:check
+
+# 生成不走 sourcemap 的 JS 调试报告
+npm run coverage:js-no-sourcemap
 ```
 
-报告路径：`reports/coverage/index.html`
+Kotlin 报告路径：`reports/coverage/index.html`
+JS 调试报告路径：`reports/coverage-js-no-sourcemap-html/index.html`
+产物还包含：`reports/coverage/coverage-final.json`、`reports/coverage/lcov.info`、`reports/coverage/coverage-summary.json`
 
-### 覆盖率阈值（`.nycrc.json`）
+### 覆盖率阈值（`config/coverage.cjs`）
 
 | 指标 | 阈值 |
 |------|------|
@@ -243,24 +247,25 @@ npm run coverage:check
 
 ## 🖥️ CLI 统一入口
 
-`scripts/kuikly-test.mjs` 封装了完整流程，并满足“本地一键运行”原则：`--full` 会自动完成构建、插桩、启动插桩服务器、执行 Playwright、生成 NYC 官方 Kotlin 文件覆盖率报告并检查阈值。日常执行默认以该命令为标准入口。
+`scripts/kuikly-test.mjs` 封装了完整流程，并满足“本地一键运行”原则：`--full` 会自动完成构建、启动测试服务器、执行 Playwright、采集 V8 coverage、生成 Monocart Kotlin 覆盖率报告并执行阈值检查。日常执行默认以该命令为标准入口。
 
 ```bash
 # 本地调试单轮用例时，可跳过构建直接运行测试
 node scripts/kuikly-test.mjs --level static --skip-build
 
-# 全流程：构建 → 插桩 → 自动启动插桩服务器 → 测试 → NYC 官方 Kotlin 文件覆盖率报告 → 阈值检查
+# 全流程：构建 → 自动启动测试服务器 → 测试（V8 coverage mode）→ Monocart Kotlin 覆盖率报告 → 阈值检查
 node scripts/kuikly-test.mjs --full
 
 # 其他选项
 --level static|functional|visual|hybrid  只运行指定语义分组
 --test <file>           只运行指定文件
 --update-snapshots      更新截图基准
---coverage-only         仅生成 NYC 官方 Kotlin 文件覆盖率报告（基于已有 .nyc_output）
---instrument            仅执行插桩
---with-native           插桩时同时处理 nativevue2.js（调试辅助口径，不改变正式门禁口径）
+--coverage-only         仅生成 Monocart Kotlin 覆盖率报告（基于已有 .v8_output）
+--skip-build            跳过 Gradle 构建
 --headed                有界面模式
 --debug                 调试模式
+--dry-run               仅打印解析后的测试命令
+--print-resolved-targets 输出 level 解析结果
 ```
 
 ---
@@ -298,9 +303,9 @@ npm run test:update-snapshots
 ```
 若在不同平台间存在轻微差异，确认已执行 `npm run setup` 下载 Web Font；当前 `maxDiffPixelRatio` 为 `0.02`，可在 `playwright.config.js` 中适当调整。
 
-**Q: NYC 官方 Kotlin 文件覆盖率报告为空 / 没有数据？**
+**Q: Kotlin 覆盖率报告为空 / 没有数据？**
 
-优先使用 `node scripts/kuikly-test.mjs --full`。如果直接运行普通 `npm test`，不会产生覆盖率数据；只有插桩模式才会写入 `.nyc_output/` 并生成 NYC 官方 Kotlin 文件覆盖率报告。
+优先使用 `node scripts/kuikly-test.mjs --full`。如果直接运行普通 `npm test`，不会产生覆盖率数据；只有 V8 coverage 模式才会写入 `.v8_output/`，随后由 Monocart 生成 Kotlin 报告并执行阈值检查。
 
 **Q: 如何只运行单个测试文件？**
 ```bash

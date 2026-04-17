@@ -1,95 +1,128 @@
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 
-/**
- * 覆盖率收集工具
- *
- * 工作原理：
- * 1. 测试执行期间，Istanbul 插桩代码将执行路径写入 window.__coverage__
- * 2. 每个 test teardown 时，通过 page.evaluate() 将 __coverage__ 导出为 JSON
- * 3. 写入 .nyc_output/<title>.json，后续由 NYC 官方命令合并并生成 Kotlin 文件维度报告
- *
- * 前置条件：
- * - 正式覆盖率流程应通过 `node scripts/kuikly-test.mjs --full` 触发，由 CLI 自动启动插桩版服务器
- * - 若仅做本地排障，也可显式使用插桩版服务器
- * - 若 window.__coverage__ 不存在（普通服务器），函数静默跳过
- *
- * 自动收集：已在 test-base.ts fixture teardown 中自动调用，无需手动调用。
- */
+const webE2EConfig = require('../config/index.cjs');
+const { coverage: coverageConfig, reporting } = webE2EConfig;
+const V8_OUTPUT_DIR = resolve(__dirname, '..', reporting.v8TempDirName);
 
-// coverage.ts 位于 web-e2e/fixtures/，.nyc_output 位于 web-e2e/
-const NYC_OUTPUT_DIR = resolve(__dirname, '..', '.nyc_output');
+type V8CoverageSession = {
+  context: any;
+  trackedPages: Set<any>;
+  pageListener: ((page: any) => void) | null;
+};
 
-/**
- * 从当前页面收集 window.__coverage__，追加写入 .nyc_output/
- * @param page - Playwright Page 对象
- * @param testTitle - 测试标题，用于文件名（可选）
- */
-export async function collectCoverage(page: any, testTitle?: string): Promise<void> {
+function isV8CoverageEnabled(): boolean {
+  return process.env.KUIKLY_COLLECT_V8_COVERAGE === 'true';
+}
+
+function getSafeTitle(testTitle?: string): string {
+  return (testTitle || 'coverage')
+    .replace(/[^a-zA-Z0-9-_]/g, '_')
+    .slice(0, 60);
+}
+
+async function startPageCoverage(page: any, trackedPages: Set<any>): Promise<void> {
+  if (!page?.coverage || trackedPages.has(page)) {
+    return;
+  }
+
+  if (typeof page.isClosed === 'function' && page.isClosed()) {
+    return;
+  }
+
+  trackedPages.add(page);
+  await page.coverage.startJSCoverage(coverageConfig.v8);
+}
+
+export async function startV8Coverage(page: any): Promise<V8CoverageSession | null> {
+  if (!isV8CoverageEnabled()) {
+    return null;
+  }
+
   try {
-    if (typeof page?.isClosed === 'function' && page.isClosed()) {
-      return;
-    }
+    const context = page?.context?.();
+    const trackedPages = new Set<any>();
+    const pages = context?.pages?.() ?? [page];
+    await Promise.all(
+      pages.map((currentPage: any) =>
+        startPageCoverage(currentPage, trackedPages).catch((error) => {
+          console.warn('[coverage] Failed to start V8 coverage:', error.message);
+        })
+      )
+    );
 
-    const coverage = await page.evaluate(() => {
-      return (window as any).__coverage__ || null;
-    });
+    const pageListener = (newPage: any) => {
+      void startPageCoverage(newPage, trackedPages).catch((error) => {
+        console.warn('[coverage] Failed to start V8 coverage for new page:', error.message);
+      });
+    };
 
-    if (!coverage) {
-      // 非插桩环境，静默跳过
-      return;
-    }
+    context?.on?.('page', pageListener);
 
-    // 确保输出目录存在
-    if (!existsSync(NYC_OUTPUT_DIR)) {
-      mkdirSync(NYC_OUTPUT_DIR, { recursive: true });
-    }
-
-    // 生成唯一文件名
-    const safeTitle = (testTitle || 'coverage')
-      .replace(/[^a-zA-Z0-9-_]/g, '_')
-      .slice(0, 60);
-    const filename = `${safeTitle}-${Date.now()}.json`;
-    const outputPath = join(NYC_OUTPUT_DIR, filename);
-
-    writeFileSync(outputPath, JSON.stringify(coverage), 'utf8');
-    console.log(`[coverage] Saved: ${filename} (${Object.keys(coverage).length} files)`);
-  } catch (e) {
-    // 不中断测试流程
-    console.warn('[coverage] Failed to collect coverage:', (e as Error).message);
+    return {
+      context,
+      trackedPages,
+      pageListener,
+    };
+  } catch (error) {
+    console.warn('[coverage] Failed to initialize V8 coverage:', (error as Error).message);
+    return null;
   }
 }
 
-/**
- * 合并多个 window.__coverage__ 对象
- * 用于在单个测试文件内多个 page 实例的合并场景
- */
-export function mergeCoverage(
-  a: Record<string, any>,
-  b: Record<string, any>
-): Record<string, any> {
-  const merged = { ...a };
-  for (const [file, bData] of Object.entries(b)) {
-    if (!merged[file]) {
-      merged[file] = bData;
-      continue;
-    }
-    // 合并 statement / branch / function 计数器
-    for (const key of ['s', 'b', 'f'] as const) {
-      const aCounter = merged[file][key];
-      const bCounter = (bData as any)[key];
-      if (!aCounter || !bCounter) continue;
-      for (const id of Object.keys(bCounter)) {
-        if (Array.isArray(bCounter[id])) {
-          // branch counter 是数组
-          aCounter[id] = (aCounter[id] as number[]).map(
-            (v: number, i: number) => v + ((bCounter[id] as number[])[i] || 0)
-          );
-        } else {
-          aCounter[id] = (aCounter[id] as number || 0) + (bCounter[id] as number || 0);
-        }
+export async function stopV8Coverage(
+  session: V8CoverageSession | null,
+  testTitle?: string
+): Promise<void> {
+  if (!session) {
+    return;
+  }
+
+  try {
+    session.context?.off?.('page', session.pageListener);
+
+    const result = [] as any[];
+    for (const page of session.trackedPages) {
+      if (!page?.coverage) {
+        continue;
+      }
+
+      if (typeof page.isClosed === 'function' && page.isClosed()) {
+        continue;
+      }
+
+      try {
+        const entries = await page.coverage.stopJSCoverage();
+        result.push(...entries);
+      } catch (error) {
+        console.warn('[coverage] Failed to stop V8 coverage:', (error as Error).message);
       }
     }
+
+    if (!result.length) {
+      return;
+    }
+
+    if (!existsSync(V8_OUTPUT_DIR)) {
+      mkdirSync(V8_OUTPUT_DIR, { recursive: true });
+    }
+
+    const filename = `${getSafeTitle(testTitle)}-${Date.now()}.json`;
+    const outputPath = join(V8_OUTPUT_DIR, filename);
+    writeFileSync(
+      outputPath,
+      `${JSON.stringify({
+        result,
+        meta: {
+          testTitle: testTitle || null,
+          collectedAt: new Date().toISOString(),
+        },
+      }, null, 2)}\n`,
+      'utf8'
+    );
+
+    console.log(`[coverage] Saved V8 coverage: ${filename} (${result.length} entries)`);
+  } catch (error) {
+    console.warn('[coverage] Failed to persist V8 coverage:', (error as Error).message);
   }
-  return merged;
 }

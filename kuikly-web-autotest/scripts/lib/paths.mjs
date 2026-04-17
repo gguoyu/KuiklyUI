@@ -19,4 +19,4 @@ export const testsRoot = join(repoRoot, 'web-e2e', 'tests');
 export const reportsDir = join(repoRoot, 'web-e2e', 'reports');
 export const coveragePath = join(reportsDir, 'coverage', 'coverage-final.json');
 export const playwrightReportPath = join(reportsDir, 'test-results.json');
-export const nycrcPath = join(repoRoot, 'web-e2e', '.nycrc.json');
+export const coverageConfigPath = join(repoRoot, 'web-e2e', 'config', 'coverage.cjs');
