@@ -1,5 +1,28 @@
 import { test, expect } from '../../fixtures/test-base';
 
+async function clickSwitchTrack(page: import('@playwright/test').Page): Promise<void> {
+  const toggles = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('[data-kuikly-component="KRView"]'))
+      .map((view) => {
+        const box = (view as HTMLElement).getBoundingClientRect();
+        return {
+          cx: Math.round(box.x + box.width / 2),
+          cy: Math.round(box.y + box.height / 2),
+          width: box.width,
+          height: box.height,
+          y: box.y,
+        };
+      })
+      .filter((box) => Math.abs(box.width - 52) < 5 && Math.abs(box.height - 28) < 5 && box.y > 0);
+  });
+
+  if (toggles.length === 0) {
+    throw new Error('Notification switch track not found');
+  }
+
+  await page.mouse.click(toggles[0].cx, toggles[0].cy);
+}
+
 test.describe('点击交互功能验证', () => {
   test('应该成功加载 ClickTestPage 页面', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('ClickTestPage');
@@ -79,11 +102,11 @@ test.describe('点击交互功能验证', () => {
 
     await expect(kuiklyPage.page.getByText('通知已关闭')).toBeVisible();
 
-    await kuiklyPage.page.getByText('通知已关闭').click();
+    await clickSwitchTrack(kuiklyPage.page);
     await kuiklyPage.waitForRenderComplete();
     await expect(kuiklyPage.page.getByText('通知已开启')).toBeVisible();
 
-    await kuiklyPage.page.getByText('通知已开启').click();
+    await clickSwitchTrack(kuiklyPage.page);
     await kuiklyPage.waitForRenderComplete();
     await expect(kuiklyPage.page.getByText('通知已关闭')).toBeVisible();
   });

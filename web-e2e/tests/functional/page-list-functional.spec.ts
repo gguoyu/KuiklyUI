@@ -66,13 +66,15 @@ async function dragPageListByOffset(page: Page, container: Locator, deltaX: numb
 }
 
 async function wheelPageList(page: Page, container: Locator, deltaX: number, deltaY: number, waitMs = 500): Promise<void> {
-  const box = await container.boundingBox();
-  if (!box) {
-    throw new Error('PageList container is not visible');
-  }
+  await container.evaluate((element, payload) => {
+    element.dispatchEvent(new WheelEvent('wheel', {
+      deltaX: payload.deltaX,
+      deltaY: payload.deltaY,
+      bubbles: true,
+      cancelable: true,
+    }));
+  }, { deltaX, deltaY });
 
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.wheel(deltaX, deltaY);
   await page.waitForTimeout(waitMs);
 }
 
@@ -314,13 +316,8 @@ test.describe('PageList functional 验证', () => {
     const page1Item = kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true });
     const page2Item = kuiklyPage.page.getByText(PAGE_TWO_ITEM, { exact: true });
 
-    const box = await pageList.boundingBox();
-    expect(box).toBeTruthy();
-
-    await kuiklyPage.page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-    await kuiklyPage.page.mouse.wheel(500, 0);
-    await kuiklyPage.page.mouse.wheel(500, 0);
-    await kuiklyPage.page.waitForTimeout(500);
+    await wheelPageList(kuiklyPage.page, pageList, 500, 0, 0);
+    await wheelPageList(kuiklyPage.page, pageList, 500, 0, 500);
 
     await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
     expect(await getLeft(page1Item)).toBeGreaterThanOrEqual(0);
