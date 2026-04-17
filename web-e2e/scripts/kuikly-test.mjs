@@ -6,6 +6,7 @@ import http from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import webE2EConfig from '../config/index.cjs';
+import { resolvePlaywrightTargets } from './lib/classification-policy.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,6 +19,43 @@ const gradleBuildArgs = build.gradleBuildArgs;
 const instrumentedDefaultWorkers = String(runtime.instrumentedDefaultWorkers);
 
 const args = process.argv.slice(2);
+const valueFlags = ['--level', '--test'];
+const booleanFlags = new Set([
+  '--full',
+  '--update-snapshots',
+  '--coverage-only',
+  '--instrument',
+  '--with-native',
+  '--skip-build',
+  '--headed',
+  '--debug',
+  '--dry-run',
+  '--print-resolved-targets',
+]);
+
+function collectPassthroughArgs(argv) {
+  const passthrough = [];
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (booleanFlags.has(arg)) {
+      continue;
+    }
+
+    if (valueFlags.includes(arg)) {
+      index += 1;
+      continue;
+    }
+
+    if (valueFlags.some((flag) => arg.startsWith(`${flag}=`))) {
+      continue;
+    }
+
+    passthrough.push(arg);
+  }
+
+  return passthrough;
+}
 
 function getArg(flag) {
   const eq = args.find((arg) => arg.startsWith(`${flag}=`));
@@ -41,10 +79,29 @@ const options = {
   skipBuild: args.includes('--skip-build'),
   headed: args.includes('--headed'),
   debug: args.includes('--debug'),
+  dryRun: args.includes('--dry-run'),
+  printResolvedTargets: args.includes('--print-resolved-targets'),
+  passthroughArgs: collectPassthroughArgs(args),
 };
 
 console.log('Kuikly E2E Test CLI');
 console.log('Options:', options);
+
+function quoteArg(arg) {
+  return /[\s"]/u.test(arg) ? JSON.stringify(arg) : arg;
+}
+
+function logResolvedTargets(resolution) {
+  if (!resolution) {
+    return;
+  }
+
+  console.log('[kuikly-test] resolved level:', {
+    requestedLevel: resolution.requestedLevel,
+    normalizedLevel: resolution.normalizedLevel,
+    targets: resolution.targets,
+  });
+}
 
 function execCommand(command, cwd = projectRoot, extraEnv = {}) {
   return new Promise((resolve, reject) => {
@@ -222,25 +279,33 @@ async function runTests({ instrumented = false } = {}) {
   console.log(`\nRunning Playwright tests${instrumented ? ' (instrumented mode)' : ''}...`);
 
   let cmd = 'npx playwright test';
-  const levelMap = {
-    L0: 'tests/L0-static',
-    L1: 'tests/L1-simple',
-    L2: 'tests/L2-complex',
-  };
+  const levelResolution = options.level ? resolvePlaywrightTargets(options.level) : null;
 
-  if (options.level) {
-    const levelPath = levelMap[String(options.level).toUpperCase()];
-    if (levelPath) cmd += ` ${levelPath}`;
-    else console.warn(`Unknown level: ${options.level}, running full suite`);
+  if (levelResolution?.targets?.length) {
+    cmd += ' ' + levelResolution.targets.map(quoteArg).join(' ');
+  } else if (options.level) {
+    console.warn(`[kuikly-test] Unknown level: ${options.level}, running full suite`);
   }
 
-  if (options.test) cmd += ` ${options.test}`;
+  if (options.test) cmd += ` ${quoteArg(options.test)}`;
   if (options.updateSnapshots) cmd += ' --update-snapshots';
   if (options.headed) cmd += ' --headed';
   if (options.debug) cmd += ' --debug';
+  if (options.passthroughArgs.length > 0) {
+    cmd += ' ' + options.passthroughArgs.map(quoteArg).join(' ');
+  }
   if (instrumented) {
     cmd += ' --workers=' + instrumentedDefaultWorkers;
     console.log('[kuikly-test] instrumented mode fixed workers=2');
+  }
+
+  if (levelResolution && (options.dryRun || options.printResolvedTargets)) {
+    logResolvedTargets(levelResolution);
+  }
+
+  if (options.dryRun) {
+    console.log(`[kuikly-test] dry run command: ${cmd}`);
+    return;
   }
 
   const extraEnv = instrumented

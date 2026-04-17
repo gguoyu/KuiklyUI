@@ -13,6 +13,10 @@ import {
   normalizeLegacyGotoCalls,
   replaceLiteralGotoTarget,
 } from './lib/spec-utils.mjs';
+import {
+  classifyManagedSpec,
+  resolveManagedSpecTargetSegments,
+} from '../../web-e2e/scripts/lib/classification-policy.mjs';
 
 const fixtureEntry = join(repoRoot, 'web-e2e', 'fixtures', 'test-base');
 const reportsDir = join(baseReportsDir, 'autotest');
@@ -205,16 +209,7 @@ function slugifyPageName(pageName) {
 
 function inferManagedSpecPath(pageMeta) {
   const slug = slugifyPageName(pageMeta.pageName);
-  const categoryMap = {
-    components: ['L0-static', 'components'],
-    styles: ['L0-static', 'styles'],
-    modules: ['L1-simple', 'modules'],
-    interactions: ['L1-simple'],
-    animations: ['L2-complex', 'animations'],
-    composite: ['L2-complex'],
-  };
-
-  const segments = categoryMap[pageMeta.category] || ['L2-complex'];
+  const segments = resolveManagedSpecTargetSegments(pageMeta);
   return join(testsRoot, ...segments, `auto-${slug}.spec.ts`);
 }
 
@@ -303,12 +298,17 @@ function defaultManagedTemplateProfile(pageMeta) {
 }
 
 function managedSpecMetadataFor(pageMeta, reason, templateProfile) {
+  const targetClassification = classifyManagedSpec({ pageMeta, templateProfile });
+
   return {
     pageName: pageMeta.pageName,
     category: pageMeta.category,
     sourceFile: pageMeta.file,
     managedBy: 'kuikly-web-autotest',
     templateProfile,
+    targetClassification,
+    specLocation: toPosix(relative(repoRoot, pageMeta.managedSpecPath)),
+    migrationPhase: 'semantic-closure',
   };
 }
 
@@ -1364,6 +1364,8 @@ function managedRepairProfileFor(pageMeta, failure, managedEntry) {
 
 function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
   const targetPath = pageMeta.managedSpecPath;
+  const templateProfile = repairProfile?.templateProfile || defaultManagedTemplateProfile(pageMeta);
+  const targetClassification = classifyManagedSpec({ pageMeta, templateProfile });
   const content = buildManagedSpecContent(pageMeta, reason, repairProfile);
   const alreadyExists = existsSync(targetPath);
   const previousContent = alreadyExists ? readFileSync(targetPath, 'utf8') : null;
@@ -1378,7 +1380,10 @@ function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
     pageName: pageMeta.pageName,
     file: toPosix(relative(repoRoot, targetPath)),
     dryRun: context.dryRun,
-    templateProfile: repairProfile?.templateProfile || defaultManagedTemplateProfile(pageMeta),
+    templateProfile,
+    targetClassification,
+    specLocation: toPosix(relative(repoRoot, targetPath)),
+    migrationPhase: 'semantic-closure',
     repairStrategy: repairProfile?.strategy || null,
   };
 

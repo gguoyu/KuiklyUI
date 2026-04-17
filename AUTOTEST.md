@@ -26,9 +26,10 @@
   - [6.6 元素定位策略优先级](#66-元素定位策略优先级)
   - [6.7 自动等待与容错机制](#67-自动等待与容错机制)
 - [7. 分级测试用例集](#7-分级测试用例集)
-  - [7.1 L0 — 静态渲染（无交互）](#71-l0--静态渲染无交互)
-  - [7.2 L1 — 简单交互（点击/输入）](#72-l1--简单交互点击输入)
-  - [7.3 L2 — 复杂交互（滑动/手势/动画/跳转）](#73-l2--复杂交互滑动手势动画跳转)
+  - [7.1 static — 确定性断言（不依赖截图结论）](#71-static--确定性断言不依赖截图结论)
+  - [7.2 functional — 交互触发的节点 / 属性 / 状态变化](#72-functional--交互触发的节点--属性--状态变化)
+  - [7.3 visual — 必须依赖截图判断的视觉结果](#73-visual--必须依赖截图判断的视觉结果)
+  - [7.4 hybrid — functional + visual 联合验证](#74-hybrid--functional--visual-联合验证)
 - [8. 动画测试方案](#8-动画测试方案)
 - [9. 核心 Fixture：KuiklyPage](#9-核心-fixturekuiklypage)
 - [10. Playwright 配置](#10-playwright-配置)
@@ -46,7 +47,7 @@
 | 目标           | 说明                                                                 |
 | -------------- | -------------------------------------------------------------------- |
 | **功能覆盖**   | 覆盖全部 Web 渲染组件、CSS 样式、Module 的渲染与交互验证             |
-| **分级体系**   | L0（无交互截图） / L1（点击输入） / L2（滑动手势动画跳转）三级用例   |
+| **分级体系**   | static（确定性断言） / functional（交互状态变化） / visual（截图结论） / hybrid（联合验证） |
 | **截图对比**   | 像素级截图对比（Playwright `toHaveScreenshot()`），不禁用动画         |
 | **覆盖率**     | 以 NYC 官方 Kotlin 文件覆盖率结果为准：对 Kotlin/JS 运行产物执行 Istanbul 插桩，并通过 source map 反向映射为 Kotlin 源文件覆盖率 |
 | **运行方式**   | CLI 本地一键闭环执行（构建 → 插桩 → 启动插桩服务器 → 执行用例 → 收集覆盖率 → 生成/检查 NYC 官方 Kotlin 文件覆盖率报告）；CI 侧应复用同一 CLI 入口 |
@@ -68,9 +69,9 @@
 ├───────────────────────────────────────────────────┤
 │            Test Framework Layer                    │
 │   Playwright + @playwright/test                   │
-│   ┌─────────┬─────────┬──────────┐               │
-│   │ L0 静态  │ L1 简单  │ L2 复杂   │               │
-│   └─────────┴─────────┴──────────┘               │
+│   ┌─────────┬─────────────┬─────────┬─────────┐   │
+│   │ static  │ functional  │ visual  │ hybrid  │   │
+│   └─────────┴─────────────┴─────────┴─────────┘   │
 │   KuiklyPage Fixture (封装渲染等待/组件定位/滚动)    │
 ├───────────────────────────────────────────────────┤
 │             Coverage Layer                         │
@@ -145,7 +146,7 @@ demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/
 
 > **说明：** 本节用于说明各类页面承担的测试职责，只保留代表性页面。当前完整页面清单请以 `scan-web-test-pages.mjs` 的扫描结果为准。
 
-#### 3.4.1 L0 — 静态渲染测试页面
+#### 3.4.1 static — 确定性断言测试页面
 
 | 测试页面                        | 验证目标                                           | 页面内容说明                                      |
 | ------------------------------ | -------------------------------------------------- | ------------------------------------------------- |
@@ -162,7 +163,7 @@ demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/
 | `OpacityTestPage`              | opacity                                            | 不同透明度值                                        |
 | `OverflowTestPage`             | overflow                                           | hidden/visible/scroll 各模式                        |
 
-#### 3.4.2 L1 — 简单交互测试页面
+#### 3.4.2 functional — 交互状态变化测试页面
 
 | 测试页面                        | 验证目标                                           | 页面内容说明                                      |
 | ------------------------------ | -------------------------------------------------- | ------------------------------------------------- |
@@ -170,7 +171,7 @@ demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/
 | `InputTestPage`                | 输入交互                                            | 文本输入框+密码框+多行输入+最大长度限制             |
 | `ModalTestPage`                | 弹窗交互                                            | 触发按钮+对话框+底部弹窗+弹窗内交互                |
 
-#### 3.4.3 L2 — 复杂交互测试页面
+#### 3.4.3 visual — 复杂视觉 / 动画测试页面
 
 | 测试页面                        | 验证目标                                           | 页面内容说明                                      |
 | ------------------------------ | -------------------------------------------------- | ------------------------------------------------- |
@@ -329,9 +330,9 @@ web-e2e/
 │   └── kuikly-test.mjs       # CLI 统一入口脚本
 │
 ├── tests/
-│   ├── L0-static/            # L0：静态渲染截图对比（含 components/styles/smoke）
-│   ├── L1-simple/            # L1：简单交互、modules 与部分 managed auto spec
-│   └── L2-complex/           # L2：复杂交互、composite、animations 与部分 managed auto spec
+│   ├── static/               # static：纯逻辑 / 数据结果 / 静态属性 / 确定性文本输出
+│   ├── functional/           # functional：交互触发的节点 / 属性 / 状态变化
+│   └── visual/               # visual：必须依赖截图判断的复杂视觉结果
 │
 ├── *.spec.ts-snapshots/      # 截图基准文件（git 跟踪）
 │   │                         # Playwright 默认将基准图存储在各 spec 同级目录
@@ -342,6 +343,8 @@ web-e2e/
     ├── html/                 # Playwright HTML 报告
     └── coverage/             # NYC 官方 Kotlin 文件覆盖率报告
 ```
+
+> **当前目录规则：** 仓库目录与命名统一按断言意图使用 `static / functional / visual / hybrid`。截图基准继续使用 Playwright 默认的同级 `*.spec.ts-snapshots/` 方案；当某个场景同时需要 functional + visual 结论时，可由成对 spec 共同覆盖，必要时再单独落到 `tests/hybrid/`。
 
 ---
 
@@ -376,19 +379,19 @@ web-e2e/
 
 #### 6.2.1 渲染组件 → 必须验证的交互操作映射表
 
-| 渲染组件（`data-kuikly-component`）| **必须自动包含的交互操作**                                                                     | 测试级别 |
-| ---------------------------------- | --------------------------------------------------------------------------------------------- | -------- |
-| `KRView`                          | ① 静态渲染截图 ② 如有点击行为：点击→验证状态变化 ③ 如有手势：拖拽/缩放→验证效果                  | L0/L1/L2 |
-| `KRTextView`                      | ① 静态渲染截图（验证文本内容、样式正确）                                                        | L0       |
-| `KRRichTextView`                  | ① 静态渲染截图（验证富文本样式）② 如有可点击 Span：点击→验证跳转/效果                            | L0/L1    |
-| `KRGradientRichTextView`          | ① 静态渲染截图（验证渐变富文本渲染正确）                                                        | L0       |
-| `KRImageView`                     | ① 等待图片加载完成 ② 截图验证（渲染正确、无白图/破图）                                           | L0       |
-| `KRListView`                      | ① 垂直/水平滚动（根据方向属性判断）→ 每步截图 ② 滚动到边界 ③ 列表项点击（如有 clickable 子元素）④ 如有 stickyHeader：验证吸顶 ⑤ 如有分页（paging）：滑动翻页→验证每页内容 | L2       |
-| `KRScrollContentView`             | ① 垂直/水平滚动 → 每步截图 ② 滚动到边界验证                                                    | L2       |
-| `KRTextFieldView` / `KRInputView` | ① 点击获取焦点 ② 输入文本 ③ 验证显示 ④ 清空重新输入 ⑤ 点击外部失去焦点                          | L1       |
-| `KRCanvasView`                    | ① 静态截图验证绘制正确                                                                          | L0       |
-| `KRVideoView`                     | ① 等待视频加载 ② 截图验证首帧渲染（不验证播放流程）                                              | L0       |
-| `KRModalView`                     | ① 触发弹出 ② 截图弹窗 ③ 弹窗内交互 ④ 关闭弹窗 ⑤ 截图确认关闭                                   | L1       |
+| 渲染组件（`data-kuikly-component`）| **必须自动包含的交互操作**                                                                     | 主要断言类型 |
+| ---------------------------------- | --------------------------------------------------------------------------------------------- | ------------ |
+| `KRView`                          | ① static：稳定结构/文本 ② 如有点击行为：functional 验证状态变化 ③ 如有复杂视觉：visual 截图验证    | static / functional / visual |
+| `KRTextView`                      | ① static：文本内容、字号、颜色等确定性输出 ② 如需复杂排版回归再补 visual                          | static / visual |
+| `KRRichTextView`                  | ① static：稳定文本与 Span 结构 ② functional：可点击 Span 行为 ③ visual：复杂富文本视觉              | static / functional / visual |
+| `KRGradientRichTextView`          | ① static：稳定文本输出 ② visual：渐变视觉结果                                                   | static / visual |
+| `KRImageView`                     | ① static：加载与节点存在 ② visual：渲染正确、无白图/破图                                        | static / visual |
+| `KRListView`                      | ① functional：滚动、选择、分页状态变化 ② visual：复杂列表视觉与分页终态                           | functional / visual |
+| `KRScrollContentView`             | ① functional：滚动边界与位移 ② visual：复杂嵌套滚动视觉结果                                     | functional / visual |
+| `KRTextFieldView` / `KRInputView` | ① functional：聚焦、输入、回显、清空、失焦                                                       | functional |
+| `KRCanvasView`                    | ① static：存在与可观测绘制结果 ② visual：绘制内容视觉回归                                       | static / visual |
+| `KRVideoView`                     | ① static：加载与节点存在 ② visual：首帧渲染                                                     | static / visual |
+| `KRModalView`                     | ① functional：弹出 / 关闭节点状态 ② visual：弹窗视觉结果                                        | functional / visual |
 
 #### 6.2.2 AI 推导流程
 
@@ -411,18 +414,18 @@ web-e2e/
 └───────────────────┬──────────────────────────┘
                     ▼
 ┌──────────────────────────────────────────────┐
-│  3. 合并交互清单 + 确定测试级别                 │
+│  3. 合并交互清单 + 确定断言意图                 │
 │     单个页面可能包含多种渲染组件                 │
 │     → 取所有组件交互的并集                      │
-│     → 级别取最高（L2 > L1 > L0）               │
+│     → 按结论类型拆成 static / functional / visual │
 └───────────────────┬──────────────────────────┘
                     ▼
 ┌──────────────────────────────────────────────┐
 │  4. 生成完整用例代码                            │
-│     L0 部分: 初始渲染截图                       │
-│     L1 部分: 点击/输入/切换操作 + 截图           │
-│     L2 部分: 滚动/滑动/手势/动画操作 + 截图      │
-│     每个操作步骤都包含等待和截图验证              │
+│     static 部分: 确定性断言                     │
+│     functional 部分: 点击/输入/切换/滚动等状态验证 │
+│     visual 部分: 截图或关键帧视觉验证            │
+│     hybrid 场景: functional + visual 联合覆盖    │
 └──────────────────────────────────────────────┘
 ```
 
@@ -460,23 +463,23 @@ test('SearchTestPage full interaction', async ({ kuiklyPage }) => {
   await kuiklyPage.goto('?page_name=SearchTestPage');
   await kuiklyPage.waitForRenderComplete();
 
-  // [L0] 初始渲染验证
+  // [visual] 初始渲染验证
   await expect(kuiklyPage.page).toHaveScreenshot('search-initial.png');
 
-  // [L1 - 来自 KRInputView] 输入交互
+  // [functional - 来自 KRInputView] 输入交互
   const input = kuiklyPage.component('KRInputView').first();
   await input.click();
   await input.fill('test keyword');
   await kuiklyPage.waitForRenderComplete();
   await expect(kuiklyPage.page).toHaveScreenshot('search-input.png');
 
-  // [L2 - 来自 KRListView] 垂直滚动
+  // [functional - 来自 KRListView] 垂直滚动
   const list = kuiklyPage.component('KRListView').first();
   await kuiklyPage.scrollInContainer(list, { deltaY: 300 });
   await kuiklyPage.waitForRenderComplete();
   await expect(kuiklyPage.page).toHaveScreenshot('search-scroll-1.png');
 
-  // [L1 - 来自 KRView 列表项] 点击列表项
+  // [functional - 来自 KRView 列表项] 点击列表项
   await kuiklyPage.component('KRView').nth(3).click();
   await kuiklyPage.waitForRenderComplete();
   await expect(kuiklyPage.page).toHaveScreenshot('search-item-clicked.png');
@@ -703,9 +706,11 @@ test('Complex multi-step interaction', async ({ kuiklyPage }) => {
 
 ## 7. 分级测试用例集
 
-### 7.1 L0 — 静态渲染（无交互）
+> **当前规则：** 新增与存量整理统一按断言意图使用 `static / functional / visual / hybrid`。旧编号术语不再用于仓库目录、CLI 参数或新增 spec 命名。
 
-**目标：** 验证渲染组件和 CSS 样式的渲染输出是否正确，通过截图对比检测视觉回归。
+### 7.1 static — 确定性断言（不依赖截图结论）
+
+**目标：** 验证纯逻辑、数据结果、静态属性、确定性文本输出等无需截图判断即可稳定断言的内容。
 
 **覆盖范围：**
 
@@ -714,43 +719,40 @@ test('Complex multi-step interaction', async ({ kuiklyPage }) => {
 | **基础组件**      | KRView, KRImageView, KRTextView, KRRichTextView, KRGradientRichTextView, ...       |
 | **列表组件**      | KRListView（静态列表，不滚动）                                                     |
 | **画布组件**      | KRCanvasView                                                                       |
+| **模块结果**      | calendar precision、codec output、静态可见文本等                                   |
 | **CSS 样式**      | border, borderRadius, shadow, gradient, opacity, transform, overflow, ...          |
 
-**用例模式：**
+### 7.2 functional — 交互触发的节点 / 属性 / 状态变化
 
-```typescript
-test('KRImageView renders correctly', async ({ kuiklyPage }) => {
-  await kuiklyPage.goto('?page_name=KRImageViewTestPage');
-  await kuiklyPage.waitForRenderComplete();
-  await expect(kuiklyPage.page).toHaveScreenshot('image-view-test.png');
-});
-```
-
-### 7.2 L1 — 简单交互（点击/输入）
-
-**目标：** 验证点击、输入等基础交互事件的响应正确性。每个用例的交互步骤完全预编排。
+**目标：** 验证点击、输入、切换、滚动、路由跳转等交互后的 DOM、属性或状态变化。结论应尽量通过节点、属性、文本、bounding box 等可观察信号给出。
 
 **覆盖范围：**
 
-| 交互类型     | 测试页面                             | 预编排步骤                                        | 验证点                             |
-| ------------ | ------------------------------------ | ------------------------------------------------ | ---------------------------------- |
-| **点击**     | ClickTestPage                        | 定位目标组件 → click → 等待渲染 → 截图             | 点击后视觉状态变化                 |
-| **输入**     | InputTestPage                        | 定位KRInputView → click聚焦 → keyboard.type → 截图 | 输入文本后显示正确                 |
-| **切换**     | ClickTestPage（开关/复选框区域）      | 定位KRView → click切换 → 截图 → 再click → 截图     | 开关状态正确切换                   |
-| **弹窗**     | ModalTestPage                        | 定位触发按钮 → click弹出 → 截图 → 关闭弹窗 → 截图  | 弹窗内容正确、关闭后恢复           |
+| 交互类型     | 测试页面                             | 预编排步骤                                           | 验证点                               |
+| ------------ | ------------------------------------ | --------------------------------------------------- | ------------------------------------ |
+| **点击**     | ClickTestPage                        | 定位目标组件 → click → 等待渲染                      | 文案 / 状态 / 属性变化                |
+| **输入**     | InputTestPage                        | 定位 KRInputView → click 聚焦 → keyboard.type        | 输入值、回显、焦点状态                 |
+| **切换**     | ClickTestPage（开关/复选框区域）      | 定位 KRView → click 切换 → 再次 click                | 开关状态正确切换                      |
+| **弹窗**     | ModalTestPage                        | 定位触发按钮 → click 弹出 → 关闭弹窗                 | 弹窗节点出现 / 消失、属性恢复          |
+| **滚动 / 跳转** | ListScrollTestPage / NavigationTestPage | scroll / swipe / click 跳转                         | 可见项、位移、路由内容变化             |
 
-### 7.3 L2 — 复杂交互（滑动/手势/动画/跳转）
+### 7.3 visual — 必须依赖截图判断的视觉结果
 
-**目标：** 验证滚动列表、手势操作、动画效果、页面路由跳转等复杂场景。所有交互步骤完全预编排。
+**目标：** 验证必须依赖截图判断的复杂视觉结论，例如视觉回归、动画终态、渐变/阴影/裁剪等难以通过纯属性断言完整表达的结果。
 
 **覆盖范围：**
 
-| 交互类型     | 测试页面                                         | 预编排步骤                                              | 验证点                               |
+| 视觉类型     | 测试页面                                         | 预编排步骤                                              | 验证点                               |
 | ------------ | ------------------------------------------------ | ------------------------------------------------------ | ------------------------------------ |
-| **列表滚动** | ListScrollTestPage                               | 定位KRListView → scrollInContainer分步滚动 → 逐步截图     | 滚动后内容正确展示                   |
-| **手势**     | GestureTestPage                                  | 定位容器 → swipeInContainer指定方向/距离 → 等待动画 → 截图 | 手势后元素/页面状态变化               |
-| **动画**     | CSSTransitionTestPage, PropertyAnimTestPage       | 截初态 → 触发 → captureAnimationFrames → 截终态            | 动画过程帧间有差异 + 终态正确        |
-| **页面跳转** | NavigationTestPage                               | click跳转 → 等待渲染 → 截图 → click返回 → 截图             | 跳转内容正确、返回状态保持           |
+| **静态视觉** | KRImageView / BorderTestPage / GradientTestPage  | waitForRenderComplete → screenshot                      | 首屏渲染与视觉样式                    |
+| **动画终态** | CSSTransitionTestPage / PropertyAnimTestPage      | 截初态 → 触发 → captureAnimationFrames / 截终态         | 关键帧差异 + 终态视觉                 |
+| **复杂布局** | SearchTestPage / FormTestPage / NavigationTestPage | 执行交互 → screenshot                                   | 复杂组合界面是否达到预期视觉结果       |
+
+### 7.4 hybrid — functional + visual 联合验证
+
+**目标：** 同一场景既要验证 functional 的节点 / 状态变化，也要验证 visual 的截图结论。
+
+**适用场景：** 例如交互先驱动状态切换，再通过截图确认复杂视觉呈现；当前仓库可通过成对的 functional / visual spec 协同覆盖，必要时再沉淀为独立 hybrid spec。
 
 ---
 
@@ -801,7 +803,7 @@ const opacity = await kuiklyPage.getComputedStyles(el, ['opacity']);
 expect(opacity.opacity).toBe('1');
 ```
 
-> **规则：** L2 动画测试默认使用首选策略；在 CI 环境中（`process.env.CI === 'true'`）自动降级到备选策略以提升稳定性。
+> **规则：** visual / hybrid 动画测试默认使用首选策略；在 CI 环境中（`process.env.CI === 'true'`）自动降级到备选策略以提升稳定性。
 
 ### 8.3 用例示例
 
@@ -996,13 +998,14 @@ web-e2e/scripts/kuikly-test.mjs
 # 完整流程：构建 → 插桩 → 启动插桩服务器 → 测试 → 覆盖率 → 阈值检查
 node web-e2e/scripts/kuikly-test.mjs --full
 
-# 仅运行指定级别用例
-node web-e2e/scripts/kuikly-test.mjs --level L0
-node web-e2e/scripts/kuikly-test.mjs --level L1
-node web-e2e/scripts/kuikly-test.mjs --level L2
+# 仅运行指定级别用例（旧兼容入口）
+node web-e2e/scripts/kuikly-test.mjs --level static
+node web-e2e/scripts/kuikly-test.mjs --level functional
+node web-e2e/scripts/kuikly-test.mjs --level visual
+node web-e2e/scripts/kuikly-test.mjs --level hybrid
 
 # 运行指定用例文件
-node web-e2e/scripts/kuikly-test.mjs --test tests/L0-static/components/krimage.spec.ts
+node web-e2e/scripts/kuikly-test.mjs --test tests/static/components/krimage-static.spec.ts
 
 # 更新截图基准
 node web-e2e/scripts/kuikly-test.mjs --update-snapshots
@@ -1014,7 +1017,10 @@ node web-e2e/scripts/kuikly-test.mjs --coverage-only
 node web-e2e/scripts/kuikly-test.mjs --instrument
 
 # 跳过构建（使用已有产物）
-node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
+node web-e2e/scripts/kuikly-test.mjs --skip-build --level static
+
+# 仅查看阶段2 level 解析结果，不真正执行
+node web-e2e/scripts/kuikly-test.mjs --level static --dry-run --print-resolved-targets
 ```
 
 ### 11.4 执行流程
@@ -1147,11 +1153,11 @@ node web-e2e/scripts/kuikly-test.mjs --skip-build --level L0
 
 | 触发条件                             | 执行级别   | 说明                        |
 | ------------------------------------ | ---------- | --------------------------- |
-| `core-render-web/**` 变更            | L0 + L1 + L2 | 渲染层改动，全量回归              |
-| `h5App/**` 变更                      | L0 + L1    | 宿主层改动，基础回归              |
-| `compose/**` 变更                    | L0 + L1    | 框架层改动，渲染组件回归          |
-| `demo/**/web_test/**` 变更           | L0 + L1 + L2 | 测试页面改动，全量回归          |
-| 定时触发（每日/每周）                 | L0 + L1 + L2 | 全量回归                       |
+| `core-render-web/**` 变更            | static + functional + visual | 渲染层改动，全量回归              |
+| `h5App/**` 变更                      | static + functional          | 宿主层改动，基础回归              |
+| `compose/**` 变更                    | static + functional          | 框架层改动，渲染组件回归          |
+| `demo/**/web_test/**` 变更           | static + functional + visual | 测试页面改动，全量回归            |
+| 定时触发（每日/每周）                 | static + functional + visual | 全量回归                         |
 
 ### 13.2 蓝盾 Pipeline 配置要点
 
@@ -1362,7 +1368,7 @@ CLI 闭环入口
 - [x] 创建 `web-e2e/` 目录结构
 - [x] 初始化 `package.json`、`playwright.config.js`、`tsconfig.json`
 - [x] 实现 `KuiklyPage` Fixture 核心方法（goto, waitForRenderComplete, component）
-- [x] 编写 1 个 L0 冒烟测试验证流程打通
+- [x] 编写 1 个 static 冒烟测试验证流程打通
 - [x] 额外完成：创建本地测试服务器（当前主入口为 `web-e2e/scripts/serve.js`）
 - [x] 额外完成：编写快速启动指南（`web-e2e/QUICKSTART.md`）
 
@@ -1372,34 +1378,34 @@ CLI 闭环入口
 
 - [x] 在 `demo/src/commonMain/.../pages/` 下创建 `web_test/` 目录结构
 - [x] 清理现有对非 `web_test` 页面（普通 Demo 页面/示例页/业务页）的 E2E 依赖；完整性以 `node kuikly-web-autotest/scripts/scan-web-test-pages.mjs` 的扫描结果为准，当前扫描结论为无缺口
-- [x] 生成 L0 静态渲染测试页面（components/ + styles/）
-- [x] **AI Review L0 测试页面**：对照实际组件源码核查 API，自动修正问题
-- [x] 生成 L1 简单交互测试页面（interactions/click, input, modal）
-- [x] **AI Review L1 测试页面**：核查交互组件 API 正确性，自动修正
-- [x] 生成 L2 复杂交互测试页面（interactions/list-scroll, gesture, navigation）
+- [x] 生成 static 承载测试页面（components/ + styles/）
+- [x] **AI Review static 测试页面**：对照实际组件源码核查 API，自动修正问题
+- [x] 生成 functional 承载测试页面（interactions/click, input, modal）
+- [x] **AI Review functional 测试页面**：核查交互组件 API 正确性，自动修正
+- [x] 生成 visual 承载测试页面（interactions/list-scroll, gesture, navigation）
 - [x] 生成动画测试页面（animations/）
 - [x] 生成组合场景测试页面（composite/）
-- [x] **AI Review L2/动画/组合场景测试页面**，自动修正问题（补全 JSFrameAnimTestPage、PropertyAnimTestPage 空文件；创建 composite/SearchTestPage、composite/FormTestPage）
+- [x] **AI Review visual / 动画 / 组合场景测试页面**，自动修正问题（补全 JSFrameAnimTestPage、PropertyAnimTestPage 空文件；创建 composite/SearchTestPage、composite/FormTestPage）
 - [x] 注册所有测试页面路由（通过 @Page 注解自动注册）
 
-### Phase 3：L0 静态用例集 ✅ **已完成**
+### Phase 3：static 确定性断言用例集 ✅ **已完成**
 
-- [x] 为 L0 测试页面生成并持续扩展对应的 E2E 测试用例；实际 spec 清单以 `web-e2e/tests/L0-static/` 当前目录为准
-- [x] 完成全部 CSS 样式的 L0 截图测试（border / gradient / opacity / overflow / shadow / transform）
+- [x] 为 static 场景生成并持续扩展对应的 E2E 用例；实际 spec 清单以 `web-e2e/tests/static/` 当前目录为准
+- [x] 完成全部 CSS 样式与静态属性的确定性 / 视觉拆分（border / gradient / opacity / overflow / shadow / transform）
 - [x] 截图基准已建立并持续随用例扩展维护；具体 test 数不在本文档中固定维护
 
-### Phase 4：L1/L2 交互用例集 ✅ **已完成**
+### Phase 4：functional / visual / hybrid 语义用例集 ✅ **已完成**
 
 - [x] 实现 KuiklyPage Fixture 的滚动/手势方法（`scrollInContainer`、`swipeInContainer` 已在 Phase 1 实现）
-- [x] 基础 L1 用例（click / input / modal 起始集）已完成，并已扩展出 modules、button-events、window-resize 与 managed auto spec；实际规模以 `web-e2e/tests/L1-simple/` 当前目录为准
-- [x] 基础 L2 用例（listscroll / gesture / navigation 起始集）已完成；实际非动画 spec 清单以 `web-e2e/tests/L2-complex/` 当前目录为准
-- [x] composite 组合场景仍由 `search.spec.ts` 与 `form.spec.ts` 覆盖；具体 test 数以当前文件内容为准
+- [x] functional 起始集（click / input / modal / modules / button-events / window-resize）已完成；实际规模以 `web-e2e/tests/functional/` 当前目录为准
+- [x] visual 起始集（复杂视觉、视觉回归、动画终态截图）已完成；实际规模以 `web-e2e/tests/visual/` 当前目录为准
+- [x] legacy mixed spec 已按断言意图拆分；hybrid 场景由成对 functional / visual 用例共同覆盖，必要时可继续沉淀独立 hybrid spec
 
-### Phase 5：动画测试 ✅ **已完成**
+### Phase 5：动画与复合场景语义拆分 ✅ **已完成**
 
 - [x] 实现 `captureAnimationFrames`、`waitForAnimationEnd` 等动画辅助方法（已在 Phase 1 实现）
 - [x] 补全 `countFrameDiffs`、`framesDiffer` 帧差异对比辅助方法（`kuikly-page.ts`）
-- [x] `animations/` 目录同时包含 hand-written spec 与 managed auto spec；实际文件清单以 `web-e2e/tests/L2-complex/animations/` 当前目录为准
+- [x] `functional/animations/` 与 `visual/animations/` 已承载 hand-written 与 managed auto spec 的语义拆分结果
 - [x] 已覆盖 CSS Transition、KR 属性动画、JS 帧动画与 PAG 页面基础交互；各 spec 的具体 test 数以当前文件内容为准，如后续补充更深的 PAG SDK 行为验证，可继续在此阶段增量扩展
 
 ### Phase 6：覆盖率与 CLI ✅ **已完成**
@@ -1411,7 +1417,7 @@ CLI 闭环入口
 - [x] 统一覆盖率方案口径：以 NYC 官方 Kotlin 文件覆盖率结果作为唯一门禁与对外展示结果
 - [x] 实现 `kuikly-test.mjs` CLI 脚本（支持 `--full / --level / --instrument / --coverage-only` 等参数，并作为本地一键闭环标准入口）
 - [x] 补充 `package.json` 脚本（`instrument` / `instrument:with-native` / `coverage` / `coverage:check` / `serve:instrumented` / `kuikly-test`，其中 `instrument:with-native` 与 `serve:instrumented` 为调试辅助脚本）
-- [x] 修正 `package.json` 中 `test:L1` 路径（`L1-interaction` → `L1-simple`）
+- [x] 同步 `package.json` 语义脚本入口（`test:static / test:functional / test:visual / test:hybrid / test:smoke / test:modules`）
 
 ### Phase 7：CI/CD 与 Skill（收口中）
 

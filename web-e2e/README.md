@@ -8,9 +8,9 @@
 |------|------|------|
 | Phase 1 | 基础设施（KuiklyPage Fixture、本地服务器） | ✅ 完成 |
 | Phase 2 | web-test 专用测试页面（当前实现以仓库中的页面清单为准） | ✅ 完成 |
-| Phase 3 | L0 静态用例（截图基准已生成，数量以当前测试目录为准） | ✅ 完成 |
-| Phase 4 | L1/L2 交互用例（数量以当前测试目录为准） | ✅ 完成 |
-| Phase 5 | 动画测试（含 PAG 页面基础交互，数量以当前测试目录为准） | ✅ 完成 |
+| Phase 3 | static 确定性断言用例（数量以当前测试目录为准） | ✅ 完成 |
+| Phase 4 | functional / visual 语义用例（数量以当前测试目录为准） | ✅ 完成 |
+| Phase 5 | 动画与复合场景语义拆分（数量以当前测试目录为准） | ✅ 完成 |
 | Phase 6 | 覆盖率 + CLI 统一入口 | ✅ 完成 |
 
 **说明：** 页面数和用例数会随测试面扩展持续变化，README 不再维护易漂移的固定统计值，实际规模以 `demo/.../web_test/` 和 `web-e2e/tests/` 当前内容为准。
@@ -38,10 +38,11 @@ node scripts/kuikly-test.mjs --full
 # 仅在本地调试单轮用例时，可直接运行 Playwright（不生成正式覆盖率报告）
 npm test
 
-# 运行指定级别
-npm run test:L0    # L0 静态渲染
-npm run test:L1    # L1 简单交互
-npm run test:L2    # L2 复杂交互 + 动画
+# 运行指定语义分组
+npm run test:static      # static：确定性断言
+npm run test:functional  # functional：交互触发的状态变化
+npm run test:visual      # visual：截图结论
+npm run test:hybrid      # hybrid：同时覆盖 functional + visual 的组合场景
 ```
 
 ---
@@ -55,9 +56,9 @@ web-e2e/
 │   ├── test-base.ts            # 扩展 test 对象（注入 kuiklyPage fixture）
 │   └── coverage.ts             # 覆盖率收集工具
 ├── tests/
-│   ├── L0-static/              # L0：静态渲染截图对比（含 components / styles / smoke）
-│   ├── L1-simple/              # L1：简单交互、modules 与部分 managed auto spec
-│   └── L2-complex/             # L2：复杂交互、composite、animations 与部分 managed auto spec
+│   ├── static/                 # static：确定性断言（components / styles / smoke 等）
+│   ├── functional/             # functional：交互触发的节点 / 属性 / 状态变化
+│   └── visual/                 # visual：依赖截图结论的视觉回归与动画终态验证
 ├── scripts/
 │   ├── kuikly-test.mjs         # CLI 统一入口
 │   ├── serve.js                # 普通测试服务器（port 8080）
@@ -73,27 +74,34 @@ web-e2e/
 
 ## 🧪 测试级别
 
-### L0 — 静态渲染
-验证组件和样式的首屏渲染结果，纯截图对比，无交互操作。
+### static — 确定性断言
+验证纯逻辑、数据结果、静态属性、确定性文本输出等不依赖截图结论的内容。
 
 ```bash
-npm run test:L0
+npm run test:static
 # 或只跑冒烟
 npm run test:smoke
 ```
 
-### L1 — 简单交互
-验证点击、文本输入、弹窗等基础交互后的视觉变化。
+### functional — 交互状态变化
+验证点击、输入、弹窗、滚动、路由等交互触发后的节点 / 属性 / 状态变化。
 
 ```bash
-npm run test:L1
+npm run test:functional
 ```
 
-### L2 — 复杂交互 + 动画
-验证列表滚动、手势、页面跳转、CSS Transition、属性动画、JS 帧动画等。
+### visual — 截图结论
+验证必须依赖截图判断的复杂视觉结果，包括视觉回归与动画终态截图。
 
 ```bash
-npm run test:L2
+npm run test:visual
+```
+
+### hybrid — 组合断言
+运行同时需要 functional 节点验证和 visual 截图验证的组合场景。
+
+```bash
+npm run test:hybrid
 ```
 
 ---
@@ -113,12 +121,12 @@ test.describe('KRListView 列表滚动测试', () => {
     await kuiklyPage.goto('ListScrollTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    // L0：初始截图
+    // visual：初始截图
     await expect(kuiklyPage.page).toHaveScreenshot('list-initial.png', {
       maxDiffPixels: 100,
     });
 
-    // L2：滚动操作
+    // functional：滚动操作
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 300 });
     await kuiklyPage.waitForRenderComplete();
@@ -134,12 +142,16 @@ test.describe('KRListView 列表滚动测试', () => {
 
 | 文件位置 | 导入路径 |
 |----------|----------|
-| `tests/L0-static/smoke.spec.ts` | `'../../fixtures/test-base'` |
-| `tests/L0-static/components/*.spec.ts` | `'../../../fixtures/test-base'` |
-| `tests/L0-static/styles/*.spec.ts` | `'../../../fixtures/test-base'` |
-| `tests/L1-simple/*.spec.ts` | `'../../fixtures/test-base'` |
-| `tests/L2-complex/*.spec.ts` | `'../../fixtures/test-base'` |
-| `tests/L2-complex/animations/*.spec.ts` | `'../../../fixtures/test-base'` |
+| `tests/static/smoke-static.spec.ts` | `'../../fixtures/test-base'` |
+| `tests/static/components/*.spec.ts` | `'../../../fixtures/test-base'` |
+| `tests/static/styles/*.spec.ts` | `'../../../fixtures/test-base'` |
+| `tests/functional/*.spec.ts` | `'../../fixtures/test-base'` |
+| `tests/functional/modules/*.spec.ts` | `'../../../fixtures/test-base'` |
+| `tests/functional/animations/*.spec.ts` | `'../../../fixtures/test-base'` |
+| `tests/visual/*.spec.ts` | `'../../fixtures/test-base'` |
+| `tests/visual/components/*.spec.ts` | `'../../../fixtures/test-base'` |
+| `tests/visual/styles/*.spec.ts` | `'../../../fixtures/test-base'` |
+| `tests/visual/animations/*.spec.ts` | `'../../../fixtures/test-base'` |
 
 ---
 
@@ -223,13 +235,13 @@ npm run coverage:check
 
 ```bash
 # 本地调试单轮用例时，可跳过构建直接运行测试
-node scripts/kuikly-test.mjs --level L0 --skip-build
+node scripts/kuikly-test.mjs --level static --skip-build
 
 # 全流程：构建 → 插桩 → 自动启动插桩服务器 → 测试 → NYC 官方 Kotlin 文件覆盖率报告 → 阈值检查
 node scripts/kuikly-test.mjs --full
 
 # 其他选项
---level L0|L1|L2        只运行指定级别
+--level static|functional|visual|hybrid  只运行指定语义分组
 --test <file>           只运行指定文件
 --update-snapshots      更新截图基准
 --coverage-only         仅生成 NYC 官方 Kotlin 文件覆盖率报告（基于已有 .nyc_output）
@@ -280,7 +292,7 @@ npm run test:update-snapshots
 
 **Q: 如何只运行单个测试文件？**
 ```bash
-npx playwright test tests/L1-simple/click.spec.ts
+npx playwright test tests/functional/click-functional.spec.ts
 ```
 
 **Q: 如何以有界面模式调试？**

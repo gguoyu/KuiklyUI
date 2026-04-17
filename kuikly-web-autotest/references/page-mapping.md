@@ -20,10 +20,10 @@ Use this reference together with `scan-web-test-pages.mjs`. The script is the so
 
 ## Naming conventions already present
 
-- `L0` component specs are mostly `kr*.spec.ts`.
-- `L0` style specs use style names like `border.spec.ts`.
-- `L1-simple` specs include `click.spec.ts`, `input.spec.ts`, `modal.spec.ts`, and module-specific specs under `L1-simple/modules/`.
-- `L2-complex` specs include scenario specs plus branch-focused specs like `event-capture-branches.spec.ts` and `paging-list-branches.spec.ts`.
+- `static` specs use the `*-static.spec.ts` suffix for deterministic assertions, with component and style carriers grouped under `static/components/` and `static/styles/`.
+- `functional` specs use the `*-functional.spec.ts` suffix for interaction-triggered DOM/state changes, with module carriers grouped under `functional/modules/`.
+- `visual` specs use the `*-visual.spec.ts` suffix for screenshot-only conclusions, including visual regression companions under semantic subdirectories such as `visual/components/`, `visual/styles/`, and `visual/animations/`.
+- Split scenarios may produce sibling `*-static.spec.ts`, `*-functional.spec.ts`, and `*-visual.spec.ts` files for the same page when one legacy spec covered multiple assertion intents.
 
 ## Interpreting scan results
 

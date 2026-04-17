@@ -38,10 +38,11 @@ node scripts/kuikly-test.mjs --full
 npm run test:smoke
 npm test
 
-# 指定级别
-npm run test:L0    # L0 静态渲染截图
-npm run test:L1    # L1 简单交互
-npm run test:L2    # L2 复杂交互 + 动画
+# 指定语义分组
+npm run test:static      # static：确定性断言
+npm run test:functional  # functional：交互触发的状态变化
+npm run test:visual      # visual：截图结论
+npm run test:hybrid      # hybrid：组合场景
 ```
 
 看到 `X passed` 即说明环境正常。
@@ -64,13 +65,13 @@ npx playwright show-report reports/html
 
 ```bash
 # 有界面运行，可以看到浏览器操作过程
-npx playwright test tests/L1-simple/click.spec.ts --headed
+npx playwright test tests/functional/click-functional.spec.ts --headed
 
 # Playwright UI 模式（推荐，可单步执行、时间旅行）
 npm run test:ui
 
 # 单步调试
-npx playwright test tests/L1-simple/click.spec.ts --debug
+npx playwright test tests/functional/click-functional.spec.ts --debug
 ```
 
 ### 截图基准管理
@@ -82,7 +83,7 @@ npx playwright test tests/L1-simple/click.spec.ts --debug
 npx playwright test --update-snapshots
 
 # 只更新某个文件的基准
-npx playwright test tests/L0-static/components/krview.spec.ts --update-snapshots
+npx playwright test tests/static/components/krview-static.spec.ts --update-snapshots
 ```
 
 > ⚠️ 更新基准前务必肉眼确认截图变化符合预期，再 commit。
@@ -133,8 +134,8 @@ npm run coverage:check
 ### 使用 CLI 统一入口
 
 ```bash
-# 本地调试单轮用例时，可跳过构建只跑 L1 测试
-node scripts/kuikly-test.mjs --level L1 --skip-build
+# 本地调试单轮用例时，可跳过构建只跑 functional 测试
+node scripts/kuikly-test.mjs --level functional --skip-build
 
 # 全流程：构建 → 插桩 → 自动启动插桩服务器 → 测试 → NYC 官方 Kotlin 文件覆盖率报告 → 阈值检查
 node scripts/kuikly-test.mjs --full
