@@ -1,6 +1,6 @@
 ﻿---
 name: kuikly-web-autotest
-description: Run and maintain the KuiklyUI web automated test closed loop. Use when Codex needs to execute web-e2e end-to-end tests, collect and check NYC Kotlin coverage, inspect failing cases, detect missing web_test page coverage, identify low-coverage Kotlin files, decide whether a failure is a test issue or a product issue, and drive the repo toward the AUTOTEST.md workflow with minimal manual intervention.
+description: Run and maintain the KuiklyUI web automated test closed loop. Use when Codex needs to execute web-e2e end-to-end tests, collect and check Kotlin coverage, inspect failing cases, detect missing web_test page coverage, identify low-coverage Kotlin files, decide whether a failure is a test issue or a product issue, and drive the repo toward the AUTOTEST.md workflow with minimal manual intervention.
 ---
 
 # Kuikly Web Autotest
@@ -9,7 +9,7 @@ Use this skill from the repository root.
 
 ## Core rule
 
-Treat `web-e2e/scripts/kuikly-test.mjs --full` as the canonical execution entrypoint for the current repo. Do not recreate the build, instrumentation, server, Playwright, and coverage pipeline manually unless you are debugging the pipeline itself.
+Treat `web-e2e/scripts/kuikly-test.mjs --full` as the canonical execution entrypoint for the current repo. Do not recreate the build, test server, Playwright, and V8 coverage pipeline manually unless you are debugging the pipeline itself.
 
 ## Apply Patch Constraints
 

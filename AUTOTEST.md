@@ -64,8 +64,8 @@
 ├───────────────────────────────────────────────────┤
 │                  CLI Layer                         │
 │   kuikly-test.mjs                                 │
-│   编排: gradle构建 → 启动插桩服务器 → 执行测试       │
-│         → 收集覆盖率 → 生成 Monocart Kotlin 覆盖率报告 │
+│   编排: gradle构建 → 启动测试服务器 → 执行测试       │
+│         → 收集 V8 coverage → 生成 Monocart Kotlin 覆盖率报告 │
 ├───────────────────────────────────────────────────┤
 │            Test Framework Layer                    │
 │   Playwright + @playwright/test                   │
@@ -994,7 +994,7 @@ module.exports = defineConfig({
 
 ### 11.1 设计目标
 
-CLI 必须满足“本地一键运行”原则：开发者执行一条命令后，由脚本自行完成构建、插桩、启动插桩服务器、执行 Playwright、收集覆盖率、生成 Monocart Kotlin 覆盖率报告并执行 NYC 阈值检查，不要求用户手动再开第二个终端，也不依赖人工确认中间步骤。
+CLI 必须满足“本地一键运行”原则：开发者执行一条命令后，由脚本自行完成构建、启动测试服务器、执行 Playwright、收集 V8 coverage、生成 Monocart Kotlin 覆盖率报告并执行覆盖率阈值检查，不要求用户手动再开第二个终端，也不依赖人工确认中间步骤。
 
 ### 11.2 脚本位置
 
@@ -1005,7 +1005,7 @@ web-e2e/scripts/kuikly-test.mjs
 ### 11.3 命令接口
 
 ```bash
-# 完整流程：构建 → 插桩 → 启动插桩服务器 → 测试 → 覆盖率 → 阈值检查
+# 完整流程：构建 → 启动测试服务器 → 测试（V8 coverage）→ 覆盖率 → 阈值检查
 node web-e2e/scripts/kuikly-test.mjs --full
 
 # 仅运行指定级别用例（旧兼容入口）
@@ -1020,11 +1020,8 @@ node web-e2e/scripts/kuikly-test.mjs --test tests/static/components/krimage-stat
 # 更新截图基准
 node web-e2e/scripts/kuikly-test.mjs --update-snapshots
 
-# 仅生成 Monocart Kotlin 覆盖率报告
+# 基于已有 .v8_output 生成 Monocart Kotlin 覆盖率报告并执行阈值检查
 node web-e2e/scripts/kuikly-test.mjs --coverage-only
-
-# 仅执行插桩
-node web-e2e/scripts/kuikly-test.mjs --instrument
 
 # 跳过构建（使用已有产物）
 node web-e2e/scripts/kuikly-test.mjs --skip-build --level static
@@ -1068,7 +1065,7 @@ node web-e2e/scripts/kuikly-test.mjs --level static --dry-run --print-resolved-t
 └─────────────────────────┘
 ```
 
-> **说明：** CLI 编排应始终围绕“零手工介入”设计；如果需要插桩服务器，必须由 CLI 自行启动或可靠复用，而不是要求使用者手动准备环境。
+> **说明：** CLI 编排应始终围绕“零手工介入”设计；如果需要测试服务器，必须由 CLI 自行启动或可靠复用，而不是要求使用者手动准备环境。
 
 ---
 
@@ -1093,7 +1090,7 @@ node web-e2e/scripts/kuikly-test.mjs --level static --dry-run --print-resolved-t
 | `kotlin-modules/KuiklyUI-h5App.js` | compileSync Kotlin modules | 宿主侧 Kotlin/JS 模块 | ⭐ 必须 |
 | `nativevue2.js` | demo 编译产物 | 仅含测试页面业务代码，不纳入正式 Kotlin 覆盖率门禁 | 否 |
 
-> **注意：** 正式门禁依赖的是 compileSync Kotlin modules 及其 `.map`，而不是对 bundle 做额外插桩。
+> **注意：** 正式门禁依赖的是 compileSync Kotlin modules 及其 `.map`，不需要额外的中间覆盖率产物。
 
 ### 12.3 覆盖率配置
 
@@ -1203,11 +1200,11 @@ stages:
 
   - name: "质量门禁"
     steps:
-      - 以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + NYC 阈值检查）执行阈值检查
+      - 以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + 阈值检查）执行阈值检查
       - 截图对比失败数 == 0
 ```
 
-> **要求：** CI 应尽量复用与本地一致的 CLI 一键入口，避免再在流水线中拆分出与本地行为不一致的“构建/插桩/启动插桩服务器/测试”手工步骤，防止本地与 CI 两套流程逐步漂移。
+> **要求：** CI 应尽量复用与本地一致的 CLI 一键入口，避免再在流水线中拆分出与本地行为不一致的“构建/启动测试服务器/测试”手工步骤，防止本地与 CI 两套流程逐步漂移。
 
 ### 13.3 截图基准管理
 
@@ -1234,7 +1231,7 @@ stages:
 | **一键运行**     | 通过 `kuikly-web-autotest/SKILL.md` 驱动闭环入口 `node kuikly-web-autotest/scripts/run-autotest-loop.mjs` |
 | **编写指导**     | 以 `kuikly-web-autotest/SKILL.md` 中的 workflow、decision rules、safe mutation scope 为准 |
 | **AI 自动生成**  | 由闭环执行器根据 completeness / coverage 自动生成或刷新 managed `auto-*.spec.ts` |
-| **覆盖率查看**   | 通过 `summarize-coverage.mjs` / `build-autotest-report.mjs` 查看 NYC Kotlin 覆盖率摘要 |
+| **覆盖率查看**   | 通过 `summarize-coverage.mjs` / `build-autotest-report.mjs` 查看 Kotlin 覆盖率摘要 |
 
 #### 推荐触发 Prompt（可直接复制）
 
@@ -1293,9 +1290,8 @@ CLI 闭环入口
       ↓
   CLI 内部编排
     - build（可 skip）
-    - instrument
-    - start instrumented server
-    - Playwright 执行
+    - start test server
+    - Playwright 执行（采集 V8 coverage）
     - generate coverage report
     - check coverage thresholds
       ↓
@@ -1346,7 +1342,7 @@ CLI 闭环入口
 **与旧参考图的关键差异：**
 
 - 当前实际入口是 `run-autotest-loop.mjs`，而不是直接从 Skill 调 `kuikly-test.mjs` 后由人工决定下一步。
-- `CLI` 之后不是只接 `Playwright`；真实链路还包含 build、instrument、instrumented server、coverage report 与 threshold check。
+- `CLI` 之后不是只接 `Playwright`；真实链路还包含 build、test server、coverage report 与 threshold check。
 - “用例结果”和“覆盖率”之间确实仍然是串联关系，但两者外侧各自都有自动修复和多轮重试逻辑，不是单轮判断。
 - “是否需要人工决策”在当前实现里不是一个单独前置菱形，而是散落在多个阻断点：completeness gap、handwritten repair 验证失败、product issue、carrier-page blocker、轮次耗尽。
 - 当前结束态以 `web-e2e/reports/autotest/loop-report.json` 的 `finalStatus`、`warnings`、`actions` 为准，而不是只看某一次 Playwright 执行结果。
@@ -1492,7 +1488,7 @@ npm run test:update-snapshots
 - [x] **渲染层改动位置**：在 `createRenderViewHandler` 中注入 `data-kuikly-component`，已在 Phase 1 实现；复用路径无需额外处理（已确认）
 - [x] **测试页面路由**：使用格式 `http://localhost:8080?page_name=TestPageName`（已确认）
 - [x] **静态服务器端口**：使用 8080 端口，已在 `playwright.config.js` 的 `webServer` 中配置并固定，用于 Playwright 本地调试路径（已确认）
-- [x] **覆盖率阈值与口径**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%；覆盖率结果统一以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + NYC 阈值检查）为准；webpack UMD 包装分支通过在插桩前注入 `/* istanbul ignore next */` 排除，不影响阈值（已确认）
+- [x] **覆盖率阈值与口径**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%；覆盖率结果统一以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + 阈值检查）为准（已确认）
 - [x] **截图基准更新策略**：Chrome 参数 + 内嵌 Web Font 方案（方案 F）— 开发者本地运行 `npm run setup`（下载字体）后执行 `npm run test:update-snapshots` 生成截图，跨平台差异通过技术手段消除，无需 Docker，review 后 git commit（已落地）
 - [x] **浏览器范围**：当前及近期仅配置 Chromium，暂不扩展 WebKit/Firefox（已确认）
 - [x] **Skill 优先级**：Skill 在 Phase 7 实施即可（已确认）
