@@ -345,6 +345,13 @@ web-e2e/
 ```
 
 > **当前目录规则：** 仓库目录与命名统一按断言意图使用 `static / functional / visual / hybrid`。截图基准继续使用 Playwright 默认的同级 `*.spec.ts-snapshots/` 方案；当某个场景同时需要 functional + visual 结论时，可由成对 spec 共同覆盖，必要时再单独落到 `tests/hybrid/`。
+>
+> **分类映射维护规则：** 日常新增 hand-written spec 时，只要按语义目录和命名规则落到 `web-e2e/tests/` 下，通常**不需要**修改 `web-e2e/scripts/lib/classification-policy.mjs`。只有以下场景需要同步维护该文件：
+> 1. 调整 `--level static|functional|visual|hybrid` 的解析目标；
+> 2. 新增或调整 managed spec 的页面分类映射（`CATEGORY_TARGET_SEGMENTS` / `MANAGED_TARGET_CLASSIFICATION`）；
+> 3. 需要把新的成对 spec 纳入 `--level hybrid` 聚合执行时，更新 `HYBRID_TARGETS`。
+>
+> **用例创建约束：** 正式 E2E 用例必须以稳定、可重复的可观察结果作为 oracle，如文本、DOM 节点、`data-kuikly-component`、属性、bounding box 或截图结论。禁止依赖运行时产物、构建产物、混淆后的导出名、内部方法名或临时注入对象作为断言依据。
 
 ---
 

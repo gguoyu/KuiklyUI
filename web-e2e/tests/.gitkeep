@@ -1,5 +1,0 @@
-# Tests directory
-# Test files will be organized into:
-# - L0-static/      Static rendering tests
-# - L1-interaction/ Basic interaction tests  
-# - L2-complex/     Complex interaction tests

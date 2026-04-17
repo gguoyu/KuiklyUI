@@ -75,6 +75,15 @@ Automatic mutation scope:
 - execute multiple full rounds, re-reading failure analysis and coverage after each round, and keep applying safe managed-spec repairs until the round budget is exhausted or the suite converges
 - do not rewrite handwritten non-managed specs outside those narrow safe rules unless a future deterministic repair rule is added
 
+### Semantic spec guardrails
+
+- Keep new or repaired specs aligned with semantic assertion intent: `tests/static` for deterministic non-screenshot assertions, `tests/functional` for interaction-driven node / attribute / state changes, and `tests/visual` for screenshot-judged visual outcomes.
+- Treat `hybrid` as paired functional + visual coverage for the same scenario; do not collapse ordinary single-intent specs into `hybrid`.
+- Most newly added handwritten specs do **not** require changes to `web-e2e/scripts/lib/classification-policy.mjs`; placing the file under the correct semantic directory is enough.
+- Update `web-e2e/scripts/lib/classification-policy.mjs` only when CLI `--level static|functional|visual|hybrid` routing changes, when managed page-category routing changes (`CATEGORY_TARGET_SEGMENTS` / `MANAGED_TARGET_CLASSIFICATION`), or when a new paired scenario must be added to `HYBRID_TARGETS`.
+- Use stable, repeatable observable results as test oracles, such as text, DOM nodes, `data-kuikly-component`, stable attributes, bounding boxes, and screenshots.
+- Do not use runtime artifacts, build artifacts, obfuscated export names, internal method names, or temporary injected objects as assertions or generated-oracle inputs.
+
 2. Scan page and spec completeness directly when you need detailed raw data.
 
 ```bash

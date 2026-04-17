@@ -25,6 +25,13 @@ Use this reference together with `scan-web-test-pages.mjs`. The script is the so
 - `visual` specs use the `*-visual.spec.ts` suffix for screenshot-only conclusions, including visual regression companions under semantic subdirectories such as `visual/components/`, `visual/styles/`, and `visual/animations/`.
 - Split scenarios may produce sibling `*-static.spec.ts`, `*-functional.spec.ts`, and `*-visual.spec.ts` files for the same page when one legacy spec covered multiple assertion intents.
 
+## When to update classification-policy.mjs
+
+- Most newly added handwritten specs do **not** require changes to `web-e2e/scripts/lib/classification-policy.mjs`; placing the file under the correct semantic directory is enough.
+- Update `CATEGORY_TARGET_SEGMENTS` and `MANAGED_TARGET_CLASSIFICATION` when a managed `web_test` page category gains a new semantic target or changes its default placement.
+- Update `HYBRID_TARGETS` when a new paired functional / visual scenario should be included in `--level hybrid` runs.
+- Update `TARGET_LEVEL_TARGETS` only when CLI `--level` routing itself changes.
+
 ## Interpreting scan results
 
 - `missingSpecs`: page exists under `web_test`, but no spec targets it.

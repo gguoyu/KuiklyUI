@@ -110,6 +110,8 @@ npm run test:hybrid
 
 编写或改造用例前，先确认目标页面位于 `demo/.../pages/web_test/`。如果当前 spec 仍跳转到普通 Demo 页面，应先迁移到已有 `web_test` 页面；若没有对应页面，则先补一个新的 `web_test` 页面。
 
+正式 E2E 用例必须使用稳定、可重复的可观察结果作为断言依据，例如文本、DOM 节点、`data-kuikly-component`、属性、bounding box 或截图结论。禁止依赖运行时产物、构建产物、混淆后的导出名、内部方法名或临时注入对象作为测试 oracle。
+
 所有用例通过 `KuiklyPage` Fixture 操作页面：
 
 ```typescript
@@ -137,6 +139,16 @@ test.describe('KRListView 列表滚动测试', () => {
   });
 });
 ```
+
+### classification-policy.mjs 维护规则
+
+大多数新增的 hand-written spec **不需要**修改 `scripts/lib/classification-policy.mjs`：只要文件已经按语义放入 `tests/static/`、`tests/functional/` 或 `tests/visual/`，CLI 就会按目录执行。
+
+只有以下场景需要同步维护该文件：
+
+- 调整 `--level static|functional|visual|hybrid` 的解析目标
+- 新增或修改 managed spec 的页面分类映射（`CATEGORY_TARGET_SEGMENTS` / `MANAGED_TARGET_CLASSIFICATION`）
+- 需要把新的 functional / visual 成对 spec 纳入 `--level hybrid` 聚合执行时，更新 `HYBRID_TARGETS`
 
 ### 导入路径规则
 
@@ -306,8 +318,9 @@ npm run test:debug    # 单步调试模式
 
 1. 在 `demo/.../pages/web_test/` 中创建 Kotlin 测试页面
 2. 确认后续 spec 只指向该 `web_test` 页面，不要直接复用普通 Demo 页面
-3. 如需 AI 闭环补测/补 coverage，可运行 `node ../kuikly-web-autotest/scripts/run-autotest-loop.mjs`（当前位于 `web-e2e/` 目录时）
-4. 运行 `npx playwright test --update-snapshots` 生成或更新截图基准
+3. 新增普通 hand-written spec 时，按语义放入 `tests/static/`、`tests/functional/` 或 `tests/visual/` 即可；只有调整 managed 分类路由或 hybrid 聚合范围时，才需要同步更新 `scripts/lib/classification-policy.mjs`
+4. 如需 AI 闭环补测/补 coverage，可运行 `node ../kuikly-web-autotest/scripts/run-autotest-loop.mjs`（当前位于 `web-e2e/` 目录时）
+5. 运行 `npx playwright test --update-snapshots` 生成或更新截图基准
 
 ---
 
