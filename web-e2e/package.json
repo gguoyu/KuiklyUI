@@ -26,6 +26,7 @@
     "instrument:with-native": "node scripts/instrument.mjs --with-native",
     "coverage": "node scripts/coverage-report.mjs",
     "coverage:check": "node scripts/coverage-report.mjs --check",
+    "coverage:js-no-sourcemap": "node scripts/coverage-js-no-sourcemap-report.mjs",
     "kuikly-test": "node scripts/kuikly-test.mjs"
   },
   "keywords": [
