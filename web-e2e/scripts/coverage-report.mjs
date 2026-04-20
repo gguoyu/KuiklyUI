@@ -271,7 +271,12 @@ function isClassSignatureLine(lineText) {
 
 function isPrimaryConstructorPropertyLine(lineText) {
   const trimmed = lineText.trim();
-  return isClassSignatureLine(trimmed) && /\b(?:val|var)\b/u.test(trimmed);
+  return propertyDeclarationLinePattern.test(trimmed) && !/\bfun\b/u.test(trimmed);
+}
+
+function isRuntimeInitializedPrimaryConstructorPropertyLine(lineText) {
+  const trimmed = lineText.trim();
+  return isPrimaryConstructorPropertyLine(trimmed) && hasPropertyInitializer(trimmed);
 }
 
 function isPropertyAccessorLine(lineText) {
@@ -321,7 +326,7 @@ function isAnnotationLine(lineText) {
 
 function isPureClosingLine(lineText) {
   const trimmed = lineText.trim();
-  return !!trimmed && /^[)\]};,]+$/u.test(trimmed);
+  return !!trimmed && /^[)\]};,]+(?:\s*\{)?$/u.test(trimmed);
 }
 
 function isConstructorDelegationLine(lineText) {
@@ -368,7 +373,9 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
     }
 
     if (inClassHeader) {
-      neutralLines.add(lineNumber);
+      if (!isRuntimeInitializedPrimaryConstructorPropertyLine(trimmed)) {
+        neutralLines.add(lineNumber);
+      }
       if (trimmed.includes('{')) {
         inClassHeader = false;
       }
@@ -443,7 +450,8 @@ function isCoveredContinuationLine(sourceLines, lineNumber) {
     return true;
   }
 
-  return /(?:\(|\|\||&&|\?:|\.\s*|\?\.\s*|,|[+\-*/%]=?|=)\s*$/u.test(previousLine);
+  return /(?:\(|\|\||&&|\?:|\.\s*|\?\.\s*|,|[+\-*/%]=?|=)\s*$/u.test(previousLine)
+    || /\bwhen\s*\{\s*$/u.test(previousLine);
 }
 
 function getCoveredConstructorDelegationStartLines(fileCoverage, sourceLines) {
@@ -517,9 +525,24 @@ function rangeIncludesCoveredConstructorDelegation(range, coveredConstructorStar
   return getRangeLines(range).some((lineNumber) => coveredConstructorStartLines.has(lineNumber));
 }
 
-function applyCoveredContinuationCandidates(lineCoverage, continuationCandidates, sourceLines) {
+function applyCoveredContinuationCandidates(fileCoverage, lineCoverage, continuationCandidates, sourceLines) {
   for (const [lineNumber, count] of continuationCandidates.entries()) {
-    if (lineCoverage[lineNumber] == null && isCoveredContinuationLine(sourceLines, lineNumber)) {
+    if (!isCoveredContinuationLine(sourceLines, lineNumber)) {
+      continue;
+    }
+
+    const previousLineText = getLineText(sourceLines, lineNumber - 1).trim();
+    if (/\bwhen\s*\{\s*$/u.test(previousLineText) && !(Number(lineCoverage[lineNumber - 1]) > 0)) {
+      continue;
+    }
+
+    if (lineCoverage[lineNumber] == null) {
+      lineCoverage[lineNumber] = count;
+      continue;
+    }
+
+    const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+    if (lineCoverage[lineNumber] === 0 && (directStatementCount == null || directStatementCount === 0)) {
       lineCoverage[lineNumber] = count;
     }
   }
@@ -548,6 +571,38 @@ function applyConstructorInitializerFallback(fileCoverage, filePath, sourceLines
       }
     }
   }
+}
+
+function applyClassBodyRuntimePropertyFallback(fileCoverage, lineCoverage, filePath, sourceLines) {
+  sourceLines.forEach((lineText, index) => {
+    const lineNumber = index + 1;
+    if (isForceNeutralLine(filePath, sourceLines, lineNumber)) {
+      return;
+    }
+
+    if (!isRuntimeInitializedPropertyDeclaration(lineText)) {
+      return;
+    }
+
+    if (Number(lineCoverage[lineNumber]) > 0) {
+      return;
+    }
+
+    const overlappingCoveredCounts = Object.entries(fileCoverage.statementMap || {})
+      .filter(([, loc]) => {
+        const startLine = loc?.start?.line;
+        const endLine = loc?.end?.line;
+        return startLine && endLine && startLine <= lineNumber && lineNumber <= endLine;
+      })
+      .map(([statementId]) => Number(fileCoverage.s?.[statementId] || 0))
+      .filter((count) => count > 0);
+
+    if (!overlappingCoveredCounts.length) {
+      return;
+    }
+
+    lineCoverage[lineNumber] = Math.max(...overlappingCoveredCounts);
+  });
 }
 
 function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) {
@@ -584,10 +639,14 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
     });
   }
 
-  applyCoveredContinuationCandidates(lineCoverage, continuationCandidates, sourceLines);
+  applyCoveredContinuationCandidates(fileCoverage, lineCoverage, continuationCandidates, sourceLines);
   applyCoveredConstructorDelegationContinuations(lineCoverage, filePath, sourceLines, coveredConstructorStartLines);
   applyConstructorInitializerFallback(fileCoverage, filePath, sourceLines, lineCoverage);
+  applyClassBodyRuntimePropertyFallback(fileCoverage, lineCoverage, filePath, sourceLines);
+  propagateCoveredBranchBodyLines(fileCoverage, lineCoverage, filePath, sourceLines);
   applySimpleFunctionBodyFallback(lineCoverage, filePath, sourceLines, buildBranchLineStats(fileCoverage));
+  alignFunctionHeaderCoverageWithBody(fileCoverage, lineCoverage, filePath, sourceLines);
+  promoteCoveredBuilderWrapperLines(lineCoverage, filePath, sourceLines);
   suppressTerminalCatchNullCoverageNoise(lineCoverage, filePath, sourceLines);
   suppressWhenTryCatchFallbackReturnNoise(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressChainedTryFallbackReturnNoise(fileCoverage, lineCoverage, filePath, sourceLines);
@@ -870,6 +929,130 @@ function suppressChainedTryFallbackReturnNoise(fileCoverage, lineCoverage, fileP
   }
 }
 
+function propagateCoveredBranchBodyLines(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (const [branchId, branchCoverage] of Object.entries(fileCoverage.branchMap || {})) {
+    const branchCounts = Array.isArray(fileCoverage.b?.[branchId]) ? fileCoverage.b[branchId] : [];
+    const locations = Array.isArray(branchCoverage?.locations) ? branchCoverage.locations : [];
+    locations.forEach((location, index) => {
+      const count = Number(branchCounts[index] || 0);
+      if (count <= 0) {
+        return;
+      }
+
+      const executableLines = getExecutableLines(location, filePath, sourceLines);
+      if (executableLines.length !== 2) {
+        return;
+      }
+
+      const branchHeaderLine = location?.start?.line;
+      const bodyLine = executableLines.find((lineNumber) => lineNumber !== branchHeaderLine);
+      if (!bodyLine) {
+        return;
+      }
+
+      if (lineCoverage[bodyLine] == null || lineCoverage[bodyLine] === 0) {
+        lineCoverage[bodyLine] = count;
+      }
+    });
+  }
+}
+
+function findFunctionHeaderStartLine(sourceLines, startLine) {
+  const minLine = Math.max(1, startLine - 8);
+  for (let lineNumber = startLine; lineNumber >= minLine; lineNumber -= 1) {
+    const lineText = getLineText(sourceLines, lineNumber);
+    if (/\bfun\b/u.test(lineText)) {
+      return lineNumber;
+    }
+  }
+  return null;
+}
+
+function findFunctionSignatureEndLine(sourceLines, headerStartLine, openLineHint) {
+  const maxLine = Math.max(headerStartLine, openLineHint || headerStartLine);
+  for (let lineNumber = headerStartLine; lineNumber <= maxLine; lineNumber += 1) {
+    if (getLineText(sourceLines, lineNumber).includes('{')) {
+      return lineNumber;
+    }
+  }
+  return headerStartLine;
+}
+
+function alignFunctionHeaderCoverageWithBody(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+    const count = Number(fileCoverage.f?.[functionId] || 0);
+    const locStartLine = functionCoverage?.loc?.start?.line;
+    const locEndLine = functionCoverage?.loc?.end?.line;
+    if (!locStartLine || !locEndLine || locEndLine < locStartLine) {
+      continue;
+    }
+
+    const headerStartLine = findFunctionHeaderStartLine(sourceLines, locStartLine);
+    if (!headerStartLine) {
+      continue;
+    }
+
+    const signatureEndLine = findFunctionSignatureEndLine(sourceLines, headerStartLine, locStartLine);
+    const signatureLines = [];
+    for (let lineNumber = headerStartLine; lineNumber <= signatureEndLine; lineNumber += 1) {
+      if (!isForceNeutralLine(filePath, sourceLines, lineNumber)) {
+        signatureLines.push(lineNumber);
+      }
+    }
+    if (!signatureLines.length) {
+      continue;
+    }
+
+    const bodyLines = getExecutableLinesInRange(filePath, sourceLines, signatureEndLine + 1, locEndLine);
+    const coveredBodyCounts = bodyLines
+      .map((lineNumber) => lineCoverage[lineNumber])
+      .filter((lineValue) => Number(lineValue) > 0);
+
+    if (count > 0 && coveredBodyCounts.length) {
+      const fallbackCount = Math.max(count, ...coveredBodyCounts);
+      signatureLines.forEach((lineNumber) => {
+        if (!(Number(lineCoverage[lineNumber]) > 0)) {
+          lineCoverage[lineNumber] = fallbackCount;
+        }
+      });
+      continue;
+    }
+
+    if (count === 0 && !coveredBodyCounts.length) {
+      signatureLines.forEach((lineNumber) => {
+        lineCoverage[lineNumber] = 0;
+      });
+    }
+  }
+}
+
+function promoteCoveredBuilderWrapperLines(lineCoverage, filePath, sourceLines) {
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    if (Number(lineCoverage[lineNumber]) > 0 || isForceNeutralLine(filePath, sourceLines, lineNumber)) {
+      continue;
+    }
+
+    const lineText = getLineText(sourceLines, lineNumber).trim();
+    if (!/\.(?:apply|also|let|run)\s*\{\s*$/u.test(lineText)) {
+      continue;
+    }
+
+    const endLine = findBlockEndLine(sourceLines, lineNumber);
+    if (endLine <= lineNumber + 1) {
+      continue;
+    }
+
+    const coveredBodyCounts = getExecutableLinesInRange(filePath, sourceLines, lineNumber + 1, endLine - 1)
+      .map((candidate) => lineCoverage[candidate])
+      .filter((candidate) => Number(candidate) > 0);
+    if (!coveredBodyCounts.length) {
+      continue;
+    }
+
+    lineCoverage[lineNumber] = Math.max(...coveredBodyCounts);
+  }
+}
+
 function applySimpleFunctionBodyFallback(lineCoverage, filePath, sourceLines, branchStats) {
   for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
     const headerText = getLineText(sourceLines, lineNumber);
@@ -1054,8 +1237,12 @@ function shouldRemoveFunctionMapping(functionCoverage, count, sourceLines) {
 }
 
 function shouldRemoveStatementMapping(lineText, startLine, syntheticAccessorLines) {
-  if (isClassSignatureLine(lineText) || isPrimaryConstructorPropertyLine(lineText)) {
+  if (isClassSignatureLine(lineText)) {
     return true;
+  }
+
+  if (isPrimaryConstructorPropertyLine(lineText)) {
+    return !isRuntimeInitializedPrimaryConstructorPropertyLine(lineText);
   }
 
   return syntheticAccessorLines.has(startLine) && isNonRuntimePropertyDeclaration(lineText);
@@ -1067,8 +1254,12 @@ function shouldRemoveBranchMapping(lineText, lineNumber, branchCounts, synthetic
     return false;
   }
 
-  if (isClassSignatureLine(lineText) || isPrimaryConstructorPropertyLine(lineText)) {
+  if (isClassSignatureLine(lineText)) {
     return true;
+  }
+
+  if (isPrimaryConstructorPropertyLine(lineText)) {
+    return !isRuntimeInitializedPrimaryConstructorPropertyLine(lineText);
   }
 
   return syntheticAccessorLines.has(lineNumber) && isNonRuntimePropertyDeclaration(lineText);
