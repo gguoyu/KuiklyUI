@@ -33,7 +33,7 @@ const checkOnly = process.argv.includes('--check');
 const htmlSpaMetricsToShow = ['statements', 'lines', 'branches', 'functions'];
 const htmlSpaDefaultHash = '#file/desc/true/true/true/true//';
 const syntheticAccessorNamePattern = /^(?:<get-|<set-|_get_|_set_)/;
-const classSignatureLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|sealed|data|enum|annotation|value|inner|expect|actual)\s+)*(?:class|interface|object)\b/;
+const classSignatureLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|sealed|data|enum|annotation|value|inner|expect|actual|companion)\s+)*(?:class|interface|object)\b/;
 const propertyDeclarationLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|sealed|lateinit|override|tailrec|operator|suspend|infix|external|expect|actual|inline|value|const|vararg|crossinline|noinline|reified|out|in)\s+)*(?:const\s+)?(?:val|var)\b/;
 const propertyAccessorLinePattern = /^\s*(?:get|set)\s*\(/;
 const constructorDelegationLinePattern = /^\s*constructor\b[\s\S]*:\s*this\(/;
@@ -643,9 +643,11 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   applyCoveredConstructorDelegationContinuations(lineCoverage, filePath, sourceLines, coveredConstructorStartLines);
   applyConstructorInitializerFallback(fileCoverage, filePath, sourceLines, lineCoverage);
   applyClassBodyRuntimePropertyFallback(fileCoverage, lineCoverage, filePath, sourceLines);
+  const branchStats = buildBranchLineStats(fileCoverage);
   propagateCoveredBranchBodyLines(fileCoverage, lineCoverage, filePath, sourceLines);
-  applySimpleFunctionBodyFallback(lineCoverage, filePath, sourceLines, buildBranchLineStats(fileCoverage));
+  applySimpleFunctionBodyFallback(lineCoverage, filePath, sourceLines, branchStats);
   alignFunctionHeaderCoverageWithBody(fileCoverage, lineCoverage, filePath, sourceLines);
+  promoteCoveredTopLevelFunctionStatements(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   promoteCoveredBuilderWrapperLines(lineCoverage, filePath, sourceLines);
   suppressTerminalCatchNullCoverageNoise(lineCoverage, filePath, sourceLines);
   suppressWhenTryCatchFallbackReturnNoise(fileCoverage, lineCoverage, filePath, sourceLines);
@@ -1008,7 +1010,7 @@ function alignFunctionHeaderCoverageWithBody(fileCoverage, lineCoverage, filePat
       .map((lineNumber) => lineCoverage[lineNumber])
       .filter((lineValue) => Number(lineValue) > 0);
 
-    if (count > 0 && coveredBodyCounts.length) {
+    if (coveredBodyCounts.length) {
       const fallbackCount = Math.max(count, ...coveredBodyCounts);
       signatureLines.forEach((lineNumber) => {
         if (!(Number(lineCoverage[lineNumber]) > 0)) {
@@ -1018,11 +1020,50 @@ function alignFunctionHeaderCoverageWithBody(fileCoverage, lineCoverage, filePat
       continue;
     }
 
-    if (count === 0 && !coveredBodyCounts.length) {
+    if (count === 0) {
       signatureLines.forEach((lineNumber) => {
         lineCoverage[lineNumber] = 0;
       });
     }
+  }
+}
+
+function promoteCoveredTopLevelFunctionStatements(fileCoverage, lineCoverage, filePath, sourceLines, branchStats) {
+  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+    const locStartLine = functionCoverage?.loc?.start?.line;
+    const locEndLine = functionCoverage?.loc?.end?.line;
+    if (!locStartLine || !locEndLine || locEndLine <= locStartLine) {
+      continue;
+    }
+
+    const headerStartLine = findFunctionHeaderStartLine(sourceLines, locStartLine);
+    if (!headerStartLine) {
+      continue;
+    }
+
+    const topLevelLines = getTopLevelExecutableLinesInFunctionRange(filePath, sourceLines, headerStartLine, locEndLine);
+    if (topLevelLines.length < 2 || topLevelLines.length > 4) {
+      continue;
+    }
+
+    if (topLevelLines.some((lineNumber) => branchStats.has(lineNumber))) {
+      continue;
+    }
+
+    const coveredCounts = topLevelLines
+      .map((lineNumber) => lineCoverage[lineNumber])
+      .filter((lineValue) => Number(lineValue) > 0);
+    if (!coveredCounts.length) {
+      continue;
+    }
+
+    const fallbackCount = Math.max(...coveredCounts);
+    topLevelLines.forEach((lineNumber) => {
+      const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+      if (lineCoverage[lineNumber] === 0 && (directStatementCount == null || directStatementCount === 0)) {
+        lineCoverage[lineNumber] = fallbackCount;
+      }
+    });
   }
 }
 
