@@ -674,6 +674,7 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressUncoveredNamedFunctionSpillover(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressFalseCoveredWhenElseTailLines(fileCoverage, lineCoverage, filePath, sourceLines);
+  promoteCoveredWhenArmHeaderLines(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressTerminalCatchNullCoverageNoise(lineCoverage, filePath, sourceLines);
   suppressWhenTryCatchFallbackReturnNoise(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressChainedTryFallbackReturnNoise(fileCoverage, lineCoverage, filePath, sourceLines);
@@ -1035,6 +1036,51 @@ function suppressFalseCoveredWhenElseTailLines(fileCoverage, lineCoverage, fileP
     }
 
     lineCoverage[elseLine] = 0;
+  }
+}
+
+function promoteCoveredWhenArmHeaderLines(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    const whenText = getLineText(sourceLines, lineNumber).trim();
+    if (!/\bwhen\b[\s\S]*\{\s*$/u.test(whenText)) {
+      continue;
+    }
+
+    const whenEndLine = findBlockEndLine(sourceLines, lineNumber);
+    if (whenEndLine <= lineNumber + 1) {
+      continue;
+    }
+
+    for (let cursor = lineNumber + 1; cursor < whenEndLine; cursor += 1) {
+      const armText = getLineText(sourceLines, cursor).trim();
+      if (!/->\s*\{\s*$/u.test(armText)) {
+        continue;
+      }
+
+      if (Number(lineCoverage[cursor]) > 0) {
+        continue;
+      }
+
+      const directStatementCount = getDirectStatementCountOnLine(fileCoverage, cursor);
+      if (directStatementCount != null && directStatementCount > 0) {
+        continue;
+      }
+
+      const armEndLine = findBlockEndLine(sourceLines, cursor);
+      if (armEndLine <= cursor + 1) {
+        continue;
+      }
+
+      const coveredBodyCounts = getExecutableLinesInRange(filePath, sourceLines, cursor + 1, armEndLine - 1)
+        .map((candidate) => lineCoverage[candidate])
+        .filter((candidate) => Number(candidate) > 0);
+      if (!coveredBodyCounts.length) {
+        continue;
+      }
+
+      lineCoverage[cursor] = Math.max(...coveredBodyCounts);
+      cursor = armEndLine;
+    }
   }
 }
 
