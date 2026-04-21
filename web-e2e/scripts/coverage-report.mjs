@@ -458,11 +458,15 @@ function isCoveredContinuationLine(sourceLines, lineNumber) {
     return false;
   }
 
-  if (/^(?:\(|\.|\?\.|\?:|\|\||&&|as\?|as\b)/u.test(currentLine)) {
+  if (/^(?:\(|\.|\?\.|\?:|\|\||&&|as\?|as\b|else\b)/u.test(currentLine)) {
     return true;
   }
 
   if (/^\}\s*(?:as\?|as\b|\.\s*|\?\.\s*|\?:)/u.test(currentLine)) {
+    return true;
+  }
+
+  if (/(?:=|return)\s*if\b/u.test(previousLine)) {
     return true;
   }
 
@@ -857,7 +861,11 @@ function suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage
       }
 
       const branchHeaderLine = location?.start?.line;
+      const branchHeaderText = getLineText(sourceLines, branchHeaderLine);
       const bodyLines = executableLines.filter((lineNumber) => lineNumber !== branchHeaderLine);
+      if (!bodyLines.length && !isPartialControlLine(branchHeaderText)) {
+        return;
+      }
       const candidateLines = bodyLines.length ? bodyLines : executableLines;
       if (!candidateLines.length) {
         return;
@@ -881,10 +889,6 @@ function suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage
 function promoteSimpleLambdaBodyCoverage(fileCoverage, lineCoverage, filePath, sourceLines, branchStats) {
   for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
     const count = Number(fileCoverage.f?.[functionId] || 0);
-    if (count <= 0) {
-      continue;
-    }
-
     const declStartLine = functionCoverage?.decl?.start?.line;
     const locStartLine = functionCoverage?.loc?.start?.line;
     const locEndLine = functionCoverage?.loc?.end?.line;
@@ -897,18 +901,30 @@ function promoteSimpleLambdaBodyCoverage(fileCoverage, lineCoverage, filePath, s
     }
 
     const bodyLines = getTopLevelExecutableLinesInFunctionRange(filePath, sourceLines, locStartLine, locEndLine);
-    if (!bodyLines.length || bodyLines.length > 3) {
+    if (!bodyLines.length || bodyLines.length > 6) {
       continue;
     }
 
-    if (bodyLines.some((lineNumber) => branchStats.has(lineNumber) || isSimpleControlFlowLine(getLineText(sourceLines, lineNumber)))) {
+    const promotableBodyLines = bodyLines.filter((lineNumber) => !isSimpleControlFlowLine(getLineText(sourceLines, lineNumber)));
+    if (!promotableBodyLines.length) {
       continue;
     }
 
-    bodyLines.forEach((lineNumber) => {
+    const coveredCounts = promotableBodyLines
+      .map((lineNumber) => lineCoverage[lineNumber])
+      .filter((lineValue) => Number(lineValue) > 0);
+    if (!coveredCounts.length && count <= 0) {
+      continue;
+    }
+
+    const fallbackCount = coveredCounts.length ? Math.max(count, ...coveredCounts) : count;
+    promotableBodyLines.forEach((lineNumber) => {
+      const lineText = getLineText(sourceLines, lineNumber);
       const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
-      if (!(Number(lineCoverage[lineNumber]) > 0) && (directStatementCount == null || directStatementCount === 0)) {
-        lineCoverage[lineNumber] = count;
+      if (!(Number(lineCoverage[lineNumber]) > 0)
+        && (directStatementCount == null || directStatementCount === 0)
+        && (!branchStats.has(lineNumber) || !isPartialControlLine(lineText))) {
+        lineCoverage[lineNumber] = fallbackCount;
       }
     });
   }
@@ -1338,6 +1354,81 @@ function buildBranchLineStats(fileCoverage) {
   return branchStats;
 }
 
+function hasCoveredExecutableLineInRange(fileCoverage, filePath, sourceLines, startLine, endLine) {
+  for (let cursor = startLine; cursor <= endLine; cursor += 1) {
+    if (isForceNeutralLine(filePath, sourceLines, cursor)) {
+      continue;
+    }
+    if (Number(getLineCoverageCount(fileCoverage, cursor)) > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasCoveredExecutableBeforeBlockExit(fileCoverage, filePath, sourceLines, startLine, maxLookahead = 6) {
+  const endLine = Math.min(sourceLines.length, startLine + maxLookahead - 1);
+  for (let cursor = startLine; cursor <= endLine; cursor += 1) {
+    const lineText = getLineText(sourceLines, cursor).trim();
+    if (!lineText) {
+      continue;
+    }
+    if (/^\}/u.test(lineText)) {
+      return false;
+    }
+    if (isForceNeutralLine(filePath, sourceLines, cursor)) {
+      continue;
+    }
+    if (Number(getLineCoverageCount(fileCoverage, cursor)) > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function nextExecutableLineAfter(filePath, sourceLines, startLine, maxLookahead = 6) {
+  const endLine = Math.min(sourceLines.length, startLine + maxLookahead - 1);
+  for (let cursor = startLine; cursor <= endLine; cursor += 1) {
+    const lineText = getLineText(sourceLines, cursor).trim();
+    if (!lineText) {
+      continue;
+    }
+    if (/^\}/u.test(lineText)) {
+      return null;
+    }
+    if (!isForceNeutralLine(filePath, sourceLines, cursor)) {
+      return cursor;
+    }
+  }
+  return null;
+}
+
+function getPromotedControlLineStatus(fileCoverage, filePath, sourceLines, lineNumber) {
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+  if (!/^(?:if|else\s+if)\b/u.test(lineText)) {
+    return null;
+  }
+
+  if (lineText.includes('{')) {
+    const endLine = findBlockEndLine(sourceLines, lineNumber);
+    if (endLine > lineNumber + 1 && hasCoveredExecutableLineInRange(fileCoverage, filePath, sourceLines, lineNumber + 1, endLine - 1)) {
+      return 'yes';
+    }
+
+    const nextLine = nextExecutableLineAfter(filePath, sourceLines, endLine + 1);
+    if (nextLine && Number(getLineCoverageCount(fileCoverage, nextLine)) > 0) {
+      return 'partial';
+    }
+    return null;
+  }
+
+  if (/\breturn(?:@\w+)?\b/u.test(lineText) && hasCoveredExecutableBeforeBlockExit(fileCoverage, filePath, sourceLines, lineNumber + 1)) {
+    return 'partial';
+  }
+
+  return null;
+}
+
 function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branchStats) {
   if (isForceNeutralLine(filePath, sourceLines, lineNumber)) {
     return 'neutral';
@@ -1345,7 +1436,16 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
 
   const lineCount = getLineCoverageCount(fileCoverage, lineNumber);
   if (lineCount != null) {
-    return lineCount > 0 ? 'yes' : 'no';
+    if (lineCount > 0) {
+      return 'yes';
+    }
+
+    const promotedControlStatus = getPromotedControlLineStatus(fileCoverage, filePath, sourceLines, lineNumber);
+    if (promotedControlStatus) {
+      return promotedControlStatus;
+    }
+
+    return 'no';
   }
 
   const lineText = getLineText(sourceLines, lineNumber);
