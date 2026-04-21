@@ -672,6 +672,8 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   promoteSimpleLambdaBodyCoverage(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   promoteCoveredBuilderWrapperLines(lineCoverage, filePath, sourceLines);
   suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage, filePath, sourceLines);
+  suppressUncoveredNamedFunctionSpillover(fileCoverage, lineCoverage, filePath, sourceLines);
+  suppressFalseCoveredWhenElseTailLines(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressTerminalCatchNullCoverageNoise(lineCoverage, filePath, sourceLines);
   suppressWhenTryCatchFallbackReturnNoise(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressChainedTryFallbackReturnNoise(fileCoverage, lineCoverage, filePath, sourceLines);
@@ -927,6 +929,112 @@ function promoteSimpleLambdaBodyCoverage(fileCoverage, lineCoverage, filePath, s
         lineCoverage[lineNumber] = fallbackCount;
       }
     });
+  }
+}
+
+function hasCoveredStatementContainedInRange(fileCoverage, startLine, endLine) {
+  return Object.entries(fileCoverage.statementMap || {}).some(([statementId, loc]) => {
+    if (Number(fileCoverage.s?.[statementId] || 0) <= 0) {
+      return false;
+    }
+    return loc?.start?.line >= startLine && loc?.end?.line <= endLine;
+  });
+}
+
+function hasCoveredBranchContainedInRange(fileCoverage, startLine, endLine) {
+  return Object.entries(fileCoverage.branchMap || {}).some(([branchId, branchCoverage]) => {
+    const branchCounts = Array.isArray(fileCoverage.b?.[branchId]) ? fileCoverage.b[branchId] : [];
+    const locations = Array.isArray(branchCoverage?.locations) ? branchCoverage.locations : [];
+    return locations.some((location, index) => Number(branchCounts[index] || 0) > 0
+      && location?.start?.line >= startLine
+      && location?.end?.line <= endLine);
+  });
+}
+
+function suppressUncoveredNamedFunctionSpillover(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+    const functionName = functionCoverage?.name || '';
+    if (/anonymous/u.test(functionName)) {
+      continue;
+    }
+
+    const count = Number(fileCoverage.f?.[functionId] || 0);
+    const locStartLine = functionCoverage?.loc?.start?.line;
+    if (count > 0 || !locStartLine) {
+      continue;
+    }
+
+    const headerStartLine = findFunctionHeaderStartLine(sourceLines, locStartLine);
+    if (!headerStartLine || !/\bfun\b/u.test(getLineText(sourceLines, headerStartLine))) {
+      continue;
+    }
+
+    const functionEndLine = findBlockEndLine(sourceLines, headerStartLine);
+    if (functionEndLine <= headerStartLine) {
+      continue;
+    }
+
+    if (hasCoveredStatementContainedInRange(fileCoverage, headerStartLine, functionEndLine)
+      || hasCoveredBranchContainedInRange(fileCoverage, headerStartLine, functionEndLine)) {
+      continue;
+    }
+
+    const executableLines = getExecutableLinesInRange(filePath, sourceLines, headerStartLine, functionEndLine);
+    executableLines.forEach((lineNumber) => {
+      if (Number(lineCoverage[lineNumber]) > 0) {
+        lineCoverage[lineNumber] = 0;
+      }
+    });
+  }
+}
+
+function suppressFalseCoveredWhenElseTailLines(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    const whenText = getLineText(sourceLines, lineNumber).trim();
+    if (!/\bwhen\s*\{\s*$/u.test(whenText)) {
+      continue;
+    }
+
+    const endLine = findBlockEndLine(sourceLines, lineNumber);
+    if (endLine <= lineNumber + 1) {
+      continue;
+    }
+
+    const armLines = [];
+    for (let cursor = lineNumber + 1; cursor < endLine; cursor += 1) {
+      const armText = getLineText(sourceLines, cursor).trim();
+      if (!/->/u.test(armText) || armText.includes('{')) {
+        continue;
+      }
+      armLines.push(cursor);
+    }
+
+    const elseLine = armLines.find((cursor) => /^else\s*->/u.test(getLineText(sourceLines, cursor).trim()));
+    if (!elseLine || !(Number(lineCoverage[elseLine]) > 0)) {
+      continue;
+    }
+
+    const directStatementCount = getDirectStatementCountOnLine(fileCoverage, elseLine);
+    if (directStatementCount != null && directStatementCount > 0) {
+      continue;
+    }
+
+    const coveredNonElseArmLines = armLines.filter((cursor) => cursor !== elseLine && Number(lineCoverage[cursor]) > 0);
+    if (coveredNonElseArmLines.length !== 1) {
+      continue;
+    }
+
+    const coveredArmLine = coveredNonElseArmLines[0];
+    if (Number(lineCoverage[coveredArmLine]) !== Number(lineCoverage[elseLine])) {
+      continue;
+    }
+
+    const trailingSiblingArms = armLines.filter((cursor) => coveredArmLine < cursor && cursor < elseLine);
+    if (trailingSiblingArms.some((cursor) => Number(lineCoverage[cursor]) > 0)) {
+      continue;
+    }
+
+    lineCoverage[elseLine] = 0;
   }
 }
 
