@@ -34,6 +34,8 @@ const htmlSpaMetricsToShow = ['statements', 'lines', 'branches', 'functions'];
 const htmlSpaDefaultHash = '#file/desc/true/true/true/true//';
 const syntheticAccessorNamePattern = /^(?:<get-|<set-|_get_|_set_)/;
 const classSignatureLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|sealed|data|enum|annotation|value|inner|expect|actual|companion)\s+)*(?:class|interface|object)\b/;
+const interfaceSignatureLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|sealed|data|enum|annotation|value|inner|expect|actual|companion)\s+)*interface\b/;
+const abstractFunctionDeclarationLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|override|tailrec|operator|suspend|infix|external|expect|actual|inline|value|context)\s+)*fun\b/;
 const propertyDeclarationLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|sealed|lateinit|override|tailrec|operator|suspend|infix|external|expect|actual|inline|value|const|vararg|crossinline|noinline|reified|out|in)\s+)*(?:const\s+)?(?:val|var)\b/;
 const propertyAccessorLinePattern = /^\s*(?:get|set)\s*\(/;
 const constructorDelegationLinePattern = /^\s*constructor\b[\s\S]*:\s*this\(/;
@@ -341,6 +343,66 @@ function isConstructorDelegationLine(lineText) {
   return constructorDelegationLinePattern.test(lineText.trim());
 }
 
+function markAbstractInterfaceMemberLinesNeutral(sourceLines, neutralLines) {
+  let inBlockComment = false;
+  let pendingInterfaceHeader = false;
+  let interfaceDepth = 0;
+
+  sourceLines.forEach((lineText, index) => {
+    const lineNumber = index + 1;
+    const trimmed = (lineText || '').trim();
+
+    if (!trimmed) {
+      return;
+    }
+
+    if (inBlockComment) {
+      if (trimmed.includes('*/')) {
+        inBlockComment = false;
+      }
+      return;
+    }
+
+    if (trimmed.startsWith('/**') || trimmed.startsWith('/*')) {
+      if (!trimmed.includes('*/')) {
+        inBlockComment = true;
+      }
+      return;
+    }
+
+    if (pendingInterfaceHeader && trimmed.includes('{')) {
+      pendingInterfaceHeader = false;
+      interfaceDepth = 1;
+      return;
+    }
+
+    if (interfaceSignatureLinePattern.test(trimmed)) {
+      if (trimmed.includes('{')) {
+        interfaceDepth = 1;
+      } else {
+        pendingInterfaceHeader = true;
+      }
+      return;
+    }
+
+    if (interfaceDepth > 0
+      && abstractFunctionDeclarationLinePattern.test(trimmed)
+      && !trimmed.includes('{')
+      && /\)\s*(?::.*)?$/u.test(trimmed)) {
+      neutralLines.add(lineNumber);
+    }
+
+    if (interfaceDepth > 0) {
+      const openCount = (trimmed.match(/\{/g) || []).length;
+      const closeCount = (trimmed.match(/\}/g) || []).length;
+      interfaceDepth += openCount - closeCount;
+      if (interfaceDepth < 0) {
+        interfaceDepth = 0;
+      }
+    }
+  });
+}
+
 function buildStructuralNeutralLineSet(filePath, sourceLines) {
   if (structuralNeutralLineCache.has(filePath)) {
     return structuralNeutralLineCache.get(filePath);
@@ -411,6 +473,7 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
     }
   });
 
+  markAbstractInterfaceMemberLinesNeutral(sourceLines, neutralLines);
   structuralNeutralLineCache.set(filePath, neutralLines);
   return neutralLines;
 }
@@ -721,9 +784,12 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressFalseCoveredLinesInUncoveredFunctions(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressFalseCoveredWhenElseTailLines(fileCoverage, lineCoverage, filePath, sourceLines);
+  promoteCoveredWhenHeaderLines(fileCoverage, lineCoverage, filePath, sourceLines);
   promoteCoveredWhenArmHeaderLines(fileCoverage, lineCoverage, filePath, sourceLines);
   promoteCoveredLoopHeaderLines(fileCoverage, lineCoverage, filePath, sourceLines);
   promoteCoveredMultilineStatementLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
+  promoteCoveredMultilineCallStarterLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
+  promoteCoveredSafeCallStarterLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressFalseCoveredLinesInUncoveredFunctions(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressTerminalCatchNullCoverageNoise(lineCoverage, filePath, sourceLines);
@@ -760,6 +826,11 @@ function isSimpleControlFlowLine(lineText) {
 
 function isPartialControlLine(lineText) {
   return partialControlLinePattern.test(lineText.trim());
+}
+
+function isBranchHeaderLikeLine(lineText) {
+  const trimmed = lineText.trim();
+  return /->/u.test(trimmed) || /^(?:if|else\b|when\b|catch\b|finally\b|try\b)/u.test(trimmed);
 }
 
 function getLineCoverageCount(fileCoverage, lineNumber) {
@@ -910,23 +981,26 @@ function suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage
       }
 
       const executableLines = getExecutableLines(location, filePath, sourceLines);
-      if (!executableLines.length || executableLines.length > 24) {
+      if (!executableLines.length || executableLines.length > 60) {
         return;
       }
 
-      const branchHeaderLine = location?.start?.line;
-      const branchHeaderText = getLineText(sourceLines, branchHeaderLine);
-      const bodyLines = executableLines.filter((lineNumber) => lineNumber !== branchHeaderLine);
-      if (!bodyLines.length && !isPartialControlLine(branchHeaderText)) {
-        return;
-      }
-      const candidateLines = bodyLines.length ? bodyLines : executableLines;
+      const normalizedHeaderLine = executableLines.find((lineNumber) => isBranchHeaderLikeLine(getLineText(sourceLines, lineNumber)));
+      const candidateLines = normalizedHeaderLine == null
+        ? executableLines
+        : executableLines.filter((lineNumber) => lineNumber >= normalizedHeaderLine);
       if (!candidateLines.length) {
         return;
       }
 
-      const hasDirectCoveredBodyLine = candidateLines.some((lineNumber) => Number(getDirectStatementCountOnLine(fileCoverage, lineNumber)) > 0);
-      if (hasDirectCoveredBodyLine) {
+      const branchHeaderLine = candidateLines[0];
+      const branchHeaderText = getLineText(sourceLines, branchHeaderLine);
+      const bodyLines = candidateLines.filter((lineNumber) => lineNumber !== branchHeaderLine);
+      if (!bodyLines.length && !isPartialControlLine(branchHeaderText)) {
+        return;
+      }
+
+      if (hasReliableCoveredExecutionContainedInRange(fileCoverage, branchHeaderLine, location?.end?.line, null)) {
         return;
       }
 
@@ -1095,6 +1169,39 @@ function suppressFalseCoveredWhenElseTailLines(fileCoverage, lineCoverage, fileP
   }
 }
 
+function promoteCoveredWhenHeaderLines(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    const lineText = getLineText(sourceLines, lineNumber).trim();
+    if (!/^when\b[\s\S]*\{\s*$/u.test(lineText)) {
+      continue;
+    }
+
+    if (Number(lineCoverage[lineNumber]) > 0) {
+      continue;
+    }
+
+    const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+    if (directStatementCount != null && directStatementCount > 0) {
+      continue;
+    }
+
+    const endLine = findBlockEndLine(sourceLines, lineNumber);
+    if (endLine <= lineNumber + 1) {
+      continue;
+    }
+
+    const coveredBodyCounts = getExecutableLinesInRange(filePath, sourceLines, lineNumber + 1, endLine - 1)
+      .map((candidate) => lineCoverage[candidate])
+      .filter((candidate) => Number(candidate) > 0);
+    if (!coveredBodyCounts.length) {
+      continue;
+    }
+
+    lineCoverage[lineNumber] = Math.max(...coveredBodyCounts);
+    lineNumber = endLine;
+  }
+}
+
 function promoteCoveredWhenArmHeaderLines(fileCoverage, lineCoverage, filePath, sourceLines) {
   for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
     const whenText = getLineText(sourceLines, lineNumber).trim();
@@ -1208,6 +1315,87 @@ function promoteCoveredMultilineStatementLines(fileCoverage, lineCoverage, fileP
         lineCoverage[lineNumber] = count;
       }
     });
+  }
+}
+
+function promoteCoveredMultilineCallStarterLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats) {
+  for (const [statementId, loc] of Object.entries(fileCoverage.statementMap || {})) {
+    const count = Number(fileCoverage.s?.[statementId] || 0);
+    if (count <= 0) {
+      continue;
+    }
+
+    const executableLines = getExecutableLines(loc, filePath, sourceLines);
+    if (executableLines.length < 2) {
+      continue;
+    }
+
+    const startLine = executableLines[0];
+    if (Number(lineCoverage[startLine]) > 0 || branchStats.has(startLine)) {
+      continue;
+    }
+
+    const startText = getLineText(sourceLines, startLine).trim();
+    if (!/[[(]\s*$/u.test(startText)) {
+      continue;
+    }
+
+    const directStatementCount = getDirectStatementCountOnLine(fileCoverage, startLine);
+    if (directStatementCount != null && directStatementCount > 0) {
+      continue;
+    }
+
+    const coveredContinuationCounts = executableLines.slice(1)
+      .filter((lineNumber) => !branchStats.has(lineNumber))
+      .map((lineNumber) => lineCoverage[lineNumber])
+      .filter((lineValue) => Number(lineValue) > 0);
+    if (!coveredContinuationCounts.length) {
+      continue;
+    }
+
+    lineCoverage[startLine] = Math.max(count, ...coveredContinuationCounts);
+  }
+}
+
+function promoteCoveredSafeCallStarterLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats) {
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    const lineText = getLineText(sourceLines, lineNumber).trim();
+    if (!/\?\.\s*[A-Za-z_][\w<>?]*\s*\(\s*$/u.test(lineText)) {
+      continue;
+    }
+
+    if (Number(lineCoverage[lineNumber]) > 0) {
+      continue;
+    }
+
+    const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+    if (directStatementCount != null && directStatementCount > 0) {
+      continue;
+    }
+
+    const coveredContinuationCounts = [];
+    const maxLine = Math.min(sourceLines.length, lineNumber + 8);
+    for (let cursor = lineNumber + 1; cursor <= maxLine; cursor += 1) {
+      const candidateText = getLineText(sourceLines, cursor).trim();
+      if (!candidateText) {
+        continue;
+      }
+      if (/^\}/u.test(candidateText)) {
+        break;
+      }
+      if (!branchStats.has(cursor) && !isForceNeutralLine(filePath, sourceLines, cursor) && Number(lineCoverage[cursor]) > 0) {
+        coveredContinuationCounts.push(lineCoverage[cursor]);
+      }
+      if (/^\)/u.test(candidateText)) {
+        break;
+      }
+    }
+
+    if (!coveredContinuationCounts.length) {
+      continue;
+    }
+
+    lineCoverage[lineNumber] = Math.max(...coveredContinuationCounts);
   }
 }
 
