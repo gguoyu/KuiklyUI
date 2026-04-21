@@ -324,6 +324,14 @@ function isAnnotationLine(lineText) {
   return /^@/u.test(lineText.trim());
 }
 
+function isInitBlockLine(lineText) {
+  return /^init\s*\{/u.test(lineText.trim());
+}
+
+function isStructuralElseLine(lineText) {
+  return /^\}?\s*else\b(?:\s*\{)?\s*$/u.test(lineText.trim());
+}
+
 function isPureClosingLine(lineText) {
   const trimmed = lineText.trim();
   return !!trimmed && /^[)\]};,]+(?:\s*\{)?$/u.test(trimmed);
@@ -367,7 +375,15 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
       return;
     }
 
-    if (trimmed.startsWith('*') || trimmed.startsWith('//') || isPackageOrImportLine(trimmed) || isAnnotationLine(trimmed) || isPureClosingLine(trimmed)) {
+    if (
+      trimmed.startsWith('*')
+      || trimmed.startsWith('//')
+      || isPackageOrImportLine(trimmed)
+      || isAnnotationLine(trimmed)
+      || isInitBlockLine(trimmed)
+      || isStructuralElseLine(trimmed)
+      || isPureClosingLine(trimmed)
+    ) {
       neutralLines.add(lineNumber);
       return;
     }
@@ -645,10 +661,13 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   applyClassBodyRuntimePropertyFallback(fileCoverage, lineCoverage, filePath, sourceLines);
   const branchStats = buildBranchLineStats(fileCoverage);
   propagateCoveredBranchBodyLines(fileCoverage, lineCoverage, filePath, sourceLines);
+  promoteDirectCoveredBranchBodyLines(fileCoverage, lineCoverage, filePath, sourceLines);
   applySimpleFunctionBodyFallback(lineCoverage, filePath, sourceLines, branchStats);
   alignFunctionHeaderCoverageWithBody(fileCoverage, lineCoverage, filePath, sourceLines);
   promoteCoveredTopLevelFunctionStatements(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
+  promoteSimpleLambdaBodyCoverage(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   promoteCoveredBuilderWrapperLines(lineCoverage, filePath, sourceLines);
+  suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressTerminalCatchNullCoverageNoise(lineCoverage, filePath, sourceLines);
   suppressWhenTryCatchFallbackReturnNoise(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressChainedTryFallbackReturnNoise(fileCoverage, lineCoverage, filePath, sourceLines);
@@ -781,6 +800,118 @@ function getDirectStatementCountOnLine(fileCoverage, lineNumber) {
     }
   }
   return maxCount;
+}
+
+function promoteDirectCoveredBranchBodyLines(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (const [branchId, branchCoverage] of Object.entries(fileCoverage.branchMap || {})) {
+    const branchCounts = Array.isArray(fileCoverage.b?.[branchId]) ? fileCoverage.b[branchId] : [];
+    const locations = Array.isArray(branchCoverage?.locations) ? branchCoverage.locations : [];
+    locations.forEach((location, index) => {
+      const executableLines = getExecutableLines(location, filePath, sourceLines);
+      if (executableLines.length < 2 || executableLines.length > 4) {
+        return;
+      }
+
+      const branchHeaderLine = location?.start?.line;
+      const bodyLines = executableLines.filter((lineNumber) => lineNumber !== branchHeaderLine);
+      if (!bodyLines.length) {
+        return;
+      }
+
+      if (bodyLines.some((lineNumber) => isSimpleControlFlowLine(getLineText(sourceLines, lineNumber)))) {
+        return;
+      }
+
+      const directCoveredCounts = bodyLines
+        .map((lineNumber) => getDirectStatementCountOnLine(fileCoverage, lineNumber))
+        .filter((count) => Number(count) > 0);
+      const branchCount = Number(branchCounts[index] || 0);
+      if (!directCoveredCounts.length && branchCount <= 0) {
+        return;
+      }
+
+      const fallbackCount = Math.max(branchCount, ...directCoveredCounts);
+      bodyLines.forEach((lineNumber) => {
+        const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+        if (!(Number(lineCoverage[lineNumber]) > 0) && (directStatementCount == null || directStatementCount === 0)) {
+          lineCoverage[lineNumber] = fallbackCount;
+        }
+      });
+    });
+  }
+}
+
+function suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (const [branchId, branchCoverage] of Object.entries(fileCoverage.branchMap || {})) {
+    const branchCounts = Array.isArray(fileCoverage.b?.[branchId]) ? fileCoverage.b[branchId] : [];
+    const locations = Array.isArray(branchCoverage?.locations) ? branchCoverage.locations : [];
+    locations.forEach((location, index) => {
+      const branchCount = Number(branchCounts[index] || 0);
+      if (branchCount > 0) {
+        return;
+      }
+
+      const executableLines = getExecutableLines(location, filePath, sourceLines);
+      if (!executableLines.length || executableLines.length > 7) {
+        return;
+      }
+
+      const branchHeaderLine = location?.start?.line;
+      const bodyLines = executableLines.filter((lineNumber) => lineNumber !== branchHeaderLine);
+      const candidateLines = bodyLines.length ? bodyLines : executableLines;
+      if (!candidateLines.length) {
+        return;
+      }
+
+      const hasDirectCoveredBodyLine = candidateLines.some((lineNumber) => Number(getDirectStatementCountOnLine(fileCoverage, lineNumber)) > 0);
+      if (hasDirectCoveredBodyLine) {
+        return;
+      }
+
+      candidateLines.forEach((lineNumber) => {
+        const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+        if (Number(lineCoverage[lineNumber]) > 0 && (directStatementCount == null || directStatementCount === 0)) {
+          lineCoverage[lineNumber] = 0;
+        }
+      });
+    });
+  }
+}
+
+function promoteSimpleLambdaBodyCoverage(fileCoverage, lineCoverage, filePath, sourceLines, branchStats) {
+  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+    const count = Number(fileCoverage.f?.[functionId] || 0);
+    if (count <= 0) {
+      continue;
+    }
+
+    const declStartLine = functionCoverage?.decl?.start?.line;
+    const locStartLine = functionCoverage?.loc?.start?.line;
+    const locEndLine = functionCoverage?.loc?.end?.line;
+    if (!declStartLine || !locStartLine || !locEndLine || locEndLine <= locStartLine) {
+      continue;
+    }
+
+    if (/\bfun\b/u.test(getLineText(sourceLines, declStartLine))) {
+      continue;
+    }
+
+    const bodyLines = getTopLevelExecutableLinesInFunctionRange(filePath, sourceLines, locStartLine, locEndLine);
+    if (!bodyLines.length || bodyLines.length > 3) {
+      continue;
+    }
+
+    if (bodyLines.some((lineNumber) => branchStats.has(lineNumber) || isSimpleControlFlowLine(getLineText(sourceLines, lineNumber)))) {
+      continue;
+    }
+
+    bodyLines.forEach((lineNumber) => {
+      const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+      if (!(Number(lineCoverage[lineNumber]) > 0) && (directStatementCount == null || directStatementCount === 0)) {
+        lineCoverage[lineNumber] = count;
+      }
+    });
+  }
 }
 
 function suppressTerminalCatchNullCoverageNoise(lineCoverage, filePath, sourceLines) {
@@ -1029,39 +1160,49 @@ function alignFunctionHeaderCoverageWithBody(fileCoverage, lineCoverage, filePat
 }
 
 function promoteCoveredTopLevelFunctionStatements(fileCoverage, lineCoverage, filePath, sourceLines, branchStats) {
-  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
-    const locStartLine = functionCoverage?.loc?.start?.line;
-    const locEndLine = functionCoverage?.loc?.end?.line;
-    if (!locStartLine || !locEndLine || locEndLine <= locStartLine) {
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    const headerText = getLineText(sourceLines, lineNumber);
+    if (!/\bfun\b/u.test(headerText) || !headerText.includes('{')) {
       continue;
     }
 
-    const headerStartLine = findFunctionHeaderStartLine(sourceLines, locStartLine);
-    if (!headerStartLine) {
+    let depth = 0;
+    let endLine = lineNumber;
+    let started = false;
+    for (let cursor = lineNumber; cursor <= sourceLines.length; cursor += 1) {
+      const text = getLineText(sourceLines, cursor);
+      for (const ch of text) {
+        if (ch === '{') {
+          depth += 1;
+          started = true;
+        } else if (ch === '}') {
+          depth -= 1;
+        }
+      }
+      if (started && depth === 0) {
+        endLine = cursor;
+        break;
+      }
+    }
+
+    const topLevelLines = getTopLevelExecutableLinesInFunctionRange(filePath, sourceLines, lineNumber, endLine);
+    const promotableTopLevelLines = topLevelLines.filter((candidate) => !branchStats.has(candidate));
+    if (promotableTopLevelLines.length < 2 || promotableTopLevelLines.length > 6) {
       continue;
     }
 
-    const topLevelLines = getTopLevelExecutableLinesInFunctionRange(filePath, sourceLines, headerStartLine, locEndLine);
-    if (topLevelLines.length < 2 || topLevelLines.length > 4) {
-      continue;
-    }
-
-    if (topLevelLines.some((lineNumber) => branchStats.has(lineNumber))) {
-      continue;
-    }
-
-    const coveredCounts = topLevelLines
-      .map((lineNumber) => lineCoverage[lineNumber])
+    const coveredCounts = promotableTopLevelLines
+      .map((candidate) => lineCoverage[candidate])
       .filter((lineValue) => Number(lineValue) > 0);
     if (!coveredCounts.length) {
       continue;
     }
 
     const fallbackCount = Math.max(...coveredCounts);
-    topLevelLines.forEach((lineNumber) => {
-      const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
-      if (lineCoverage[lineNumber] === 0 && (directStatementCount == null || directStatementCount === 0)) {
-        lineCoverage[lineNumber] = fallbackCount;
+    promotableTopLevelLines.forEach((candidate) => {
+      const directStatementCount = getDirectStatementCountOnLine(fileCoverage, candidate);
+      if (lineCoverage[candidate] === 0 && (directStatementCount == null || directStatementCount === 0)) {
+        lineCoverage[candidate] = fallbackCount;
       }
     });
   }
