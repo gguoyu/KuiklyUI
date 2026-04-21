@@ -45,15 +45,15 @@ kotlin {
             sourceMapNamesPolicy.set(JsSourceMapNamesPolicy.SOURCE_MAP_NAMES_POLICY_FQ_NAMES)
         }
 
-        val coverageBuildEnabled = project.findProperty("kuikly.coverageBuild")?.toString() == "true"
-
-        // 仅在 coverage 构建关闭 DCE（死代码消除），防止 DCE 裁剪掉有 sourcemap 映射的代码段
+        // 禁用 IR 链接阶段的 DCE（死代码消除），确保所有依赖模块（core-render-web/base, h5）
+        // 的 .kt 文件内容都能内嵌到 compileSync sourcemap 的 sourcesContent 中。
+        // 若不禁用，链接器只对可达代码内嵌 sourcesContent，导致大量文件在 sourcemap 中为 null，
+        // 影响 Monocart Kotlin 覆盖率报告的准确性和浏览器调试体验。
+        // 注：仅影响 development 产物体积，production 走 webpack terser 独立优化，不受此影响。
         compilations.all {
             compileTaskProvider.configure {
                 compilerOptions {
-                    if (coverageBuildEnabled) {
-                        freeCompilerArgs.add("-Xir-dce=false")
-                    }
+                    freeCompilerArgs.add("-Xir-dce=false")
                 }
             }
         }
