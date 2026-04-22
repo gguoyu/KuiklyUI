@@ -54,6 +54,7 @@ kotlin {
             compileTaskProvider.configure {
                 compilerOptions {
                     freeCompilerArgs.add("-Xir-dce=false")
+                    freeCompilerArgs.add("-Xir-minimized-member-names=false")
                 }
             }
         }

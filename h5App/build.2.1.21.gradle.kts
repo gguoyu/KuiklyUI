@@ -2,6 +2,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
 import org.jetbrains.kotlin.gradle.dsl.JsSourceMapEmbedMode
+import org.jetbrains.kotlin.gradle.dsl.JsSourceMapNamesPolicy
 
 plugins {
     // Import KMM plugin
@@ -37,7 +38,29 @@ kotlin {
 
         compilerOptions {
             sourceMap.set(true)
+            // 将 Kotlin 源文件内容内嵌到 sourcemap 中，确保 remap 时能定位到 .kt 源行
             sourceMapEmbedSources.set(JsSourceMapEmbedMode.SOURCE_MAP_SOURCE_CONTENT_ALWAYS)
+            // 在 sourcemap 的 names 字段中保留原始函数名/变量名（Kotlin 2.0.20+）
+            // FULLY_QUALIFIED: 输出完整限定名，有助于 nyc remap 还原符号，显著减少 unmapped 数量
+            sourceMapNamesPolicy.set(JsSourceMapNamesPolicy.SOURCE_MAP_NAMES_POLICY_FQ_NAMES)
+        }
+
+        // 禁用 IR 链接阶段的 DCE（死代码消除），确保所有依赖模块（core-render-web/base, h5）
+        // 的 .kt 文件内容都能内嵌到 compileSync sourcemap 的 sourcesContent 中。
+        // 若不禁用，链接器只对可达代码内嵌 sourcesContent，导致大量文件在 sourcemap 中为 null，
+        // 影响 Monocart Kotlin 覆盖率报告的准确性和浏览器调试体验。以及禁用成员名称压缩
+        // 注：仅影响 development 产物体积，production 走 webpack terser 独立优化，不受此影响。
+        compilations.all {
+            compileTaskProvider.configure {
+                compilerOptions {
+                    freeCompilerArgs.add("-Xir-dce=false")
+                    freeCompilerArgs.add("-Xir-minimized-member-names=false")
+                    // 产物结构优化，匿名函数生成实际函数
+                    freeCompilerArgs.add("-Xir-generate-inline-anonymous-functions")
+                    // 禁用增量编译干扰
+                    incremental = false
+                }
+            }
         }
     }
     sourceSets {
