@@ -385,6 +385,13 @@ function markAbstractInterfaceMemberLinesNeutral(sourceLines, neutralLines) {
       return;
     }
 
+    if (/\babstract\b/u.test(trimmed)
+      && abstractFunctionDeclarationLinePattern.test(trimmed)
+      && !trimmed.includes('{')
+      && /\)\s*(?::.*)?$/u.test(trimmed)) {
+      neutralLines.add(lineNumber);
+    }
+
     if (interfaceDepth > 0
       && abstractFunctionDeclarationLinePattern.test(trimmed)
       && !trimmed.includes('{')
@@ -2013,11 +2020,24 @@ function hasCoveredSpanningStatementStartingOnLine(fileCoverage, lineNumber) {
 
 function getPromotedWhenArmHeaderStatus(fileCoverage, sourceLines, lineNumber) {
   const lineText = getLineText(sourceLines, lineNumber).trim();
-  if (!/->\s*\{\s*$/u.test(lineText) || !hasCoveredSpanningStatementStartingOnLine(fileCoverage, lineNumber)) {
+  if (!/->\s*\{\s*$/u.test(lineText)) {
     return null;
   }
 
-  for (let cursor = lineNumber - 1, minLine = Math.max(1, lineNumber - 16); cursor >= minLine; cursor -= 1) {
+  const armEndLine = findBlockEndLine(sourceLines, lineNumber);
+  if (armEndLine <= lineNumber + 1) {
+    return null;
+  }
+
+  const hasCoveredArmExecution = hasCoveredSpanningStatementStartingOnLine(fileCoverage, lineNumber)
+    || hasCoveredStatementContainedInRange(fileCoverage, lineNumber + 1, armEndLine - 1)
+    || hasCoveredBranchContainedInRange(fileCoverage, lineNumber + 1, armEndLine - 1)
+    || hasCoveredNestedFunctionContainedInRange(fileCoverage, lineNumber + 1, armEndLine - 1, null);
+  if (!hasCoveredArmExecution) {
+    return null;
+  }
+
+  for (let cursor = lineNumber - 1, minLine = Math.max(1, lineNumber - 120); cursor >= minLine; cursor -= 1) {
     const candidateText = getLineText(sourceLines, cursor).trim();
     if (!candidateText || isPureClosingLine(candidateText) || /^(?:\/\/|\/\*|\*|\*\/)/u.test(candidateText)) {
       continue;
@@ -2025,12 +2045,42 @@ function getPromotedWhenArmHeaderStatus(fileCoverage, sourceLines, lineNumber) {
     if (/\bwhen\b[\s\S]*\{\s*$/u.test(candidateText)) {
       return 'yes';
     }
-    if (/\bfun\b/u.test(candidateText)) {
+    if (/\bfun\b/u.test(candidateText) || classSignatureLinePattern.test(candidateText)) {
       break;
     }
   }
 
   return null;
+}
+
+function getPromotedCoveredControlHeaderStatus(fileCoverage, sourceLines, lineNumber) {
+  if (!hasCoveredSpanningStatementStartingOnLine(fileCoverage, lineNumber)) {
+    return null;
+  }
+
+  const normalizedLineText = getLineText(sourceLines, lineNumber).trim().replace(/^(?:\}\s*)+/u, '');
+  if (/->\s*if\b/u.test(normalizedLineText)) {
+    return null;
+  }
+
+  if (/^(?:if|else\s+if)\b/u.test(normalizedLineText)
+    || /^(?:val|var)\b[\s\S]*=\s*if\b/u.test(normalizedLineText)
+    || /^return\s+if\b/u.test(normalizedLineText)) {
+    return 'yes';
+  }
+
+  return null;
+}
+
+function getPromotedExpressionBodiedFunctionStatus(fileCoverage, sourceLines, lineNumber) {
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+  if (!/\bfun\b/u.test(lineText) || !/\)\s*(?::[^=]+)?\s*=/u.test(lineText)) {
+    return null;
+  }
+
+  return hasCoveredSpanningStatementStartingOnLine(fileCoverage, lineNumber)
+    ? 'yes'
+    : null;
 }
 
 function getPromotedControlLineStatus(fileCoverage, filePath, sourceLines, lineNumber) {
@@ -2074,6 +2124,16 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
     const promotedWhenArmStatus = getPromotedWhenArmHeaderStatus(fileCoverage, sourceLines, lineNumber);
     if (promotedWhenArmStatus) {
       return promotedWhenArmStatus;
+    }
+
+    const promotedExpressionBodiedFunctionStatus = getPromotedExpressionBodiedFunctionStatus(fileCoverage, sourceLines, lineNumber);
+    if (promotedExpressionBodiedFunctionStatus) {
+      return promotedExpressionBodiedFunctionStatus;
+    }
+
+    const promotedCoveredControlHeaderStatus = getPromotedCoveredControlHeaderStatus(fileCoverage, sourceLines, lineNumber);
+    if (promotedCoveredControlHeaderStatus) {
+      return promotedCoveredControlHeaderStatus;
     }
 
     const promotedControlStatus = getPromotedControlLineStatus(fileCoverage, filePath, sourceLines, lineNumber);
