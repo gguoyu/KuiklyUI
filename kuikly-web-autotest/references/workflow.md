@@ -72,6 +72,5 @@ node kuikly-web-autotest/scripts/build-autotest-report.mjs
 
 ## Cautions
 
-- Do not treat the old `.codebuddy` rule file as authoritative over the actual repo state.
 - Do not assume page-to-spec mappings from `AUTOTEST.md` are complete; scan the filesystem each time.
 - Do not auto-update snapshots unless there is evidence that the UI change is intended.

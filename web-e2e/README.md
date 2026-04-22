@@ -334,7 +334,7 @@ npm run test:debug    # 单步调试模式
 | 文档 | 说明 |
 |------|------|
 | [QUICKSTART.md](./QUICKSTART.md) | 新人快速上手（标准 CLI / 报告 / 常见操作） |
-| [../AUTOTEST.md](../AUTOTEST.md) | 完整测试方案设计（架构 / 规范 / 实施计划） |
+| [AUTOTEST.md](./AUTOTEST.md) | 完整测试方案设计（架构 / 规范 / 实施计划） |
 | [../kuikly-web-autotest/SKILL.md](../kuikly-web-autotest/SKILL.md) | 仓库级 AI 闭环说明 |
 | [../kuikly-web-autotest/agents/openai.yaml](../kuikly-web-autotest/agents/openai.yaml) | Skill 配套元数据 |
 | [Playwright 文档](https://playwright.dev) | Playwright 官方文档 |

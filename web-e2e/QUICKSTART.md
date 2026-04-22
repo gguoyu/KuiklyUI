@@ -1,6 +1,6 @@
 # 🚀 Kuikly Web E2E 快速上手指南
 
-快速跑通第一个测试。
+快速跑通第一个测试。详细说明见 [README.md](./README.md)。
 
 ---
 
@@ -14,35 +14,30 @@ npx playwright install chromium
 
 ---
 
-## 第二步：下载字体（首次）
+## 第二步：下载字体（首次，可选）
 
 ```bash
 npm run setup
 ```
 
-此命令从 Google Fonts 下载 Noto Sans SC WOFF2 字体到 `fonts/` 目录，用于统一测试页面的文字渲染，消除跨平台字体差异。字体文件不入库，只需下载一次。
-
-> 💡 若网络无法访问 Google Fonts，可跳过此步骤。测试仍可正常运行，截图对比会依靠 Chrome 参数（`--font-render-hinting=none`）来减少平台差异。
+从 Google Fonts 下载 Noto Sans SC WOFF2 字体，用于统一截图渲染。若网络无法访问可跳过，测试仍可正常运行。
 
 ---
 
 ## 第三步：运行测试
 
-标准入口是 CLI 本地一键命令。它会自动完成构建、启动测试服务器、执行测试、采集 V8 coverage、生成 Monocart Kotlin 覆盖率报告，并执行阈值检查，无需手动准备第二个终端。
-
 ```bash
-# 标准入口：本地一键完整闭环
+# 标准入口：构建 → 启动服务器 → 测试 → 覆盖率报告 → 阈值检查
 node scripts/kuikly-test.mjs --full
 
-# 仅在本地调试单轮用例时，可直接运行 Playwright（不生成正式覆盖率报告）
-npm run test:smoke
+# 本地调试单轮用例（不生成正式覆盖率报告）
 npm test
+npm run test:smoke
 
-# 指定语义分组
-npm run test:static      # static：确定性断言
-npm run test:functional  # functional：交互触发的状态变化
-npm run test:visual      # visual：截图结论
-npm run test:hybrid      # hybrid：组合场景
+# 按语义分组运行
+npm run test:static      # 确定性断言
+npm run test:functional  # 交互状态变化
+npm run test:visual      # 截图结论
 ```
 
 看到 `X passed` 即说明环境正常。
@@ -55,193 +50,98 @@ npm run test:hybrid      # hybrid：组合场景
 npx playwright show-report reports/html
 ```
 
-会在浏览器打开交互式报告，包含每个用例的截图、视频、错误详情。
-
 ---
 
 ## 常用操作速查
 
-### 调试某个测试
-
-```bash
-# 有界面运行，可以看到浏览器操作过程
-npx playwright test tests/functional/click-functional.spec.ts --headed
-
-# Playwright UI 模式（推荐，可单步执行、时间旅行）
-npm run test:ui
-
-# 单步调试
-npx playwright test tests/functional/click-functional.spec.ts --debug
-```
-
-### 截图基准管理
-
-截图基准存储在各 spec 文件同级的 `*.spec.ts-snapshots/` 目录下。
-
-```bash
-# 更新全部截图基准（改动 UI 后需要执行）
-npx playwright test --update-snapshots
-
-# 只更新某个文件的基准
-npx playwright test tests/static/components/krview-static.spec.ts --update-snapshots
-```
-
-> ⚠️ 更新基准前务必肉眼确认截图变化符合预期，再 commit。
-
----
-
-### 截图对比与平台一致性
-
-**核心问题：** 截图在不同操作系统（Windows/Mac/Linux）因字体渲染差异，可能产生像素级不同。
-
-**本项目通过以下两个手段消除差异，无需 Docker：**
-
-| 手段 | 说明 |
+| 操作 | 命令 |
 |------|------|
-| **Chrome 参数** | `--font-render-hinting=none` 等参数禁用字体 Hinting，减少像素差异 |
-| **内嵌 Web Font** | serve.js 向页面注入 NotoSansSC 字体，将文字渲染与系统字体解耦 |
+| UI 调试模式 | `npm run test:ui` |
+| 更新截图基准 | `npm run test:update-snapshots` |
+| 生成覆盖率报告 | `npm run coverage` |
+| 检查覆盖率阈值 | `npm run coverage:check` |
 
-**更新截图基准的正确姿势：**
-
-```bash
-# 1. 在本地生成/更新截图基准
-npm run test:update-snapshots
-
-# 2. 肉眼 review 截图变化
-git diff tests/
-
-# 3. 确认无误后提交
-git add tests/ && git commit -m "chore: update snapshots"
-```
-
-> ⚠️ 更新基准前务必肉眼确认截图变化符合预期，再 commit。
-
-### 覆盖率模式
-
-覆盖率收集已集成在 fixture 中。当前链路使用 **Playwright Chromium V8 native coverage + Monocart**：测试执行时写入 `.v8_output/`，正式报告映射回 Kotlin 源文件，阈值配置来自 `config/coverage.cjs`。
-
-```bash
-# 标准入口：CLI 一键完成构建、启动测试服务器、测试、生成 Monocart Kotlin 覆盖率报告、执行阈值检查
-node scripts/kuikly-test.mjs --full
-
-# 若已有 .v8_output，可单独生成 Monocart Kotlin 覆盖率报告
-npm run coverage
-
-# 单独检查阈值（基于 .v8_output 重新生成 summary）
-npm run coverage:check
-
-# 生成不走 sourcemap 的 JS 调试报告
-npm run coverage:js-no-sourcemap
-```
-
-### 使用 CLI 统一入口
-
-```bash
-# 本地调试单轮用例时，可跳过构建只跑 functional 测试
-node scripts/kuikly-test.mjs --level functional --skip-build
-
-# 全流程：构建 → 自动启动测试服务器 → 测试（V8 coverage mode）→ Monocart Kotlin 覆盖率报告 → 阈值检查
-node scripts/kuikly-test.mjs --full
-
-# 仅生成 Monocart Kotlin 覆盖率报告（基于已有 .v8_output 数据）
-node scripts/kuikly-test.mjs --coverage-only
-```
-
-### 用 AI 继续闭环
-
-当前仓库的 AI 自动化测试闭环说明以 `../kuikly-web-autotest/SKILL.md` 为准。
-
-```bash
-# 若当前位于 web-e2e/ 目录，直接触发仓库级闭环入口
-node ../kuikly-web-autotest/scripts/run-autotest-loop.mjs
-
-# 若只想跑单轮 canonical CLI，仍使用本目录下的标准入口
-node scripts/kuikly-test.mjs --full
-```
+详细说明（截图管理、覆盖率模式、CLI 参数）见 [README.md](./README.md)。
 
 ---
 
 ## 常见问题
 
-### 测试失败：截图对比不通过
+### 截图对比失败
 
 ```
-Error: Screenshot comparison failed
-N pixels (ratio X) are different.
+Error: Screenshot comparison failed. N pixels (ratio X) are different.
 ```
 
-**原因 1：页面渲染结果与截图基准不一致（真正的 UI 变更或 Bug）。**
+1. `npx playwright show-report reports/html` 查看差异图
+2. 若是预期内的 UI 变更：`npm run test:update-snapshots` 更新基准后 commit
+3. 若是 Bug：修复渲染问题后重新运行
 
-处理：
-1. 先用 `npx playwright show-report reports/html` 查看差异图
-2. 若是预期内的 UI 变更，用 `npm run test:update-snapshots` 更新基准后 commit
-3. 若是 Bug，修复渲染问题后再次运行
-
-**原因 2：在 Windows/Mac 本地跑，与其他平台存在轻微字体渲染差异。**
-
-处理：确认已执行 `npm run setup` 下载 Web Font（可消除大部分差异）；若差异仍超出容差，可适当调整 `playwright.config.js` 中的 `maxDiffPixelRatio`（当前为 `0.02`）。
-
----
-
-### 测试失败：找不到元素
+### 找不到元素
 
 ```
 Error: locator.click: Timeout 30000ms exceeded
 ```
 
-**原因**：服务器未响应，或页面中组件未正确渲染。
+在浏览器打开 `http://localhost:8080/?page_name=<TestPageName>`，确认页面可以加载且 `data-kuikly-component` 属性已注入。
 
-**处理**：
-1. 在浏览器中打开 `http://localhost:8080/?page_name=<TestPageName>`，确认页面可以加载
-2. 打开浏览器控制台，检查是否有 JS 错误
-3. 确认 `data-kuikly-component` 属性已注入（右键 → 检查元素）
+### Kotlin 覆盖率报告为空
 
----
+未以 V8 coverage 模式运行测试。使用标准入口：
 
-### 运行报错：找不到截图基准
-
-```
-Error: A snapshot doesn't exist at ...
-```
-
-**原因**：首次运行，还没有生成截图基准。
-
-**处理**：
-```bash
-npx playwright test --update-snapshots
-```
-
----
-
-### Kotlin 覆盖率报告为空 / 没有数据
-
-**原因**：未以 V8 coverage 模式运行测试，fixture 没有写入 `.v8_output/`。
-
-**处理**：优先直接执行：
 ```bash
 node scripts/kuikly-test.mjs --full
 ```
 
 ---
 
-## 运行环境说明
+## 用 AI 继续闭环
 
-| 参数 | 值 |
-|------|----|
-| 浏览器 | Chromium |
-| Viewport | 375 × 812（iPhone X） |
-| 服务器端口 | 8080 |
-| 用例超时 | 60s |
-| 失败重试 | 本地 1 次，CI 2 次 |
+```bash
+# 从仓库根目录触发完整 AI 闭环
+node kuikly-web-autotest/scripts/run-autotest-loop.mjs
 
-> ⚠️ 截图基准与 viewport 尺寸强绑定，请勿修改 `playwright.config.js` 中的 viewport 配置。
+# 常用参数组合
+node kuikly-web-autotest/scripts/run-autotest-loop.mjs \
+  --skip-build --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan
+
+# 仅对单个 spec 验证修复
+node web-e2e/scripts/kuikly-test.mjs --skip-build --test <spec>
+```
+
+### 主要输出文件
+
+`web-e2e/reports/autotest/loop-report.json` 是机器可读的闭环报告，关注以下字段：
+
+| 字段 | 含义 |
+|------|------|
+| `scan.summary` | 页面/spec 完整性状态 |
+| `attempts[*].summary` | 每轮测试和覆盖率结果 |
+| `mutations` | 本次自动编辑内容 |
+| `warnings` | 阻塞项或需要回滚的信号 |
+| `finalStatus` | 最终结论 |
+
+### AI 自动修复范围
+
+- ✅ 为缺失的 `web_test` 页面创建 managed spec
+- ✅ 刷新失败的 managed spec（定位器/断言过时）
+- ✅ 修复确定性的页面映射（`kuiklyPage.goto()` 重映射）
+- ✅ 在有明确模式时添加最小化 `web_test` 页面
+- ❌ 不重写 handwritten 非 managed spec（仅限上述确定性修复规则）
+
+### 需要人工介入的场景
+
+- spec 目标为 `orphanSpecTarget`（页面不在 `web_test` 下）
+- 产品行为存在歧义，无法判断是预期变更还是回归
+- 页面被外部 SDK 或产品能力阻塞
+- 低覆盖率文件没有合适的 `web_test` 载体页
+- 某页面已有 handwritten spec 且全部为 skipped/pending 状态（视为阻塞项）
+- 新 `web_test` 页面仅能是占位标题页而不能真正验证缺失能力
 
 ---
 
 ## 更多资料
 
-- [README.md](./README.md) — 完整功能说明（目录结构、API、CLI 参数等）
-- [../AUTOTEST.md](../AUTOTEST.md) — 测试方案设计文档
-- [../kuikly-web-autotest/SKILL.md](../kuikly-web-autotest/SKILL.md) — 仓库级 AI 闭环说明
-- [../kuikly-web-autotest/agents/openai.yaml](../kuikly-web-autotest/agents/openai.yaml) — Skill 配套元数据
-- [Playwright 文档](https://playwright.dev)
+- [README.md](./README.md) — 完整功能说明（目录结构、API、CLI 参数、编写规范）
+- [AUTOTEST.md](./AUTOTEST.md) — 测试方案设计文档
+- [../kuikly-web-autotest/SKILL.md](../kuikly-web-autotest/SKILL.md) — AI 闭环完整规范

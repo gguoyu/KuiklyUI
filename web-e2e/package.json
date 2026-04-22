@@ -20,7 +20,6 @@
     "report": "playwright show-report",
     "codegen": "playwright codegen http://localhost:8080",
     "install:browsers": "playwright install",
-    "verify": "node verify-phase1.mjs",
     "coverage": "node scripts/coverage-report.mjs",
     "coverage:check": "node scripts/coverage-report.mjs --check",
     "coverage:js-no-sourcemap": "node scripts/coverage-js-no-sourcemap-report.mjs",

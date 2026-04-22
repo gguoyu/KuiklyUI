@@ -26,7 +26,7 @@ This skill is the fixed project workflow for KuiklyUI web autotest.
 - Default real run: `node kuikly-web-autotest/scripts/run-autotest-loop.mjs --skip-build --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan`
 - Default focused rerun: `node web-e2e/scripts/kuikly-test.mjs --skip-build --test <spec>`
 - Primary machine-readable output: `web-e2e/reports/autotest/loop-report.json`
-- User-facing quick reference: `web-e2e/AUTOTEST-USER-GUIDE.md`
+- User-facing quick reference: `web-e2e/QUICKSTART.md`
 
 When coverage is still below threshold, continue the closed loop automatically as long as the next move stays inside the safe mutation scope below.
 
