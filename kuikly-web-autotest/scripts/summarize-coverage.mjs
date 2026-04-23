@@ -15,12 +15,7 @@ const coverage = requireJsonFile(
   `Missing coverage report: ${coveragePath}`,
   'Failed to parse coverage report'
 );
-const thresholds = coverageConfig.thresholds || coverageConfig.fallbackThresholds || {
-  lines: 70,
-  functions: 70,
-  statements: 70,
-  branches: 55,
-};
+const thresholds = coverageConfig.thresholds;
 
 const files = Object.entries(coverage).map(([absolutePath, info]) => {
   const metrics = computeFileMetrics(info);

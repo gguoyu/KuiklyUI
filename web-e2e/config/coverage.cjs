@@ -1,10 +1,4 @@
 module.exports = {
-  fallbackThresholds: {
-    lines: 70,
-    functions: 70,
-    statements: 70,
-    branches: 55,
-  },
   thresholds: {
     lines: 70,
     functions: 70,

@@ -42,8 +42,6 @@ const MANAGED_TARGET_CLASSIFICATION = Object.freeze({
   composite: 'functional',
 });
 
-const SPLIT_CANDIDATES = Object.freeze([]);
-
 export function normalizeLevelInput(level) {
   if (level == null) {
     return null;
@@ -96,6 +94,3 @@ export function classifyManagedSpec({ pageMeta = {}, assertionMode } = {}) {
   return MANAGED_TARGET_CLASSIFICATION[pageMeta.category] || 'functional';
 }
 
-export function getSplitCandidates() {
-  return SPLIT_CANDIDATES.map((candidate) => ({ ...candidate }));
-}
