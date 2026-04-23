@@ -293,6 +293,11 @@ function isBlockFunctionHeaderLine(lineText) {
     && !isPropertyAccessorLine(trimmed);
 }
 
+function isSingleLineEmptyBlockFunctionLine(lineText) {
+  const stripped = lineText.split('//')[0].trim();
+  return isBlockFunctionHeaderLine(stripped) && /\{\s*\}\s*$/u.test(stripped);
+}
+
 function isConstPropertyDeclaration(lineText) {
   return /\bconst\s+val\b/u.test(lineText.trim());
 }
@@ -2313,13 +2318,35 @@ function promoteCoveredAccessorHeaderLines(lineCoverage, filePath, sourceLines) 
   }
 }
 
-function getCoveredFunctionCountsStartingOnLine(fileCoverage, lineNumber) {
+function getFunctionCountsStartingOnLine(fileCoverage, lineNumber) {
   return Object.entries(fileCoverage.fnMap || {})
-    .filter(([functionId, functionCoverage]) => Number(fileCoverage.f?.[functionId] || 0) > 0
-      && (Number(functionCoverage?.line || 0) === lineNumber
-        || Number(functionCoverage?.loc?.start?.line || 0) === lineNumber
-        || Number(functionCoverage?.decl?.start?.line || 0) === lineNumber))
+    .filter(([, functionCoverage]) => Number(functionCoverage?.line || 0) === lineNumber
+      || Number(functionCoverage?.loc?.start?.line || 0) === lineNumber
+      || Number(functionCoverage?.decl?.start?.line || 0) === lineNumber)
     .map(([functionId]) => Number(fileCoverage.f?.[functionId] || 0));
+}
+
+function getCoveredFunctionCountsStartingOnLine(fileCoverage, lineNumber) {
+  return getFunctionCountsStartingOnLine(fileCoverage, lineNumber)
+    .filter((count) => count > 0);
+}
+
+function getSingleLineEmptyBlockFunctionStatus(fileCoverage, sourceLines, lineNumber) {
+  if (!isSingleLineEmptyBlockFunctionLine(getLineText(sourceLines, lineNumber))) {
+    return null;
+  }
+
+  const functionCounts = Object.entries(fileCoverage.fnMap || {})
+    .filter(([, functionCoverage]) => Number(functionCoverage?.line || 0) === lineNumber
+      || Number(functionCoverage?.loc?.start?.line || 0) === lineNumber)
+    .map(([functionId]) => Number(fileCoverage.f?.[functionId] || 0));
+  if (!functionCounts.length) {
+    return null;
+  }
+
+  return functionCounts.some((count) => count > 0)
+    ? 'yes'
+    : 'no';
 }
 
 function promoteCoveredMultilineExpressionBodiedFunctionHeaderLines(lineCoverage, filePath, sourceLines) {
@@ -2971,6 +2998,11 @@ function getPromotedBlockFunctionHeaderStatus(fileCoverage, filePath, sourceLine
 function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branchStats) {
   if (isForceNeutralLine(filePath, sourceLines, lineNumber)) {
     return 'neutral';
+  }
+
+  const singleLineEmptyBlockFunctionStatus = getSingleLineEmptyBlockFunctionStatus(fileCoverage, sourceLines, lineNumber);
+  if (singleLineEmptyBlockFunctionStatus) {
+    return singleLineEmptyBlockFunctionStatus;
   }
 
   const lineCount = getLineCoverageCount(fileCoverage, lineNumber);
