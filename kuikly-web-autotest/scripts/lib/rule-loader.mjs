@@ -23,6 +23,7 @@ const fallbackTemplateProfiles = Object.freeze({
 const fallbackInteractionProtocol = Object.freeze({
   defaults: Object.freeze({
     actions: Object.freeze(['click-visible-labels']),
+    actionScripts: Object.freeze([]),
     maxActionLabels: 4,
     postActionWaitMs: 250,
     recheckPageReadyAfterAction: true,
@@ -30,7 +31,7 @@ const fallbackInteractionProtocol = Object.freeze({
     inputText: 'Hello Kuikly',
   }),
   categoryProfiles: Object.freeze({
-    default: Object.freeze({ actions: Object.freeze(['click-visible-labels']) }),
+    default: Object.freeze({ actions: Object.freeze(['click-visible-labels']), actionScripts: Object.freeze([]) }),
   }),
   componentProfiles: Object.freeze({}),
   pageProfiles: Object.freeze({}),
@@ -190,6 +191,7 @@ export function resolveManagedRepairProfile(pageMeta = {}, failure, managedEntry
 function normalizeResolvedInteractionConfig(config) {
   return {
     actions: mergeUniqueArray([], Array.isArray(config.actions) ? config.actions : []),
+    actionScripts: Array.isArray(config.actionScripts) ? config.actionScripts : [],
     maxActionLabels: Number(config.maxActionLabels) > 0 ? Number(config.maxActionLabels) : fallbackInteractionProtocol.defaults.maxActionLabels,
     postActionWaitMs: Number(config.postActionWaitMs) > 0 ? Number(config.postActionWaitMs) : fallbackInteractionProtocol.defaults.postActionWaitMs,
     recheckPageReadyAfterAction: config.recheckPageReadyAfterAction !== false,
@@ -232,7 +234,20 @@ function countExpectCalls(content) {
   return (content.match(/\bexpect\s*\(/g) || []).length;
 }
 
-export function validateGeneratedSpec({ content = '', targetClassification = 'functional' } = {}) {
+function hasUsableInteractionPath(actionLabels = [], interactionHints = {}) {
+  if (Array.isArray(interactionHints.actionScripts) && interactionHints.actionScripts.length > 0) {
+    return true;
+  }
+
+  const actions = Array.isArray(interactionHints.actions) ? interactionHints.actions : [];
+  if (actions.some((action) => action === 'fill-first-input' || action === 'scroll-first-list')) {
+    return true;
+  }
+
+  return actions.includes('click-visible-labels') && Array.isArray(actionLabels) && actionLabels.length > 0;
+}
+
+export function validateGeneratedSpec({ content = '', targetClassification = 'functional', actionLabels = [], interactionHints = {} } = {}) {
   const rules = getReviewChecklistRules();
   const warnings = [];
 
@@ -268,6 +283,14 @@ export function validateGeneratedSpec({ content = '', targetClassification = 'fu
       warnings.push({
         id: `expect-count-${targetClassification}`,
         message: `Generated spec has fewer expect() assertions than required for ${targetClassification}.`,
+      });
+    }
+
+    if (classificationRule.requireActionableInteractionPath === true
+      && !hasUsableInteractionPath(actionLabels, interactionHints)) {
+      warnings.push({
+        id: 'missing-actionable-interaction-path',
+        message: 'Generated interaction spec does not have a usable action path from extracted labels or scripted interaction rules.',
       });
     }
   }

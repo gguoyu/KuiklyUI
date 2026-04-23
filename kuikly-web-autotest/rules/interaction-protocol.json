@@ -101,6 +101,44 @@
       ],
       "maxActionLabels": 2,
       "postActionWaitMs": 500
+    },
+    "ButtonEventTestPage": {
+      "actions": [
+        "run-action-scripts"
+      ],
+      "postActionWaitMs": 250,
+      "actionScripts": [
+        {
+          "kind": "click",
+          "targetLabel": "click-button",
+          "expectLabel": "click-once"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "click-once",
+          "expectLabel": "click-twice"
+        },
+        {
+          "kind": "double-click",
+          "targetLabel": "double-button",
+          "expectLabel": "double-once"
+        },
+        {
+          "kind": "double-click",
+          "targetLabel": "double-once",
+          "expectLabel": "double-twice"
+        },
+        {
+          "kind": "long-press",
+          "targetLabel": "long-button",
+          "expectLabel": "long-once"
+        },
+        {
+          "kind": "long-press",
+          "targetLabel": "long-once",
+          "expectLabel": "long-twice"
+        }
+      ]
     }
   }
 }

@@ -172,6 +172,11 @@ function extractCallStrings(source, pattern) {
   return values;
 }
 
+function extractTitleAttrTextStrings(source) {
+  return [...source.matchAll(/titleAttr\s*\{([\s\S]{0,800}?)\}/gmu)]
+    .flatMap((match) => collectQuotedStrings(match[1] || ''));
+}
+
 function normalizeContentText(value) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) {
@@ -256,8 +261,8 @@ function loadPageCatalog() {
     );
     const actionLabels = unique(
       [
-        ...extractCallStrings(source, /titleAttr\s*\{[\s\S]{0,240}?text\s*\(([^)]{0,400})\)/g),
-        ...extractCallStrings(source, /event\s*\{\s*(?:click|longPress)\s*\{[\s\S]{0,1400}?\}\s*\}[\s\S]{0,900}?text\s*\(([^)]{0,400})\)/g),
+        ...extractTitleAttrTextStrings(source),
+        ...extractCallStrings(source, /event\s*\{\s*(?:click|doubleClick|longPress)\s*\{[\s\S]{0,1400}?\}\s*\}[\s\S]{0,900}?text\s*\(([^)]{0,400})\)/g),
       ]
         .map(normalizeActionLabel)
         .filter(Boolean)
@@ -420,10 +425,82 @@ async function clickVisibleLabels(kuiklyPage, { stopAfterFirstSuccess = false } 
   return clickedCount;
 }
 
+function findExactText(kuiklyPage, label) {
+  return kuiklyPage.page.getByText(label, { exact: true }).first();
+}
+
+async function longPressTextLabel(kuiklyPage, label) {
+  const target = findExactText(kuiklyPage, label);
+  if (!(await target.count())) {
+    return false;
+  }
+
+  const box = await target.boundingBox();
+  if (!box) {
+    return false;
+  }
+
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await kuiklyPage.page.mouse.move(x, y);
+  await kuiklyPage.page.mouse.down();
+  await kuiklyPage.page.waitForTimeout(850);
+  await kuiklyPage.page.mouse.up();
+  return true;
+}
+
+async function runActionScripts(kuiklyPage) {
+  let completed = 0;
+
+  for (const script of INTERACTION_HINTS.actionScripts || []) {
+    const target = script?.targetLabel;
+    const expectLabel = script?.expectLabel;
+    if (!target) {
+      continue;
+    }
+
+    const locator = findExactText(kuiklyPage, target);
+    if (!(await locator.count())) {
+      continue;
+    }
+
+    if (script.kind === 'double-click') {
+      await locator.dblclick();
+    } else if (script.kind === 'long-press') {
+      const pressed = await longPressTextLabel(kuiklyPage, target);
+      if (!pressed) {
+        continue;
+      }
+    } else {
+      await locator.click();
+    }
+
+    completed += 1;
+    await kuiklyPage.page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
+    if (expectLabel) {
+      await expect(findExactText(kuiklyPage, expectLabel)).toBeVisible();
+    }
+    if (INTERACTION_HINTS.recheckPageReadyAfterAction !== false) {
+      await expectPageReady(kuiklyPage);
+    }
+  }
+
+  return completed;
+}
+
 async function runRuleDrivenInteractions(kuiklyPage, { stopAfterFirstSuccess = false } = {}) {
   let completed = 0;
 
   for (const action of INTERACTION_HINTS.actions || []) {
+    if (action === 'run-action-scripts') {
+      const scripted = await runActionScripts(kuiklyPage);
+      completed += scripted;
+      if (scripted > 0 || stopAfterFirstSuccess) {
+        return completed;
+      }
+      continue;
+    }
+
     if (action === 'fill-first-input') {
       const filled = await fillFirstInputIfPresent(kuiklyPage);
       if (filled) {
@@ -488,7 +565,9 @@ async function waitForAnimationStrategy(kuiklyPage, locator = null) {
 }
 
 function hasUsableInteractionHints() {
-  return ACTION_LABELS.length > 0 || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
+  return (Array.isArray(INTERACTION_HINTS.actionScripts) && INTERACTION_HINTS.actionScripts.length > 0)
+    || ACTION_LABELS.length > 0
+    || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
 }
 `;
 }
@@ -1434,9 +1513,12 @@ function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
   const templateProfile = repairProfile?.templateProfile || defaultManagedTemplateProfile(pageMeta);
   const targetClassification = classifyManagedSpec({ pageMeta, templateProfile });
   const content = buildManagedSpecContent(pageMeta, reason, repairProfile);
+  const interactionHints = resolveInteractionHints(pageMeta);
   const validationWarnings = validateGeneratedSpec({
     content,
     targetClassification,
+    actionLabels: pageMeta.actionLabels,
+    interactionHints,
   });
   const alreadyExists = existsSync(targetPath);
   const previousContent = alreadyExists ? readFileSync(targetPath, 'utf8') : null;
@@ -1468,6 +1550,11 @@ function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
         message: warning.message,
       }))
     );
+  }
+
+  if ((reason === 'coverage-gap' || reason === 'coverage-refresh')
+    && validationWarnings.some((warning) => warning.id === 'missing-actionable-interaction-path')) {
+    return null;
   }
 
   if (!context.dryRun) {

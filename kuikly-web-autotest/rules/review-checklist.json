@@ -17,7 +17,8 @@
         "keyboard.type(",
         "scrollInContainer("
       ],
-      "minimumExpectCount": 2
+      "minimumExpectCount": 2,
+      "requireActionableInteractionPath": true
     },
     "visual": {
       "requiredOneOf": [
