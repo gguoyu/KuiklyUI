@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { basename, dirname, join, relative } from 'path';
 import { repoRoot, reportsDir as baseReportsDir, testsRoot, webTestRoot } from './lib/paths.mjs';
 import { loopConfig, displayConfig, reportingConfig } from './lib/config.mjs';
@@ -23,6 +23,8 @@ import {
   resolveInteractionHints,
   resolveAnimationHints,
   validateGeneratedSpec,
+  evaluatePageTestability,
+  scoreBackfillPriority,
 } from './lib/rule-loader.mjs';
 
 const fixtureEntry = join(repoRoot, 'web-e2e', 'fixtures', 'test-base');
@@ -82,6 +84,7 @@ const options = {
   headed: hasFlag('--headed'),
   debug: hasFlag('--debug'),
   skipBuild: hasFlag('--skip-build'),
+  skipImmediateVerify: hasFlag('--skip-immediate-verify'),
   level: getArg('--level'),
   test: getArg('--test'),
 };
@@ -294,7 +297,7 @@ function defaultManagedTemplateProfile(pageMeta) {
   return resolveManagedTemplateProfile(pageMeta);
 }
 
-function managedSpecMetadataFor(pageMeta, reason, templateProfile) {
+function managedSpecMetadataFor(pageMeta, reason, templateProfile, repairProfile = null) {
   const targetClassification = classifyManagedSpec({ pageMeta, templateProfile });
 
   return {
@@ -306,6 +309,10 @@ function managedSpecMetadataFor(pageMeta, reason, templateProfile) {
     targetClassification,
     specLocation: toPosix(relative(repoRoot, pageMeta.managedSpecPath)),
     migrationPhase: 'semantic-closure',
+    repairReason: reason,
+    repairStrategy: repairProfile?.strategy || null,
+    repairStep: Number(repairProfile?.repairStep || 0),
+    repairLadderStep: repairProfile?.ladderStep || null,
   };
 }
 
@@ -1170,7 +1177,67 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
 `;
 }
 
+function buildManagedEventCaptureSpec(pageMeta, preamble, pageNameLiteral) {
+  return `${preamble}
+const CAPTURE_TITLE = 'capture-title';
+const PAGE_ONE = 'page-1';
+const RESET_LABEL = 'reset';
+
+async function boundingBoxOf(page, label) {
+  const target = page.getByText(label, { exact: true }).first();
+  const box = await target.boundingBox();
+  if (!box) {
+    throw new Error('Unable to read bounding box for ' + label);
+  }
+  return box;
+}
+
+async function dragFromLeftEdge(page, label) {
+  const box = await boundingBoxOf(page, label);
+  const startX = 40;
+  const startY = box.y + box.height / 2;
+  const endX = startX + 220;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(endX, startY, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
+}
+
+test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
+  test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText(CAPTURE_TITLE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(PAGE_ONE, { exact: true })).toBeVisible();
+  });
+
+  test('drags the capture surface and resets it on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto(${pageNameLiteral});
+    await kuiklyPage.waitForRenderComplete();
+
+    const before = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
+    await dragFromLeftEdge(kuiklyPage.page, PAGE_ONE);
+    const afterDrag = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
+    expect(afterDrag.x).toBeGreaterThan(before.x);
+
+    await kuiklyPage.page.getByText(RESET_LABEL, { exact: true }).first().click();
+    await kuiklyPage.page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
+    const afterReset = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
+    expect(afterReset.x).toBeLessThan(afterDrag.x);
+    await expect(kuiklyPage.page.getByText(CAPTURE_TITLE, { exact: true })).toBeVisible();
+  });
+});
+`;
+}
+
 function buildManagedInteractionSpec(pageMeta, preamble, pageNameLiteral, templateProfile) {
+  if (pageMeta.pageName === 'EventCaptureTestPage' && templateProfile === 'interaction-event-capture') {
+    return buildManagedEventCaptureSpec(pageMeta, preamble, pageNameLiteral);
+  }
+
   if (pageMeta.pageName === 'ListScrollTestPage') {
     if (templateProfile === 'interaction-list-scroll-lite') {
       return buildManagedListScrollLiteSpec(pageMeta, preamble, pageNameLiteral);
@@ -1233,7 +1300,7 @@ function buildManagedModuleSpec(pageMeta, preamble, pageNameLiteral, templatePro
 
 function buildManagedSpecContent(pageMeta, reason, repairProfile = null) {
   const templateProfile = repairProfile?.templateProfile || defaultManagedTemplateProfile(pageMeta);
-  const metadata = managedSpecMetadataFor(pageMeta, reason, templateProfile);
+  const metadata = managedSpecMetadataFor(pageMeta, reason, templateProfile, repairProfile);
   const fixtureImport = inferFixtureImport(pageMeta.managedSpecPath);
   const pageNameLiteral = escapeTemplateLiteral(JSON.stringify(pageMeta.pageName));
   const preamble = buildManagedSpecPreamble(pageMeta, metadata, fixtureImport);
@@ -1326,6 +1393,13 @@ function classifyCarrierPageBlocker(pageName, specIndex) {
   };
 }
 
+function normalizeOrphanTargetBase(pageName) {
+  return String(pageName || '')
+    .toLowerCase()
+    .replace(/page$/, '')
+    .replace(/(example|test)$/, '');
+}
+
 function resolveOrphanTarget(pageName, pageCatalog) {
   if (!pageName) {
     return null;
@@ -1335,25 +1409,18 @@ function resolveOrphanTarget(pageName, pageCatalog) {
     return 'CalendarModuleTestPage';
   }
 
-  if (pageName === 'PAGAnimTestPage') {
+  if (pageName === 'PAGAnimTestPage' || /DemoPage$/.test(pageName)) {
     return null;
   }
 
-  const candidates = [];
-  const normalized = pageName.toLowerCase();
-  const normalizedBase = normalized.replace(/example/g, '').replace(/testpage/g, '');
-
-  for (const pageMeta of pageCatalog.pages) {
-    const candidate = pageMeta.pageName.toLowerCase();
-    const candidateBase = candidate.replace(/testpage/g, '');
-    if (candidate.includes(normalized) || normalized.includes(candidate)) {
-      candidates.push(pageMeta.pageName);
-      continue;
-    }
-    if (normalizedBase && candidateBase && (candidateBase.includes(normalizedBase) || normalizedBase.includes(candidateBase))) {
-      candidates.push(pageMeta.pageName);
-    }
+  const normalizedBase = normalizeOrphanTargetBase(pageName);
+  if (!normalizedBase) {
+    return null;
   }
+
+  const candidates = pageCatalog.pages
+    .filter((pageMeta) => normalizeOrphanTargetBase(pageMeta.pageName) === normalizedBase)
+    .map((pageMeta) => pageMeta.pageName);
 
   const uniqueCandidates = unique(candidates);
   return uniqueCandidates.length === 1 ? uniqueCandidates[0] : null;
@@ -1379,12 +1446,13 @@ function patchHandwrittenSpecFile(specEntry, nextContent, reason, extra = {}) {
   };
 }
 
-function createMutationContext(dryRun) {
+function createMutationContext(dryRun, verificationLog = []) {
   return {
     dryRun,
     mutations: [],
     revertedMutations: [],
     validationWarnings: [],
+    verificationLog,
   };
 }
 
@@ -1397,12 +1465,21 @@ function getTargetedTestArgs(specFile) {
 }
 
 function rollbackPatchedSpecMutation(mutation) {
-  if (!mutation?.specFile || typeof mutation.originalContent !== 'string') {
+  if (!mutation?.specFile) {
     return false;
   }
 
-  writeFileSync(mutation.specFile, mutation.originalContent, 'utf8');
-  return true;
+  if (typeof mutation.originalContent === 'string') {
+    writeFileSync(mutation.specFile, mutation.originalContent, 'utf8');
+    return true;
+  }
+
+  if (mutation.originalContent == null && existsSync(mutation.specFile)) {
+    unlinkSync(mutation.specFile);
+    return true;
+  }
+
+  return false;
 }
 
 function verifySpecMutation(mutation, verificationLog) {
@@ -1420,6 +1497,7 @@ function verifySpecMutation(mutation, verificationLog) {
   const verification = {
     file: mutation.file,
     reason: mutation.reason,
+    kind: mutation.kind || 'handwritten',
     passed: !result.failed,
     exitCode: result.status,
     rolledBack: false,
@@ -1434,7 +1512,7 @@ function verifySpecMutation(mutation, verificationLog) {
 }
 
 function applyAndVerifyHandwrittenRepairs(scan, pageCatalog, dryRun, verificationLog) {
-  const context = createMutationContext(dryRun);
+  const context = createMutationContext(dryRun, verificationLog);
   repairHandwrittenOrphanTargets(scan, pageCatalog, context);
   repairHandwrittenSpecsWithoutGoto(scan, pageCatalog, context);
 
@@ -1509,17 +1587,35 @@ function managedRepairProfileFor(pageMeta, failure, managedEntry) {
 }
 
 function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
+  if (repairProfile?.blocked) {
+    context.validationWarnings.push({
+      pageName: pageMeta.pageName,
+      file: toPosix(relative(repoRoot, pageMeta.managedSpecPath)),
+      ruleId: 'repair-ladder-exhausted',
+      message: 'Managed spec repair ladder is exhausted for this page; stop auto-repair and escalate.',
+    });
+    return null;
+  }
+
   const targetPath = pageMeta.managedSpecPath;
   const templateProfile = repairProfile?.templateProfile || defaultManagedTemplateProfile(pageMeta);
   const targetClassification = classifyManagedSpec({ pageMeta, templateProfile });
-  const content = buildManagedSpecContent(pageMeta, reason, repairProfile);
   const interactionHints = resolveInteractionHints(pageMeta);
-  const validationWarnings = validateGeneratedSpec({
-    content,
-    targetClassification,
-    actionLabels: pageMeta.actionLabels,
-    interactionHints,
-  });
+  const testability = evaluatePageTestability(pageMeta, interactionHints);
+  const content = buildManagedSpecContent(pageMeta, reason, repairProfile);
+  const validationWarnings = [
+    ...testability.blockers.map((blocker) => ({
+      id: `testability:${blocker.id}`,
+      message: blocker.message,
+    })),
+    ...validateGeneratedSpec({
+      content,
+      targetClassification,
+      actionLabels: pageMeta.actionLabels,
+      interactionHints,
+      pageMeta,
+    }),
+  ];
   const alreadyExists = existsSync(targetPath);
   const previousContent = alreadyExists ? readFileSync(targetPath, 'utf8') : null;
 
@@ -1529,16 +1625,22 @@ function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
 
   const mutation = {
     type: alreadyExists ? 'update_spec' : 'create_spec',
+    kind: 'managed',
     reason,
     pageName: pageMeta.pageName,
     file: toPosix(relative(repoRoot, targetPath)),
+    specFile: targetPath,
+    originalContent: previousContent,
     dryRun: context.dryRun,
     templateProfile,
     targetClassification,
     specLocation: toPosix(relative(repoRoot, targetPath)),
     migrationPhase: 'semantic-closure',
     repairStrategy: repairProfile?.strategy || null,
+    repairStep: Number(repairProfile?.repairStep || 0),
+    repairLadderStep: repairProfile?.ladderStep || null,
     validationWarnings,
+    testability,
   };
 
   if (validationWarnings.length > 0) {
@@ -1552,14 +1654,31 @@ function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
     );
   }
 
-  if ((reason === 'coverage-gap' || reason === 'coverage-refresh')
-    && validationWarnings.some((warning) => warning.id === 'missing-actionable-interaction-path')) {
+  const hardBlockingRuleIds = new Set([
+    'missing-actionable-interaction-path',
+    'missing-observable-outcome',
+    'functional-smoke-only',
+  ]);
+  const strictGenerationReasons = new Set(['missing-spec', 'coverage-gap', 'coverage-refresh']);
+  if (testability.blocked || (strictGenerationReasons.has(reason)
+    && validationWarnings.some((warning) => hardBlockingRuleIds.has(warning.id)))) {
     return null;
   }
 
   if (!context.dryRun) {
     ensureDirectoryFor(targetPath);
     writeFileSync(targetPath, content, 'utf8');
+  }
+
+  if (!context.dryRun && !options.skipImmediateVerify) {
+    const verification = verifySpecMutation(mutation, context.verificationLog);
+    if (verification) {
+      mutation.verification = verification;
+    }
+    if (verification?.passed === false) {
+      context.revertedMutations.push(mutation);
+      return null;
+    }
   }
 
   context.mutations.push(mutation);
@@ -1595,43 +1714,70 @@ function addManagedSpecsForMissingPages(scan, pageCatalog, context) {
   return changed;
 }
 
-function addManagedSpecsForCoverage(suggestions, pageCatalog, managedIndex, context, blockers = []) {
-  const specIndex = buildSpecIndex();
-  const candidatePages = [];
+function rankCoverageCandidates(suggestions, pageCatalog, managedIndex, specIndex) {
+  const candidateEntries = [];
+  const byPage = new Map();
 
   for (const suggestion of suggestions?.suggestions || []) {
     for (const pageName of suggestion.suggestedPages || []) {
       if (!pageCatalog.pagesByName.has(pageName)) {
         continue;
       }
-      if (candidatePages.includes(pageName)) {
-        continue;
+      const existing = byPage.get(pageName);
+      if (!existing || Number(suggestion.uncoveredWeight || 0) > Number(existing.uncoveredWeight || 0)) {
+        byPage.set(pageName, suggestion);
       }
-      candidatePages.push(pageName);
     }
   }
 
-  let createdCount = 0;
-  for (const pageName of candidatePages) {
-    if (createdCount >= options.maxNewSpecs) {
-      break;
-    }
-
+  for (const [pageName, suggestion] of byPage.entries()) {
     const pageMeta = pageCatalog.pagesByName.get(pageName);
     if (!pageMeta) {
       continue;
     }
 
+    const interactionHints = resolveInteractionHints(pageMeta);
+    const testability = evaluatePageTestability(pageMeta, interactionHints);
     const blocker = classifyCarrierPageBlocker(pageName, specIndex);
-    if (blocker) {
-      blockers.push(blocker);
+    candidateEntries.push({
+      pageName,
+      pageMeta,
+      suggestion,
+      blocker,
+      testability,
+      score: scoreBackfillPriority({
+        pageMeta,
+        suggestion: { ...suggestion, interactionHints },
+        existingManaged: Boolean(managedIndex.byPage.get(pageName)),
+        blocker: Boolean(blocker),
+        testability,
+      }),
+    });
+  }
+
+  return candidateEntries.sort((left, right) => right.score - left.score);
+}
+
+function addManagedSpecsForCoverage(suggestions, pageCatalog, managedIndex, context, blockers = []) {
+  const specIndex = buildSpecIndex();
+  const rankedCandidates = rankCoverageCandidates(suggestions, pageCatalog, managedIndex, specIndex);
+
+  let createdCount = 0;
+  for (const candidate of rankedCandidates) {
+    if (createdCount >= options.maxNewSpecs) {
+      break;
+    }
+
+    if (candidate.blocker) {
+      blockers.push(candidate.blocker);
       continue;
     }
 
-    const existingManaged = managedIndex.byPage.get(pageName);
+    const existingManaged = managedIndex.byPage.get(candidate.pageName);
     const reason = existingManaged ? 'coverage-refresh' : 'coverage-gap';
-    const mutation = upsertManagedSpec(pageMeta, reason, context);
+    const mutation = upsertManagedSpec(candidate.pageMeta, reason, context);
     if (mutation) {
+      mutation.priorityScore = candidate.score;
       createdCount += 1;
     }
   }
@@ -1659,6 +1805,16 @@ function repairManagedSpecFailures(failureAnalysis, pageCatalog, managedIndex, c
     }
 
     const repairProfile = managedRepairProfileFor(pageMeta, failure, managedEntry);
+    if (repairProfile?.blocked) {
+      context.validationWarnings.push({
+        pageName: pageMeta.pageName,
+        file: failure.specFile,
+        ruleId: 'repair-ladder-exhausted',
+        message: 'Managed spec repair ladder is exhausted for this page; stop auto-repair and escalate.',
+      });
+      continue;
+    }
+
     if (upsertManagedSpec(pageMeta, `failure-repair:${failure.category}`, context, repairProfile)) {
       repairedCount += 1;
     }
@@ -1730,6 +1886,7 @@ function buildFinalStatus(scan, failureAnalysis, coverage, coverageCheck, attemp
   const completenessPassed =
     scan.summary.missingSpecCount === 0 &&
     scan.summary.orphanSpecTargetCount === 0 &&
+    scan.summary.nonWebTestSpecTargetCount === 0 &&
     scan.summary.specsWithoutGotoCount === 0;
   const testsPassed = (failureAnalysis?.summary?.failedCount || 0) === 0;
   const coveragePassed = Object.values(coverage?.summary || {}).every((metric) => metric.passed !== false);
@@ -1756,6 +1913,12 @@ function ensureReportsDir() {
 
 function writeLoopReport(report) {
   ensureReportsDir();
+  report.updatedAt = new Date().toISOString();
+  if (report.finalStatus || report.error) {
+    report.completedAt = report.updatedAt;
+  } else if (report.completedAt) {
+    delete report.completedAt;
+  }
   const outputPath = join(reportsDir, reportingConfig.loopReportFileName);
   writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   return outputPath;
@@ -1769,6 +1932,14 @@ function classifyActions(scan, failureAnalysis, coverage, suggestions, warnings,
       type: 'ADD_MISSING_SPEC',
       severity: 'needs_edit',
       details: scan.missingSpecs,
+    });
+  }
+
+  if (scan.summary.nonWebTestSpecTargetCount > 0) {
+    actions.push({
+      type: 'DELETE_NON_WEB_TEST_SPECS',
+      severity: 'needs_edit',
+      details: scan.nonWebTestSpecTargets,
     });
   }
 
@@ -1822,23 +1993,43 @@ function classifyActions(scan, failureAnalysis, coverage, suggestions, warnings,
     });
   }
 
-  const passedVerifications = verificationLog.filter((entry) => entry.passed);
-  if (passedVerifications.length > 0) {
+  const passedHandwrittenVerifications = verificationLog.filter((entry) => entry.kind !== 'managed' && entry.passed);
+  if (passedHandwrittenVerifications.length > 0) {
     actions.push({
       type: 'HANDWRITTEN_REPAIRS_VERIFIED',
       severity: 'info',
-      count: passedVerifications.length,
-      details: passedVerifications,
+      count: passedHandwrittenVerifications.length,
+      details: passedHandwrittenVerifications,
     });
   }
 
-  const failedVerifications = verificationLog.filter((entry) => entry.passed === false);
-  if (failedVerifications.length > 0) {
+  const failedHandwrittenVerifications = verificationLog.filter((entry) => entry.kind !== 'managed' && entry.passed === false);
+  if (failedHandwrittenVerifications.length > 0) {
     actions.push({
       type: 'HANDWRITTEN_REPAIRS_ROLLED_BACK',
       severity: 'manual_review',
-      count: failedVerifications.length,
-      details: failedVerifications,
+      count: failedHandwrittenVerifications.length,
+      details: failedHandwrittenVerifications,
+    });
+  }
+
+  const passedManagedVerifications = verificationLog.filter((entry) => entry.kind === 'managed' && entry.passed);
+  if (passedManagedVerifications.length > 0) {
+    actions.push({
+      type: 'MANAGED_SPECS_VERIFIED',
+      severity: 'info',
+      count: passedManagedVerifications.length,
+      details: passedManagedVerifications,
+    });
+  }
+
+  const failedManagedVerifications = verificationLog.filter((entry) => entry.kind === 'managed' && entry.passed === false);
+  if (failedManagedVerifications.length > 0) {
+    actions.push({
+      type: 'MANAGED_SPECS_ROLLED_BACK',
+      severity: 'manual_review',
+      count: failedManagedVerifications.length,
+      details: failedManagedVerifications,
     });
   }
 
@@ -1855,6 +2046,16 @@ function classifyActions(scan, failureAnalysis, coverage, suggestions, warnings,
 }
 
 function addCompletenessWarnings(scan, warnings) {
+  for (const target of scan.nonWebTestSpecTargets || []) {
+    warnings.push({
+      type: 'non-web-test-spec-target',
+      spec: target.spec,
+      pageName: target.pageName,
+      matches: target.matches,
+      message: 'Spec targets a page outside demo/pages/web_test. Delete this spec or recreate the page under web_test before continuing.',
+    });
+  }
+
   for (const orphan of scan.orphanSpecTargets || []) {
     warnings.push({
       type: 'orphan-spec-target',
@@ -1879,9 +2080,12 @@ function addVerificationWarnings(verificationLog, warnings) {
       continue;
     }
 
+    const warningType = verification.kind === 'managed'
+      ? 'managed-spec-verification-failed'
+      : 'handwritten-repair-verification-failed';
     const exists = warnings.some(
       (warning) =>
-        warning.type === 'handwritten-repair-verification-failed' &&
+        warning.type === warningType &&
         warning.spec === verification.file &&
         warning.reason === verification.reason
     );
@@ -1890,13 +2094,17 @@ function addVerificationWarnings(verificationLog, warnings) {
     }
 
     warnings.push({
-      type: 'handwritten-repair-verification-failed',
+      type: warningType,
       spec: verification.file,
       reason: verification.reason,
       rolledBack: verification.rolledBack === true,
-      message: verification.rolledBack
-        ? 'Automatic handwritten spec repair failed targeted rerun verification and was rolled back.'
-        : 'Automatic handwritten spec repair failed targeted rerun verification and needs manual review.',
+      message: verification.kind === 'managed'
+        ? (verification.rolledBack
+          ? 'Generated managed spec failed focused verification and was rolled back immediately.'
+          : 'Generated managed spec failed focused verification and needs manual review.')
+        : (verification.rolledBack
+          ? 'Automatic handwritten spec repair failed targeted rerun verification and was rolled back.'
+          : 'Automatic handwritten spec repair failed targeted rerun verification and needs manual review.'),
     });
   }
 }
@@ -1920,7 +2128,12 @@ function coverageThresholdsPassed(coverage) {
 function scanHasCompletenessGaps(scan) {
   return Boolean(
     scan?.summary &&
-      (scan.summary.missingSpecCount > 0 || scan.summary.orphanSpecTargetCount > 0 || scan.summary.specsWithoutGotoCount > 0)
+      (
+        scan.summary.missingSpecCount > 0 ||
+        scan.summary.orphanSpecTargetCount > 0 ||
+        scan.summary.nonWebTestSpecTargetCount > 0 ||
+        scan.summary.specsWithoutGotoCount > 0
+      )
   );
 }
 
@@ -2010,7 +2223,30 @@ function executeLoop() {
   let managedIndex = loadManagedSpecIndex();
   loopReport.scan = refreshScanIfNeeded(options.skipScan);
 
-  const initialMutationContext = createMutationContext(options.dryRun);
+  if (loopReport.scan?.summary?.nonWebTestSpecTargetCount > 0) {
+    addCompletenessWarnings(loopReport.scan, loopReport.warnings);
+    loopReport.actions = classifyActions(
+      loopReport.scan,
+      null,
+      null,
+      null,
+      loopReport.warnings,
+      loopReport.mutations,
+      loopReport.verification
+    );
+    loopReport.finalStatus = buildFinalStatus(
+      loopReport.scan,
+      null,
+      null,
+      null,
+      0,
+      loopReport.warnings,
+      loopReport.verification
+    );
+    return loopReport;
+  }
+
+  const initialMutationContext = createMutationContext(options.dryRun, loopReport.verification);
   addManagedSpecsForMissingPages(loopReport.scan, pageCatalog, initialMutationContext);
   const initialRepairContext = applyAndVerifyHandwrittenRepairs(
     loopReport.scan,
@@ -2027,6 +2263,8 @@ function executeLoop() {
     managedIndex = loadManagedSpecIndex();
     loopReport.scan = refreshScanIfNeeded(options.skipScan);
   }
+
+  writeLoopReport(loopReport);
 
   if (!options.allowIncompleteScan && scanHasCompletenessGaps(loopReport.scan)) {
     addCompletenessWarnings(loopReport.scan, loopReport.warnings);
@@ -2062,7 +2300,7 @@ function executeLoop() {
     loopReport.finalAnalyses.suggestions = analysis.suggestions;
 
     if (!options.dryRun) {
-      const mutateOnlyContext = createMutationContext(false);
+      const mutateOnlyContext = createMutationContext(false, loopReport.verification);
       addManagedSpecsForCoverage(loopReport.finalAnalyses.suggestions, pageCatalog, managedIndex, mutateOnlyContext, coverageBlockers);
       recordMutationBatch(loopReport, mutateOnlyContext, 'mutate-only');
       if (mutateOnlyContext.mutations.length > 0) {
@@ -2123,7 +2361,7 @@ function executeLoop() {
       round.coverageCheck = runCoverageCheck();
     }
 
-    const roundContext = createMutationContext(false);
+    const roundContext = createMutationContext(false, loopReport.verification);
     repairManagedSpecFailures(round.failureAnalysis, pageCatalog, managedIndex, roundContext);
 
     const latestScan = refreshScanIfNeeded(options.skipScan);
@@ -2147,6 +2385,7 @@ function executeLoop() {
     round.summary = buildRoundSummary(roundNumber, analysis, round.coverageCheck, loopReport.scan, roundContext);
     round.rerunTriggered = roundContext.mutations.length > 0 && roundIndex < maxRounds - 1;
     loopReport.attempts.push(round);
+    writeLoopReport(loopReport);
 
     if (
       round.summary.testsPassed &&

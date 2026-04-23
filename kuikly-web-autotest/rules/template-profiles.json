@@ -3,7 +3,8 @@
     "default": "default",
     "interactions": "interaction-generic",
     "animations": "animation-generic",
-    "modules": "module-generic"
+    "modules": "module-generic",
+    "composite": "default"
   },
   "categoryRepairDefaults": {
     "default": {
@@ -21,6 +22,10 @@
     "modules": {
       "templateProfile": "module-generic-repair",
       "strategy": "rewrite-module-managed-spec-to-light-smoke"
+    },
+    "composite": {
+      "templateProfile": "generic-repair",
+      "strategy": "rewrite-composite-managed-spec-to-light-smoke"
     }
   },
   "pageProfiles": {
@@ -76,6 +81,93 @@
         }
       ]
     },
+    "EventCaptureTestPage": {
+      "defaultTemplateProfile": "interaction-event-capture",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "interaction-event-capture"
+            ]
+          },
+          "templateProfile": "interaction-generic-repair",
+          "strategy": "rewrite-event-capture-to-reset-smoke"
+        }
+      ]
+    },
+    "GestureTestPage": {
+      "defaultTemplateProfile": "interaction-gesture",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "interaction-gesture"
+            ],
+            "failureCategories": [
+              "ELEMENT_NOT_FOUND",
+              "ASSERTION_FAILED",
+              "TIMEOUT"
+            ]
+          },
+          "templateProfile": "interaction-generic-repair",
+          "strategy": "rewrite-gesture-to-state-summary-smoke"
+        }
+      ]
+    },
+    "ModalTestPage": {
+      "defaultTemplateProfile": "interaction-modal",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "interaction-modal"
+            ],
+            "failureCategories": [
+              "ELEMENT_NOT_FOUND",
+              "ASSERTION_FAILED"
+            ]
+          },
+          "templateProfile": "interaction-generic-repair",
+          "strategy": "rewrite-modal-to-result-summary-smoke"
+        }
+      ]
+    },
+    "FormTestPage": {
+      "defaultTemplateProfile": "interaction-form",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "interaction-form"
+            ],
+            "failureCategories": [
+              "ASSERTION_FAILED",
+              "ELEMENT_NOT_FOUND"
+            ]
+          },
+          "templateProfile": "generic-repair",
+          "strategy": "rewrite-form-to-validation-smoke"
+        }
+      ]
+    },
+    "SearchTestPage": {
+      "defaultTemplateProfile": "interaction-search",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "interaction-search"
+            ],
+            "failureCategories": [
+              "ASSERTION_FAILED",
+              "ELEMENT_NOT_FOUND"
+            ]
+          },
+          "templateProfile": "interaction-generic-repair",
+          "strategy": "rewrite-search-to-selection-smoke"
+        }
+      ]
+    },
     "JSFrameAnimTestPage": {
       "defaultTemplateProfile": "animation-jsframe",
       "repairProfiles": [
@@ -127,6 +219,24 @@
         {
           "templateProfile": "module-network-smoke",
           "strategy": "reuse-network-module-template"
+        }
+      ]
+    },
+    "NotifyModuleTestPage": {
+      "defaultTemplateProfile": "module-notify",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "module-notify"
+            ],
+            "failureCategories": [
+              "ASSERTION_FAILED",
+              "ELEMENT_NOT_FOUND"
+            ]
+          },
+          "templateProfile": "module-generic-repair",
+          "strategy": "rewrite-notify-to-count-smoke"
         }
       ]
     }

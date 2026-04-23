@@ -1,33 +1,29 @@
-// @kuikly-autogen {"pageName":"EventCaptureTestPage","category":"interactions","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/interactions/EventCaptureTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"interaction-event-capture","targetClassification":"functional","specLocation":"web-e2e/tests/functional/auto-event-capture-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-refresh","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
-import { test, expect } from '../../fixtures/test-base';
+// @kuikly-autogen {"pageName":"NetworkModuleTestPage","category":"modules","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/modules/NetworkModuleTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"module-network","targetClassification":"functional","specLocation":"web-e2e/tests/functional/modules/auto-network-module-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-gap","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
+import { test, expect } from '../../../fixtures/test-base';
 
-const PAGE_NAME = "EventCaptureTestPage";
-const TITLE_TEXT = "capture-title";
+const PAGE_NAME = "NetworkModuleTestPage";
+const TITLE_TEXT = "NetworkModuleTestPage";
 const STABLE_TEXTS = [
-  "capture-title",
-  "page-1"
+  "NetworkModuleTestPage"
 ];
 const ACTION_LABELS = [
-  "reset"
+  "requestGet",
+  "requestGetBinary",
+  "requestPost",
+  "requestPostBinary",
+  "status204"
 ];
 const INTERACTION_HINTS = {
   "actions": [
-    "click-visible-labels",
-    "run-action-scripts"
+    "click-visible-labels"
   ],
-  "actionScripts": [
-    {
-      "kind": "click",
-      "targetLabel": "reset",
-      "expectLabel": "capture-title"
-    }
-  ],
-  "maxActionLabels": 3,
-  "postActionWaitMs": 400,
+  "actionScripts": [],
+  "maxActionLabels": 2,
+  "postActionWaitMs": 800,
   "recheckPageReadyAfterAction": true,
   "scrollDeltaY": 520,
   "inputText": "Hello Kuikly",
-  "observableOutcome": "bounding-box-shift"
+  "observableOutcome": null
 };
 const ANIMATION_HINTS = {
   "preferredWait": "waitForAnimationEnd",
@@ -279,54 +275,64 @@ function hasUsableInteractionHints() {
     || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
 }
 
-const CAPTURE_TITLE = 'capture-title';
-const PAGE_ONE = 'page-1';
-const RESET_LABEL = 'reset';
-
-async function boundingBoxOf(page, label) {
-  const target = page.getByText(label, { exact: true }).first();
-  const box = await target.boundingBox();
-  if (!box) {
-    throw new Error('Unable to read bounding box for ' + label);
-  }
-  return box;
+async function waitForOutput(page, text) {
+  await expect(page.getByText(text, { exact: false }).first()).toBeVisible({ timeout: 15000 });
 }
 
-async function dragFromLeftEdge(page, label) {
-  const box = await boundingBoxOf(page, label);
-  const startX = 40;
-  const startY = box.y + box.height / 2;
-  const endX = startX + 220;
+async function clickNetworkAction(page, label) {
+  const labelled = page.getByLabel(label, { exact: true });
+  if (await labelled.count()) {
+    await labelled.first().click();
+    return;
+  }
 
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(endX, startY, { steps: 12 });
-  await page.mouse.up();
-  await page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
+  await page.getByText(label, { exact: true }).first().click();
 }
 
 test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    await kuiklyPage.goto("EventCaptureTestPage");
+    await kuiklyPage.goto("NetworkModuleTestPage");
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText(CAPTURE_TITLE, { exact: true })).toBeVisible();
-    await expect(kuiklyPage.page.getByText(PAGE_ONE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('NetworkModuleTestPage', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByLabel('requestGet', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByLabel('requestPostBinary', { exact: true })).toBeVisible();
   });
 
-  test('drags the capture surface and resets it on ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    await kuiklyPage.goto("EventCaptureTestPage");
+  test('covers request success paths on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto("NetworkModuleTestPage");
     await kuiklyPage.waitForRenderComplete();
 
-    const before = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
-    await dragFromLeftEdge(kuiklyPage.page, PAGE_ONE);
-    const afterDrag = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
-    expect(afterDrag.x).toBeGreaterThan(before.x);
+    await clickNetworkAction(kuiklyPage.page, 'requestGet');
+    await waitForOutput(kuiklyPage.page, 'Get request completed:');
+    await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('http://localhost:8080/api/network/get?key=value', { exact: false })).toBeVisible({ timeout: 15000 });
 
-    await kuiklyPage.page.getByText(RESET_LABEL, { exact: true }).first().click();
-    await kuiklyPage.page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
-    const afterReset = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
-    expect(afterReset.x).toBeLessThan(afterDrag.x);
-    await expect(kuiklyPage.page.getByText(CAPTURE_TITLE, { exact: true })).toBeVisible();
+    await clickNetworkAction(kuiklyPage.page, 'requestPost');
+    await waitForOutput(kuiklyPage.page, 'Post request completed:');
+    await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('http://localhost:8080/api/network/post', { exact: false })).toBeVisible({ timeout: 15000 });
+
+    await clickNetworkAction(kuiklyPage.page, 'requestPostBinary');
+    await waitForOutput(kuiklyPage.page, 'Post request completed:');
+    await expect(kuiklyPage.page.getByText('hello world', { exact: false })).toBeVisible({ timeout: 15000 });
+  });
+
+  test('covers request edge paths on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto("NetworkModuleTestPage");
+    await kuiklyPage.waitForRenderComplete();
+
+    await clickNetworkAction(kuiklyPage.page, 'requestGetBinary');
+    await waitForOutput(kuiklyPage.page, 'Get request completed:');
+    await expect(kuiklyPage.page.getByText('statusCode=-1002', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('Request with GET/HEAD method cannot have body.', { exact: false })).toBeVisible({ timeout: 15000 });
+
+    await clickNetworkAction(kuiklyPage.page, 'status204');
+    await waitForOutput(kuiklyPage.page, 'Get request completed:');
+    await expect(kuiklyPage.page.getByText('success=false', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('statusCode=204', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('Unexpected end of JSON input', { exact: false })).toBeVisible({ timeout: 15000 });
   });
 });

@@ -1,0 +1,32 @@
+{
+  "maxRepairSteps": 3,
+  "stepOrder": {
+    "default": [
+      "page-specific",
+      "category-generic",
+      "generic-smoke"
+    ],
+    "interactions": [
+      "page-specific",
+      "category-generic",
+      "generic-smoke"
+    ],
+    "animations": [
+      "page-specific",
+      "category-generic",
+      "generic-smoke"
+    ],
+    "modules": [
+      "page-specific",
+      "category-generic",
+      "generic-smoke"
+    ],
+    "composite": [
+      "page-specific",
+      "category-generic",
+      "generic-smoke"
+    ]
+  },
+  "genericSmokeTemplateProfile": "generic-repair",
+  "genericSmokeStrategy": "rewrite-managed-spec-to-light-smoke"
+}

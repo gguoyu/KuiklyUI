@@ -41,17 +41,17 @@ test.describe('Input 功能验证', () => {
   });
 });
 
-test.describe('InputViewDemoPage 事件验证', () => {
+test.describe('InputEventTestPage 事件验证', () => {
   test('autofocus、样式和 focus/blur 日志应正常', async ({ kuiklyPage }) => {
     const inputLogs: string[] = [];
     kuiklyPage.page.on('console', (message) => {
       const text = message.text();
-      if (text.includes('InputViewDemoPage')) {
+      if (text.includes('InputEventTestPage')) {
         inputLogs.push(text);
       }
     });
 
-    await kuiklyPage.goto('InputViewDemoPage');
+    await kuiklyPage.goto('InputEventTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     const input = kuiklyPage.page.locator('input');
@@ -87,7 +87,7 @@ test.describe('InputViewDemoPage 事件验证', () => {
   });
 });
 
-test.describe('InputSpanPager 光标验证', () => {
+test.describe('CursorTestPage 光标验证', () => {
   test('getCursorIndex 与 setCursorIndex 应驱动光标位置变化', async ({ kuiklyPage }) => {
     const cursorLogs: string[] = [];
     kuiklyPage.page.on('console', (message) => {
@@ -97,7 +97,7 @@ test.describe('InputSpanPager 光标验证', () => {
       }
     });
 
-    await kuiklyPage.goto('4444');
+    await kuiklyPage.goto('CursorTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     const input = kuiklyPage.page.locator('input');
@@ -114,9 +114,9 @@ test.describe('InputSpanPager 光标验证', () => {
   });
 });
 
-test.describe('maxLength 页面输入限制验证', () => {
+test.describe('MaxLengthTestPage 输入限制验证', () => {
   test('字符限制 input 与 textarea 应按 maxlength 截断', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('maxLength');
+    await kuiklyPage.goto('MaxLengthTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     const characterInput = kuiklyPage.page.locator('input').nth(2);

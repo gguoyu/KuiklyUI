@@ -14,6 +14,9 @@ Use this reference together with `scan-web-test-pages.mjs`. The script is the so
 ## Completeness expectations
 
 - Every `web_test` page should have at least one spec that calls `kuiklyPage.goto('<PageName>')`.
+- Every spec under `web-e2e/tests/` must target only pages registered under `demo/.../pages/web_test/`.
+- If the required capability has no suitable `web_test` page yet, add a new carrier page under `web_test` first and only then add or migrate the spec.
+- Specs targeting non-`web_test` pages are policy violations and must be deleted or retargeted after recreating the capability in `web_test`.
 - A spec may target the same page as another spec when it adds branch or module coverage.
 - Additional specs like `*-branches.spec.ts` are expected when they intentionally target branch coverage.
 - A page without any spec is a genuine completeness gap.
@@ -31,10 +34,13 @@ Use this reference together with `scan-web-test-pages.mjs`. The script is the so
 - Update `CATEGORY_TARGET_SEGMENTS` and `MANAGED_TARGET_CLASSIFICATION` when a managed `web_test` page category gains a new semantic target or changes its default placement.
 - Update `HYBRID_TARGETS` when a new paired functional / visual scenario should be included in `--level hybrid` runs.
 - Update `TARGET_LEVEL_TARGETS` only when CLI `--level` routing itself changes.
+- Use `classification-upgrade-rules.md` to decide when a generated or repaired spec should be warned as a candidate for static -> functional, static -> visual, or functional -> hybrid promotion.
 
 ## Interpreting scan results
 
 - `missingSpecs`: page exists under `web_test`, but no spec targets it.
-- `orphanSpecTargets`: spec calls `kuiklyPage.goto()` for a page that is not present under `web_test`.
+- `orphanSpecTargets`: spec calls `kuiklyPage.goto()` for a page that is not present anywhere and must be fixed manually.
+- `nonWebTestSpecTargets`: spec points at a page that exists outside `web_test`; this is a hard policy violation and the spec must be deleted or migrated after adding the needed `web_test` page.
 - `specsWithoutGoto`: spec does not use the standard page navigation helper and may need manual review.
 - `multiMappedPages`: page is targeted by multiple specs. This is often valid for branch coverage and should not be treated as a bug by itself.
+- `summary.strictPagePolicyPassed`: all specs target `web_test` pages and use standard navigation.

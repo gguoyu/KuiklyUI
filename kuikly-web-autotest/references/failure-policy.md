@@ -48,3 +48,4 @@ Escalate when the runtime still crashes or hangs after those checks.
 - Re-run the smallest affected spec while iterating.
 - Re-run the full suite before considering the issue resolved.
 - Avoid blind repeated retries. A second failure with the same evidence should push you toward either a targeted fix or an explicit warning.
+- Follow `repair-ladder.md` so that repeated managed-spec failures move toward lighter templates and then stop instead of looping forever.

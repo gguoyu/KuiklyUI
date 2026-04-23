@@ -30,17 +30,27 @@ Human-readable references:
 - `kuikly-web-autotest/references/workflow.md`
 - `kuikly-web-autotest/references/page-mapping.md`
 - `kuikly-web-autotest/references/coverage-policy.md`
+- `kuikly-web-autotest/references/backfill-priority.md`
+- `kuikly-web-autotest/references/feature-completeness.md`
+- `kuikly-web-autotest/references/testability-hard-rules.md`
 - `kuikly-web-autotest/references/failure-policy.md`
+- `kuikly-web-autotest/references/repair-ladder.md`
 - `kuikly-web-autotest/references/test-page-design.md`
 - `kuikly-web-autotest/references/interaction-protocol.md`
 - `kuikly-web-autotest/references/animation-strategy.md`
 - `kuikly-web-autotest/references/review-checklist.md`
+- `kuikly-web-autotest/references/classification-upgrade-rules.md`
+- `kuikly-web-autotest/references/anti-patterns-catalog.md`
 
 Machine-readable rules consumed by the loop:
 - `kuikly-web-autotest/rules/template-profiles.json`
 - `kuikly-web-autotest/rules/interaction-protocol.json`
 - `kuikly-web-autotest/rules/animation-strategy.json`
 - `kuikly-web-autotest/rules/review-checklist.json`
+- `kuikly-web-autotest/rules/priority-matrix.json`
+- `kuikly-web-autotest/rules/testability-rules.json`
+- `kuikly-web-autotest/rules/repair-ladder.json`
+- `kuikly-web-autotest/rules/anti-examples.json`
 
 - Default AI trigger: when the user asks to run or continue the web autotest closed loop, improve web coverage, or inspect web autotest results, use this skill directly.
 - Default real run: `node kuikly-web-autotest/scripts/run-autotest-loop.mjs --skip-build --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan`
@@ -87,10 +97,12 @@ Automatic mutation scope:
 - create managed coverage specs for missing `web_test` pages
 - create managed coverage specs for low-coverage source objects by following `suggest-test-targets.mjs`
 - refresh managed generated specs after failures in those same generated specs
-- repair handwritten specs when the fix is a deterministic page-target remap or legacy `page.goto('?page_name=...')` normalization to `kuiklyPage.goto('...')`
+- immediately run targeted verification for newly created or refreshed managed specs, and roll them back if the focused rerun still fails
+- never keep, repair, or generate specs that target pages outside `demo/.../pages/web_test/`
+- when a legacy spec points at a non-`web_test` page, delete or migrate that spec only after recreating the capability under `web_test`
 - add a minimal `web_test` page only when a completeness gap or coverage gap clearly maps to a concrete missing carrier page and the required page behavior is obvious from existing repo patterns
 - do not generate a new managed coverage spec for a page that is already fully represented by a handwritten blocker spec with only skipped or pending tests; treat that page as a blocker and stop
-- after a handwritten repair, immediately rerun the patched spec with `web-e2e/scripts/kuikly-test.mjs --skip-build --test <spec>` to verify the fix result
+- after a handwritten migration or repair, immediately rerun the affected spec with `web-e2e/scripts/kuikly-test.mjs --skip-build --test <spec>` to verify the result
 - if that targeted rerun still fails, automatically roll back the handwritten patch and emit a manual-review warning in the loop report
 - execute multiple full rounds, re-reading failure analysis and coverage after each round, and keep applying safe managed-spec repairs until the round budget is exhausted or the suite converges
 - do not rewrite handwritten non-managed specs outside those narrow safe rules unless a future deterministic repair rule is added
@@ -102,6 +114,7 @@ Automatic mutation scope:
 - Most newly added handwritten specs do **not** require changes to `web-e2e/scripts/lib/classification-policy.mjs`; placing the file under the correct semantic directory is enough.
 - Update `web-e2e/scripts/lib/classification-policy.mjs` only when CLI `--level static|functional|visual|hybrid` routing changes, when managed page-category routing changes (`CATEGORY_TARGET_SEGMENTS` / `MANAGED_TARGET_CLASSIFICATION`), or when a new paired scenario must be added to `HYBRID_TARGETS`.
 - Use stable, repeatable observable results as test oracles, such as text, DOM nodes, `data-kuikly-component`, stable attributes, bounding boxes, and screenshots.
+- Use `backfill-priority.md`, `feature-completeness.md`, `testability-hard-rules.md`, and `classification-upgrade-rules.md` together when deciding whether a generated spec is worth keeping.
 - Do not use runtime artifacts, build artifacts, obfuscated export names, internal method names, or temporary injected objects as assertions or generated-oracle inputs.
 
 2. Scan page and spec completeness directly when you need detailed raw data.
@@ -112,7 +125,8 @@ node kuikly-web-autotest/scripts/scan-web-test-pages.mjs
 
 Use the result to detect:
 - missing specs for `demo/.../pages/web_test/**`
-- specs targeting pages that do not exist in `web_test`
+- specs targeting pages that do not exist anywhere
+- specs targeting pages that exist outside `web_test` (`nonWebTestSpecTargets`)
 - specs without a `kuiklyPage.goto()` target
 
 3. Run the canonical test and coverage flow directly only when you are debugging the pipeline.
@@ -162,8 +176,9 @@ Prefer this report as the working summary for the closed loop.
 - If a failure is caused by stale assertions, stale locators, or missing waits, fix the test.
 - If a screenshot diff matches intentional UI changes in modified source files, update snapshots.
 - If a failure indicates unexpected product behavior with no supporting code change, treat it as a code warning and do not silently weaken the test.
-- If coverage is below threshold, add or extend tests based on the low-coverage source object and rerun the full flow.
+- If coverage is below threshold, add or extend tests based on the low-coverage source object, following `backfill-priority.md` for target ordering and `feature-completeness.md` for minimum behavior closure, then rerun the full flow.
 - If a handwritten spec already exists for a page and that file is a page-level blocker with only skipped or pending tests, do not auto-generate a parallel managed spec for the same page.
+- If a spec targets a page outside `demo/.../pages/web_test/`, delete or migrate that spec before continuing; do not grandfather legacy non-`web_test` targets.
 - If a target capability is not represented in `web_test` but the intended behavior is already obvious from existing patterns, add the missing page under `demo/.../pages/web_test/` before adding the spec.
 - If a target capability is not represented in `web_test` and the intended behavior is still ambiguous, stop and report it as a carrier-page blocker.
 - If a new carrier page would only be a placeholder title page and would not express the missing capability itself, stop and report it as a carrier-page blocker instead of creating it.

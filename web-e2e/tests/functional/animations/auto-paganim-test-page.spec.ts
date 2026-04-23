@@ -1,39 +1,35 @@
-// @kuikly-autogen {"pageName":"EventCaptureTestPage","category":"interactions","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/interactions/EventCaptureTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"interaction-event-capture","targetClassification":"functional","specLocation":"web-e2e/tests/functional/auto-event-capture-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-refresh","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
-import { test, expect } from '../../fixtures/test-base';
+// @kuikly-autogen {"pageName":"PAGAnimTestPage","category":"animations","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/animations/PAGAnimTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"animation-generic","targetClassification":"functional","specLocation":"web-e2e/tests/functional/animations/auto-paganim-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-refresh","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
+import { test, expect } from '../../../fixtures/test-base';
 
-const PAGE_NAME = "EventCaptureTestPage";
-const TITLE_TEXT = "capture-title";
+const PAGE_NAME = "PAGAnimTestPage";
+const TITLE_TEXT = "PAGAnimTestPage";
 const STABLE_TEXTS = [
-  "capture-title",
-  "page-1"
+  "PAGAnimTestPage",
+  "PAG status:",
+  "PAG progress mode:",
+  "PAG asset: user_avatar.pag with text and image replacement"
 ];
 const ACTION_LABELS = [
-  "reset"
+  "Play PAG",
+  "Pause at 20%"
 ];
 const INTERACTION_HINTS = {
   "actions": [
-    "click-visible-labels",
-    "run-action-scripts"
+    "click-visible-labels"
   ],
-  "actionScripts": [
-    {
-      "kind": "click",
-      "targetLabel": "reset",
-      "expectLabel": "capture-title"
-    }
-  ],
-  "maxActionLabels": 3,
-  "postActionWaitMs": 400,
+  "actionScripts": [],
+  "maxActionLabels": 2,
+  "postActionWaitMs": 600,
   "recheckPageReadyAfterAction": true,
   "scrollDeltaY": 520,
   "inputText": "Hello Kuikly",
-  "observableOutcome": "bounding-box-shift"
+  "observableOutcome": null
 };
 const ANIMATION_HINTS = {
-  "preferredWait": "waitForAnimationEnd",
-  "fallbackWaitMs": 900,
-  "ciFallbackWaitMs": 1200,
-  "preferStateAssertions": true,
+  "preferredWait": "time-based-fallback",
+  "fallbackWaitMs": 1200,
+  "ciFallbackWaitMs": 1800,
+  "preferStateAssertions": false,
   "repairTemplateProfile": "animation-generic-repair",
   "genericTemplateProfile": "default"
 };
@@ -279,54 +275,22 @@ function hasUsableInteractionHints() {
     || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
 }
 
-const CAPTURE_TITLE = 'capture-title';
-const PAGE_ONE = 'page-1';
-const RESET_LABEL = 'reset';
-
-async function boundingBoxOf(page, label) {
-  const target = page.getByText(label, { exact: true }).first();
-  const box = await target.boundingBox();
-  if (!box) {
-    throw new Error('Unable to read bounding box for ' + label);
-  }
-  return box;
-}
-
-async function dragFromLeftEdge(page, label) {
-  const box = await boundingBoxOf(page, label);
-  const startX = 40;
-  const startY = box.y + box.height / 2;
-  const endX = startX + 220;
-
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(endX, startY, { steps: 12 });
-  await page.mouse.up();
-  await page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
-}
-
 test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    await kuiklyPage.goto("EventCaptureTestPage");
+    await kuiklyPage.goto("PAGAnimTestPage");
     await kuiklyPage.waitForRenderComplete();
-
-    await expect(kuiklyPage.page.getByText(CAPTURE_TITLE, { exact: true })).toBeVisible();
-    await expect(kuiklyPage.page.getByText(PAGE_ONE, { exact: true })).toBeVisible();
+    await expectPageReady(kuiklyPage);
+    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
   });
 
-  test('drags the capture surface and resets it on ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    await kuiklyPage.goto("EventCaptureTestPage");
+  test('executes rule-driven interactions on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    test.skip(!hasUsableInteractionHints(), 'No usable interaction hints were resolved for this page.');
+
+    await kuiklyPage.goto("PAGAnimTestPage");
     await kuiklyPage.waitForRenderComplete();
+    await expectPageReady(kuiklyPage);
 
-    const before = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
-    await dragFromLeftEdge(kuiklyPage.page, PAGE_ONE);
-    const afterDrag = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
-    expect(afterDrag.x).toBeGreaterThan(before.x);
-
-    await kuiklyPage.page.getByText(RESET_LABEL, { exact: true }).first().click();
-    await kuiklyPage.page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
-    const afterReset = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
-    expect(afterReset.x).toBeLessThan(afterDrag.x);
-    await expect(kuiklyPage.page.getByText(CAPTURE_TITLE, { exact: true })).toBeVisible();
+    const actionCount = await runRuleDrivenInteractions(kuiklyPage);
+    expect(actionCount).toBeGreaterThan(0);
   });
 });

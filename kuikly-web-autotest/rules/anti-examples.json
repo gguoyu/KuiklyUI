@@ -1,0 +1,19 @@
+{
+  "patternRules": [
+    {
+      "id": "runtime-export-oracle",
+      "message": "Generated spec appears to assert against obfuscated runtime export names.",
+      "pattern": "\\$[A-Za-z0-9_]+\\$"
+    },
+    {
+      "id": "debug-global-oracle",
+      "message": "Generated spec appears to depend on temporary debug globals or injected window state.",
+      "pattern": "window\\.__|globalThis\\.__"
+    },
+    {
+      "id": "manual-page-goto-query",
+      "message": "Generated spec should use kuiklyPage.goto() instead of raw page.goto query construction.",
+      "pattern": "page\\.goto\\([^)]*page_name="
+    }
+  ]
+}

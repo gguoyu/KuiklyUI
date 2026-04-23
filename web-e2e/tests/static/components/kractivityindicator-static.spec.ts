@@ -1,17 +1,17 @@
 import { test, expect } from '../../../fixtures/test-base';
 
 test.describe('KRActivityIndicatorView static 验证', () => {
-  test('应该成功加载 ActivityIndicatorExamplePage 页面', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('ActivityIndicatorExamplePage');
+  test('应该成功加载 KRActivityIndicatorTestPage 页面', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRActivityIndicatorTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('ActivityIndicator Example')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('活动指示器-白色style').first()).toBeVisible();
-    await expect(kuiklyPage.page.getByText('活动指示器-灰色style')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('KRActivityIndicatorTestPage')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. 白色样式')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('2. 灰色样式')).toBeVisible();
   });
 
   test('白色与灰色 activity indicator 应渲染不同底图并保持旋转动画', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('ActivityIndicatorExamplePage');
+    await kuiklyPage.goto('KRActivityIndicatorTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     const indicators = kuiklyPage.page.locator('[data-kuikly-component="KRActivityIndicatorView"]');

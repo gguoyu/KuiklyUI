@@ -39,12 +39,12 @@ test.describe('Input 静态验证', () => {
   });
 });
 
-test.describe('maxLength 页面静态验证', () => {
+test.describe('MaxLengthTestPage 静态验证', () => {
   test('应渲染多组 input 与 textarea 最大长度示例', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('maxLength');
+    await kuiklyPage.goto('MaxLengthTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.locator('text=maxTextLength接口Demo')).toBeVisible();
+    await expect(kuiklyPage.page.locator('text=MaxLengthTestPage')).toBeVisible();
 
     const inputs = kuiklyPage.page.locator('input');
     const textareas = kuiklyPage.page.locator('textarea');

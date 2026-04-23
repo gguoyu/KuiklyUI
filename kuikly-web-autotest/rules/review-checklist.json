@@ -8,7 +8,8 @@
         "toBeVisible(",
         "toHaveText(",
         "toHaveCSS("
-      ]
+      ],
+      "minimumExpectCount": 1
     },
     "functional": {
       "requiredOneOf": [
@@ -18,12 +19,15 @@
         "scrollInContainer("
       ],
       "minimumExpectCount": 2,
-      "requireActionableInteractionPath": true
+      "requireActionableInteractionPath": true,
+      "requireObservableOutcome": true,
+      "forbidActionCountOnly": true
     },
     "visual": {
       "requiredOneOf": [
         "toHaveScreenshot("
-      ]
+      ],
+      "minimumExpectCount": 1
     },
     "hybrid": {
       "requiredOneOf": [
@@ -32,7 +36,20 @@
       "requiredAlso": [
         ".click(",
         "toBeVisible("
-      ]
+      ],
+      "minimumExpectCount": 2,
+      "requireObservableOutcome": true
+    }
+  },
+  "classificationUpgradeRules": {
+    "static_to_functional": {
+      "enabled": true
+    },
+    "static_to_visual": {
+      "enabled": true
+    },
+    "functional_to_hybrid": {
+      "enabled": true
     }
   },
   "antiPatterns": [

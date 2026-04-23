@@ -1,0 +1,39 @@
+{
+  "minimumStableSignals": 1,
+  "minimumActionLabelsForClickOnly": 1,
+  "categoriesRequiringActionablePath": [
+    "interactions",
+    "modules",
+    "animations",
+    "composite"
+  ],
+  "categoriesRequiringObservableOutcome": [
+    "interactions",
+    "modules",
+    "animations",
+    "composite"
+  ],
+  "knownFlakyPages": [],
+  "hardBlockers": [
+    {
+      "id": "missing-stable-oracle",
+      "message": "Page does not expose stable visible text, stable action labels, or component anchors for assertions."
+    },
+    {
+      "id": "missing-actionable-path",
+      "message": "Page does not expose a usable action path for the current generated interaction strategy."
+    },
+    {
+      "id": "missing-observable-outcome",
+      "message": "Page does not expose a stable post-action outcome for the current generated interaction strategy."
+    },
+    {
+      "id": "known-flaky-page",
+      "message": "Page is in the known flaky page denylist and needs manual review before further auto-generation."
+    },
+    {
+      "id": "non-web-test-target",
+      "message": "Spec targets a page outside demo/pages/web_test. Delete the spec or recreate the page under web_test before continuing."
+    }
+  ]
+}

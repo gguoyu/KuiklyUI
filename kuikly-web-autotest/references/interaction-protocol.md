@@ -25,6 +25,7 @@ Prefer selectors in this order:
 4. bounding-box or coordinate fallback only when a page-specific template already proves that is necessary
 
 Do not generate assertions from runtime internals, obfuscated names, or temporary debug objects.
+If a page cannot satisfy these selector rules with a stable post-action oracle, treat it as failing `testability-hard-rules.md` and stop.
 
 ## Component-driven interaction hints
 

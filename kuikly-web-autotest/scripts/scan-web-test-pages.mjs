@@ -1,21 +1,41 @@
 #!/usr/bin/env node
 
 import { readFileSync } from 'fs';
-import { relative } from 'path';
+import { basename, dirname, relative } from 'path';
 import { repoRoot, testsRoot, webTestRoot } from './lib/paths.mjs';
 import { toPosix, walkFiles } from './lib/fs-utils.mjs';
 import { extractGotoTargets } from './lib/spec-utils.mjs';
 
+const demoPagesRoot = dirname(webTestRoot);
 const pageFiles = walkFiles(webTestRoot, (filePath) => filePath.endsWith('.kt'));
+const allPageFiles = walkFiles(demoPagesRoot, (filePath) => filePath.endsWith('.kt'));
 const specFiles = walkFiles(testsRoot, (filePath) => filePath.endsWith('.spec.ts'));
 
-const pages = pageFiles.map((filePath) => ({
-  pageName: filePath.slice(filePath.lastIndexOf('/') + 1).replace(/\.kt$/, '').split('\\').pop(),
-  file: toPosix(relative(repoRoot, filePath)),
-  category: toPosix(relative(webTestRoot, filePath)).split('/')[0] || 'root',
-}));
+function resolvePageName(filePath) {
+  const source = readFileSync(filePath, 'utf8');
+  const annotationMatch = source.match(/@Page\("([^"]+)"/);
+  return annotationMatch?.[1] || basename(filePath, '.kt');
+}
 
+function createPageEntry(filePath, rootPath) {
+  return {
+    pageName: resolvePageName(filePath),
+    file: toPosix(relative(repoRoot, filePath)),
+    category: toPosix(relative(rootPath, filePath)).split('/')[0] || 'root',
+  };
+}
+
+const pages = pageFiles.map((filePath) => createPageEntry(filePath, webTestRoot));
+const allPages = allPageFiles.map((filePath) => createPageEntry(filePath, demoPagesRoot));
 const pageMap = new Map(pages.map((page) => [page.pageName, page]));
+const allPagesByName = new Map();
+for (const page of allPages) {
+  if (!allPagesByName.has(page.pageName)) {
+    allPagesByName.set(page.pageName, []);
+  }
+  allPagesByName.get(page.pageName).push(page);
+}
+
 const specTargets = [];
 
 for (const specFile of specFiles) {
@@ -42,11 +62,27 @@ const missingSpecs = pages
   .map((page) => ({ pageName: page.pageName, category: page.category, file: page.file }));
 
 const orphanSpecTargets = [];
+const nonWebTestSpecTargets = [];
 for (const { file, targets } of specTargets) {
   for (const target of targets) {
-    if (!pageMap.has(target)) {
-      orphanSpecTargets.push({ spec: file, pageName: target });
+    if (pageMap.has(target)) {
+      continue;
     }
+
+    const knownPages = allPagesByName.get(target) || [];
+    if (knownPages.length > 0) {
+      nonWebTestSpecTargets.push({
+        spec: file,
+        pageName: target,
+        matches: knownPages.map((page) => ({
+          file: page.file,
+          category: page.category,
+        })),
+      });
+      continue;
+    }
+
+    orphanSpecTargets.push({ spec: file, pageName: target });
   }
 }
 
@@ -69,14 +105,23 @@ const result = {
     specCount: specFiles.length,
     missingSpecCount: missingSpecs.length,
     orphanSpecTargetCount: orphanSpecTargets.length,
+    nonWebTestSpecTargetCount: nonWebTestSpecTargets.length,
     specsWithoutGotoCount: specsWithoutGoto.length,
+    pagePolicyViolationCount: orphanSpecTargets.length + nonWebTestSpecTargets.length + specsWithoutGoto.length,
+    strictPagePolicyPassed: orphanSpecTargets.length === 0 && nonWebTestSpecTargets.length === 0 && specsWithoutGoto.length === 0,
   },
   pages,
   specTargets,
   missingSpecs,
   orphanSpecTargets,
+  nonWebTestSpecTargets,
   specsWithoutGoto,
   multiMappedPages,
+  violations: {
+    orphanSpecTargets,
+    nonWebTestSpecTargets,
+    specsWithoutGoto,
+  },
 };
 
 console.log(JSON.stringify(result, null, 2));

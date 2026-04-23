@@ -12,10 +12,12 @@ Use this reference when the loop needs to add or review a `web_test` carrier pag
 
 ## Carrier page rules
 
-- `web-e2e/tests/` should target only pages registered under `demo/.../pages/web_test/`.
+- `web-e2e/tests/` must target only pages registered under `demo/.../pages/web_test/`.
+- If a spec currently targets a page outside `web_test`, delete that spec or retarget it only after recreating the capability under `web_test`.
 - If no existing `web_test` carrier can express the missing capability, add a carrier page before adding the spec.
 - Do not create placeholder carrier pages that only show a title and do not expose the missing behavior itself.
 - If the intended page behavior is still ambiguous after reading nearby `web_test` patterns and the source file under test, stop and emit a manual-review warning.
+- A new carrier page is only useful when it also passes `testability-hard-rules.md`; a placeholder page that cannot support stable assertions is still a blocker.
 
 ## Naming
 

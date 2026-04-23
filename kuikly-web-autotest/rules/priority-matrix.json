@@ -1,0 +1,21 @@
+{
+  "categoryWeights": {
+    "interactions": 50,
+    "modules": 40,
+    "animations": 30,
+    "composite": 20,
+    "components": 10,
+    "styles": 10,
+    "default": 0
+  },
+  "coverageWeight": 1,
+  "completenessBonus": 45,
+  "missingManagedSpecBonus": 12,
+  "stableOracleBonus": 8,
+  "statefulActionBonus": 12,
+  "actionScriptBonus": 14,
+  "existingManagedPenalty": 8,
+  "knownFlakyPenalty": 30,
+  "testabilityBlockPenalty": 1000,
+  "blockerPenalty": 1000
+}

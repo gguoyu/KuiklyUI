@@ -14,7 +14,9 @@ Use this checklist after generating or repairing a managed spec.
 - The spec should wait for render before making assertions.
 - The spec should use stable oracles: visible text, stable attributes, `data-kuikly-component`, bounding boxes, or screenshots.
 - The spec should exercise a real behavior branch, not only add trivial visibility assertions.
+- The spec should satisfy the minimum closure in `feature-completeness.md` for its scenario type.
 - The spec should stay aligned with semantic intent: static vs functional vs visual.
+- If a spec appears to satisfy a higher semantic level, flag it with `classification-upgrade-rules.md` instead of silently keeping the lower classification.
 
 ## Low-confidence signals
 
@@ -23,6 +25,7 @@ Treat the generated spec as low confidence when:
 - it has no meaningful `expect(...)` after an interaction
 - it relies on high-index `nth(...)` selectors without page-specific justification
 - it cannot explain which branch or behavior it is trying to cover
+- it matches a known bad pattern from `anti-patterns-catalog.md`
 
 ## Stop conditions
 

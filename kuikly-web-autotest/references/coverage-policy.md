@@ -28,7 +28,10 @@ Do not assume that other Kotlin modules are part of the enforcement scope unless
 - animation branch
 - host/runtime behavior
 4. Find an existing `web_test` page that can trigger that behavior.
-5. If none exists, add a dedicated `web_test` page before writing the spec.
+5. Rank the candidate pages with `backfill-priority.md` before choosing one to extend.
+6. Reject pages that fail `testability-hard-rules.md` before writing the spec.
+7. If none exists, add a dedicated `web_test` page before writing the spec.
+8. Never point a new or migrated spec at a non-`web_test` page just to recover coverage.
 
 ## Good targets in the current repo
 
@@ -42,6 +45,7 @@ Do not assume that other Kotlin modules are part of the enforcement scope unless
 - lowering thresholds
 - changing the coverage script scope to hide real gaps
 - deleting meaningful tests to remove failures
+- adding or keeping specs that target pages outside `demo/.../pages/web_test/`
 
 ## Final gate
 

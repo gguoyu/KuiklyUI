@@ -34,7 +34,6 @@ import com.tencent.kuikly.core.views.View
  * 3. 圆角图片
  * 4. 圆形图片
  * 5. 带阴影的图片
- * 6. 占位图（placeholder）
  *
  * 注意：使用固定不变的图片 URL，确保截图稳定
  */
@@ -250,12 +249,6 @@ internal class KRImageViewTestPage : Pager() {
                     }
                 }
 
-                // 底部间距
-                View {
-                    attr {
-                        height(50f)
-                    }
-                }
             }
         }
     }

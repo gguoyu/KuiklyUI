@@ -21,11 +21,13 @@ test.describe('KRImageView static 验证', () => {
   });
 });
 
-test.describe('ImageTintColorReusePage static 验证', () => {
+test.describe('KRImageTintColorTestPage static 验证', () => {
   test('应渲染带 tintColor 的图片列表', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('ImageTintColorReusePage');
+    await kuiklyPage.goto('KRImageTintColorTestPage');
     await kuiklyPage.waitForRenderComplete();
     await kuiklyPage.page.waitForLoadState('networkidle');
+
+    await expect(kuiklyPage.page.getByText('KRImageTintColorTestPage')).toBeVisible();
 
     const images = await kuiklyPage.components('KRImageView');
     expect(images.length).toBeGreaterThanOrEqual(10);
@@ -35,9 +37,11 @@ test.describe('ImageTintColorReusePage static 验证', () => {
   });
 
   test('tintColor 应为图片应用独立 SVG filter', async ({ kuiklyPage }) => {
-    await kuiklyPage.goto('ImageTintColorReusePage');
+    await kuiklyPage.goto('KRImageTintColorTestPage');
     await kuiklyPage.waitForRenderComplete();
     await kuiklyPage.page.waitForLoadState('networkidle');
+
+    await expect(kuiklyPage.page.getByText('KRImageTintColorTestPage')).toBeVisible();
 
     const filters = await kuiklyPage.page
       .locator('[data-kuikly-component="KRImageView"] img')

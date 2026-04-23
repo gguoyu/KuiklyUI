@@ -1,33 +1,30 @@
-// @kuikly-autogen {"pageName":"EventCaptureTestPage","category":"interactions","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/interactions/EventCaptureTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"interaction-event-capture","targetClassification":"functional","specLocation":"web-e2e/tests/functional/auto-event-capture-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-refresh","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
+// @kuikly-autogen {"pageName":"ListScrollTestPage","category":"interactions","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/interactions/ListScrollTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"interaction-list-scroll","targetClassification":"functional","specLocation":"web-e2e/tests/functional/auto-list-scroll-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-refresh","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
 import { test, expect } from '../../fixtures/test-base';
 
-const PAGE_NAME = "EventCaptureTestPage";
-const TITLE_TEXT = "capture-title";
+const PAGE_NAME = "ListScrollTestPage";
+const TITLE_TEXT = "列表滚动测试";
 const STABLE_TEXTS = [
-  "capture-title",
-  "page-1"
+  "列表滚动测试",
+  "选中: ${ctx.clickedItemText}",
+  "列表手势: ${ctx.listGestureText}",
+  "分组${group + 1} 第${item + 1}项 · 副标题描述"
 ];
 const ACTION_LABELS = [
-  "reset"
+  "分组 ${group + 1}",
+  "${index + 1}"
 ];
 const INTERACTION_HINTS = {
   "actions": [
     "click-visible-labels",
-    "run-action-scripts"
+    "scroll-first-list"
   ],
-  "actionScripts": [
-    {
-      "kind": "click",
-      "targetLabel": "reset",
-      "expectLabel": "capture-title"
-    }
-  ],
-  "maxActionLabels": 3,
+  "actionScripts": [],
+  "maxActionLabels": 2,
   "postActionWaitMs": 400,
   "recheckPageReadyAfterAction": true,
-  "scrollDeltaY": 520,
+  "scrollDeltaY": 700,
   "inputText": "Hello Kuikly",
-  "observableOutcome": "bounding-box-shift"
+  "observableOutcome": null
 };
 const ANIMATION_HINTS = {
   "preferredWait": "waitForAnimationEnd",
@@ -279,54 +276,53 @@ function hasUsableInteractionHints() {
     || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
 }
 
-const CAPTURE_TITLE = 'capture-title';
-const PAGE_ONE = 'page-1';
-const RESET_LABEL = 'reset';
-
-async function boundingBoxOf(page, label) {
-  const target = page.getByText(label, { exact: true }).first();
-  const box = await target.boundingBox();
-  if (!box) {
-    throw new Error('Unable to read bounding box for ' + label);
-  }
-  return box;
-}
-
-async function dragFromLeftEdge(page, label) {
-  const box = await boundingBoxOf(page, label);
-  const startX = 40;
-  const startY = box.y + box.height / 2;
-  const endX = startX + 220;
-
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(endX, startY, { steps: 12 });
-  await page.mouse.up();
-  await page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
+const LIST_TITLE = '列表滚动测试';
+const LIST_GROUP_ONE = '分组 1';
+const LIST_GROUP_THREE = '分组 3';
+const LIST_ITEM_ONE = '列表项 1';
+const LIST_ITEM_EIGHT = '列表项 8';
+const LIST_ITEM_TWENTY_ONE = '列表项 21';
+const LIST_SELECTED_ONE = '选中: 列表项 1';
+const LIST_SELECTED_EIGHT = '选中: 列表项 8';
+async function listContainer(kuiklyPage) {
+  return kuiklyPage.component('KRListView').first();
 }
 
 test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    await kuiklyPage.goto("EventCaptureTestPage");
+    await kuiklyPage.goto("ListScrollTestPage");
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText(CAPTURE_TITLE, { exact: true })).toBeVisible();
-    await expect(kuiklyPage.page.getByText(PAGE_ONE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(LIST_TITLE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(LIST_GROUP_ONE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(LIST_ITEM_ONE, { exact: true })).toBeVisible();
   });
 
-  test('drags the capture surface and resets it on ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    await kuiklyPage.goto("EventCaptureTestPage");
+  test('scrolls and selects stable rows on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto("ListScrollTestPage");
     await kuiklyPage.waitForRenderComplete();
 
-    const before = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
-    await dragFromLeftEdge(kuiklyPage.page, PAGE_ONE);
-    const afterDrag = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
-    expect(afterDrag.x).toBeGreaterThan(before.x);
+    await kuiklyPage.page.getByText(LIST_ITEM_ONE, { exact: true }).click();
+    await expect(kuiklyPage.page.getByText(LIST_SELECTED_ONE, { exact: true })).toBeVisible();
 
-    await kuiklyPage.page.getByText(RESET_LABEL, { exact: true }).first().click();
-    await kuiklyPage.page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
-    const afterReset = await boundingBoxOf(kuiklyPage.page, PAGE_ONE);
-    expect(afterReset.x).toBeLessThan(afterDrag.x);
-    await expect(kuiklyPage.page.getByText(CAPTURE_TITLE, { exact: true })).toBeVisible();
+    const container = await listContainer(kuiklyPage);
+    await kuiklyPage.scrollInContainer(container, { deltaY: 500, smooth: false });
+    await expect(kuiklyPage.page.getByText(LIST_ITEM_EIGHT, { exact: true })).toBeVisible();
+
+    await kuiklyPage.page.getByText(LIST_ITEM_EIGHT, { exact: true }).click();
+    await expect(kuiklyPage.page.getByText(LIST_SELECTED_EIGHT, { exact: true })).toBeVisible();
+
+    await kuiklyPage.scrollInContainer(container, { deltaY: 1200, smooth: false });
+    const scrollTop = await container.evaluate((el) => (el instanceof HTMLElement ? el.scrollTop : 0));
+    expect(scrollTop).toBeGreaterThan(900);
+    await expect(kuiklyPage.page.getByText(LIST_GROUP_THREE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(LIST_ITEM_TWENTY_ONE, { exact: true })).toBeVisible();
+
+    for (let i = 0; i < 8; i += 1) {
+      await kuiklyPage.scrollInContainer(container, { deltaY: 350, smooth: false });
+    }
+
+    const finalScrollTop = await container.evaluate((el) => (el instanceof HTMLElement ? el.scrollTop : 0));
+    expect(finalScrollTop).toBeGreaterThan(1800);
   });
 });

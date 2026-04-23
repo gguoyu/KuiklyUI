@@ -94,3 +94,37 @@ export function classifyManagedSpec({ pageMeta = {}, assertionMode } = {}) {
   return MANAGED_TARGET_CLASSIFICATION[pageMeta.category] || 'functional';
 }
 
+function contentIncludesOneOf(content = '', snippets = []) {
+  return snippets.some((snippet) => content.includes(snippet));
+}
+
+export function detectClassificationUpgradeOpportunity({ currentClassification = 'functional', content = '' } = {}) {
+  const normalized = String(currentClassification || 'functional').trim().toLowerCase();
+  const hasInteraction = contentIncludesOneOf(content, ['.click(', '.dblclick(', 'keyboard.type(', 'scrollInContainer(', 'runActionScripts(']);
+  const hasVisual = contentIncludesOneOf(content, ['toHaveScreenshot(']);
+  const hasStateAssertion = contentIncludesOneOf(content, ['toHaveText(', 'toHaveCSS(', 'toHaveValue(', 'expect(findExactText(', 'toBeVisible(']);
+
+  if (normalized === 'static' && hasInteraction && hasStateAssertion) {
+    return {
+      suggestedClassification: 'functional',
+      reason: 'Spec adds interaction-driven assertions and should likely live under functional coverage.',
+    };
+  }
+
+  if (normalized === 'static' && hasVisual && !hasInteraction) {
+    return {
+      suggestedClassification: 'visual',
+      reason: 'Spec relies on screenshot-style visual assertions and should likely live under visual coverage.',
+    };
+  }
+
+  if (normalized === 'functional' && hasInteraction && hasVisual) {
+    return {
+      suggestedClassification: 'hybrid',
+      reason: 'Spec mixes interaction-driven assertions with screenshot assertions for the same scenario and should be reviewed as hybrid.',
+    };
+  }
+
+  return null;
+}
+

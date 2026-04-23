@@ -1,4 +1,4 @@
-// @kuikly-autogen {"pageName":"ButtonEventTestPage","category":"interactions","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/interactions/ButtonEventTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"interaction-generic","targetClassification":"functional","specLocation":"web-e2e/tests/functional/auto-button-event-test-page.spec.ts","migrationPhase":"semantic-closure"}
+// @kuikly-autogen {"pageName":"ButtonEventTestPage","category":"interactions","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/interactions/ButtonEventTestPage.kt","managedBy":"kuikly-web-autotest","templateProfile":"interaction-generic","targetClassification":"functional","specLocation":"web-e2e/tests/functional/auto-button-event-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-refresh","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
 import { test, expect } from '../../fixtures/test-base';
 
 const PAGE_NAME = "ButtonEventTestPage";
@@ -58,7 +58,8 @@ const INTERACTION_HINTS = {
   "postActionWaitMs": 250,
   "recheckPageReadyAfterAction": true,
   "scrollDeltaY": 520,
-  "inputText": "Hello Kuikly"
+  "inputText": "Hello Kuikly",
+  "observableOutcome": null
 };
 const ANIMATION_HINTS = {
   "preferredWait": "waitForAnimationEnd",
