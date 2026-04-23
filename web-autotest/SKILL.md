@@ -41,6 +41,8 @@ Human-readable references:
 - `web-autotest/references/review-checklist.md`
 - `web-autotest/references/classification-upgrade-rules.md`
 - `web-autotest/references/anti-patterns-catalog.md`
+- `web-autotest/references/spec-templates.md`
+- `web-autotest/references/page-generation-guide.md`
 
 Machine-readable rules consumed by the loop:
 - `web-autotest/rules/template-profiles.json`

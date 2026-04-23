@@ -25,4 +25,11 @@ Upgrade when the same scenario needs both:
 
 ## First implementation scope
 
-The first implementation should only detect upgrade opportunities and warn. It should not auto-move files across semantic directories.
+The current implementation detects upgrade opportunities and emits warnings via
+`detectClassificationUpgradeOpportunity()` in `scripts/lib/classification-policy.mjs`.
+It does **not** auto-move files across semantic directories — that step requires human review.
+
+When the loop emits a classification upgrade warning, the recommended action is:
+1. Inspect the flagged spec manually.
+2. If the upgrade is confirmed, move the file to the correct directory and rename it to match the target suffix.
+3. Update `HYBRID_TARGETS` in `classification-policy.mjs` if the spec is promoted to `hybrid` and should be included in `--level hybrid` runs.

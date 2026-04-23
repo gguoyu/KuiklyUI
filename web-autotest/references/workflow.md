@@ -29,11 +29,11 @@ node web-autotest/scripts/coverage-js-no-sourcemap-report.mjs
 Inspect completeness and analysis artifacts:
 
 ```bash
-node web-autotest/scripts/scan-web-test-pages.mjs
-node web-autotest/scripts/analyze-playwright-results.mjs
-node web-autotest/scripts/summarize-coverage.mjs
-node web-autotest/scripts/suggest-test-targets.mjs
-node web-autotest/scripts/build-autotest-report.mjs
+node web-autotest/scripts/loop/scan-web-test-pages.mjs
+node web-autotest/scripts/loop/analyze-playwright-results.mjs
+node web-autotest/scripts/loop/summarize-coverage.mjs
+node web-autotest/scripts/loop/suggest-test-targets.mjs
+node web-autotest/scripts/loop/build-autotest-report.mjs
 ```
 
 ## Practical loop

@@ -6,7 +6,7 @@ import { basename, dirname, join, relative } from 'path';
 import { repoRoot, reportsDir as baseReportsDir, testsRoot, webTestRoot } from '../lib/paths.mjs';
 import { loopConfig, displayConfig, reportingConfig } from '../lib/config.mjs';
 import { toPosix, unique, walkFiles } from '../lib/fs-utils.mjs';
-import { runSiblingScriptJson } from '../lib/script-runner.mjs';
+import { runSiblingScriptJson, runScriptJson } from '../lib/script-runner.mjs';
 import {
   extractGotoTargets,
   extractLegacyGotoTarget,
@@ -1714,6 +1714,77 @@ function addManagedSpecsForMissingPages(scan, pageCatalog, context) {
   return changed;
 }
 
+/**
+ * C1: For each source file that has no carrier page yet, attempt to auto-generate
+ * a Kotlin web_test carrier page + update interaction-protocol.json pageProfiles.
+ *
+ * Only runs when:
+ *   - scan.sourceFilesWithoutPage is non-empty (C2 new field)
+ *   - options.maxNewSpecs budget allows it
+ *   - testability.passed is true for that source file
+ *
+ * Returns a list of mutation records and blocker warnings.
+ */
+function tryGenerateCarrierPages(scan, context, warnings) {
+  if (context.dryRun) return 0;
+
+  const candidates = scan.sourceFilesWithoutPage || [];
+  if (!candidates.length) return 0;
+
+  const generatorScript = join(repoRoot, 'web-autotest', 'scripts', 'loop', 'generate-carrier-page.mjs');
+  if (!existsSync(generatorScript)) return 0;
+
+  let generated = 0;
+
+  for (const candidate of candidates) {
+    if (generated >= options.maxNewSpecs) break;
+
+    const absSourceFile = join(repoRoot, candidate.file);
+    if (!existsSync(absSourceFile)) continue;
+
+    let result;
+    try {
+      result = runScriptJson(generatorScript, absSourceFile, '--write');
+    } catch (err) {
+      warnings.push({
+        type: 'carrier-page-generation-error',
+        file: candidate.file,
+        message: `generate-carrier-page failed: ${err.message}`,
+      });
+      continue;
+    }
+
+    if (!result.testability?.passed) {
+      warnings.push({
+        type: 'carrier-page-testability-blocker',
+        file: candidate.file,
+        suggestedPageName: result.pageName,
+        reason: result.testability?.reason || 'testability check failed',
+        message: `Cannot auto-generate carrier page for ${candidate.fileName}: ${result.testability?.reason}`,
+      });
+      continue;
+    }
+
+    if (result.written) {
+      context.mutations.push({
+        type: 'generate-carrier-page',
+        file: result.kotlinFile,
+        pageName: result.pageName,
+        category: result.suggestedCategory,
+        pageProfileUpdated: Boolean(result.pageProfileEntry),
+      });
+      generated += 1;
+    } else if (result.warnings?.length) {
+      // Already exists or skipped
+      for (const w of result.warnings) {
+        warnings.push({ type: 'carrier-page-skipped', message: w });
+      }
+    }
+  }
+
+  return generated;
+}
+
 function rankCoverageCandidates(suggestions, pageCatalog, managedIndex, specIndex) {
   const candidateEntries = [];
   const byPage = new Map();
@@ -2248,6 +2319,7 @@ function executeLoop() {
 
   const initialMutationContext = createMutationContext(options.dryRun, loopReport.verification);
   addManagedSpecsForMissingPages(loopReport.scan, pageCatalog, initialMutationContext);
+  tryGenerateCarrierPages(loopReport.scan, initialMutationContext, loopReport.warnings);
   const initialRepairContext = applyAndVerifyHandwrittenRepairs(
     loopReport.scan,
     pageCatalog,

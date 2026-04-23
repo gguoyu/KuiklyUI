@@ -14,6 +14,25 @@
       "id": "manual-page-goto-query",
       "message": "Generated spec should use kuiklyPage.goto() instead of raw page.goto query construction.",
       "pattern": "page\\.goto\\([^)]*page_name="
+    },
+    {
+      "id": "action-count-only-assertion",
+      "message": "Generated spec asserts only actionCount > 0 with no stable post-action oracle. Add a toBeVisible or toHaveText assertion after the interaction.",
+      "pattern": "expect\\(actionCount\\)\\.toBeGreaterThan\\(0\\)"
+    },
+    {
+      "id": "action-without-post-oracle",
+      "message": "Generated spec calls runRuleDrivenInteractions but has no subsequent expect() after the action count check. At least one stable post-action assertion is required.",
+      "includes": [
+        "runRuleDrivenInteractions"
+      ],
+      "requiresOneOf": [
+        "toBeVisible(",
+        "toHaveText(",
+        "toHaveCSS(",
+        "toHaveScreenshot(",
+        "expectLabel"
+      ]
     }
   ]
 }

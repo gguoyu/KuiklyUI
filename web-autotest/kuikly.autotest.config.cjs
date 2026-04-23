@@ -7,6 +7,23 @@
 module.exports = {
   webTestRoot: 'demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test',
 
+  /**
+   * Source roots for the Kotlin render layer under test.
+   * analyze-source-file.mjs scans these directories to discover testable behaviors.
+   * When reusing this framework in another project, update these paths to point
+   * at the project's own render-layer source directories.
+   */
+  sourceRoots: [
+    'core-render-web/base/src/jsMain/kotlin',
+    'core-render-web/h5/src/jsMain/kotlin',
+  ],
+
+  /**
+   * Package prefix used in web_test pages for this project.
+   * generate-carrier-page.mjs uses this when writing the package declaration.
+   */
+  webTestPackagePrefix: 'com.tencent.kuikly.demo.pages.web_test',
+
   build: {
     defaultBuildType: 'productionExecutable',
     gradleBuildArgs: ':h5App:jsDevelopmentExecutableCompileSync :demo:packLocalJSBundleDebug -Pkuikly.useLocalKsp=false',
