@@ -1,0 +1,55 @@
+/**
+ * Project-specific configuration for kuikly web autotest.
+ *
+ * This is the single source of truth for all project-coupled paths and settings.
+ * When reusing the autotest framework in another project, only this file needs to change.
+ */
+module.exports = {
+  webTestRoot: 'demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test',
+
+  build: {
+    defaultBuildType: 'productionExecutable',
+    gradleBuildArgs: ':h5App:jsDevelopmentExecutableCompileSync :demo:packLocalJSBundleDebug -Pkuikly.useLocalKsp=false',
+    processedResourcesDir: 'h5App/build/processedResources/js/main',
+    demoDistBaseDir: 'demo/build/dist/js',
+    developmentDistSubdir: 'developmentExecutable',
+    kotlinWebpackDir: 'h5App/build/kotlin-webpack/js/developmentExecutable',
+    kotlinModulesDir: 'h5App/build/compileSync/js/main/developmentExecutable/kotlin',
+    whistleHtdocsDir: 'node_modules/whistle/biz/webui/htdocs',
+    composeResourcesDirName: 'composeResources',
+    fontsDirName: 'fonts',
+    fontFileName: 'NotoSansSC-Regular.woff2',
+    indexHtmlRelativePath: 'h5App/build/processedResources/js/main/index.html',
+    nativeVueRemoteUrl: 'http://127.0.0.1:8083/nativevue2.js',
+    nativeVueLocalFileName: 'nativevue2.js',
+  },
+
+  coverage: {
+    thresholds: {
+      lines: 70,
+      functions: 70,
+      statements: 70,
+      branches: 55,
+    },
+    watermarks: {
+      lines: [70, 80],
+      functions: [70, 80],
+      branches: [55, 75],
+      statements: [70, 80],
+    },
+    scopeRoots: [
+      'core-render-web/base/src/jsMain/kotlin',
+      'core-render-web/h5/src/jsMain/kotlin',
+    ],
+    generatedKotlinOutputDir: 'h5App/build/compileSync/js/main/developmentExecutable/kotlin',
+    targetModules: [
+      'KuiklyCore-render-web-base.js',
+      'KuiklyCore-render-web-h5.js',
+      'KuiklyUI-h5App.js',
+    ],
+    v8: {
+      reportAnonymousScripts: true,
+      resetOnNavigation: false,
+    },
+  },
+};
