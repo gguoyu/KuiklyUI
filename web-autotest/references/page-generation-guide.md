@@ -76,7 +76,7 @@ internal class <PageName> : Pager() {
 ## 2. The state-driven text pattern (critical for auto-spec generation)
 
 This is the single most important pattern. It makes button labels themselves carry the expected
-state, so `analyze-source-file.mjs` can extract `targetLabel → expectLabel` pairs automatically.
+state, so the generated spec can assert `targetLabel → expectLabel` transitions automatically.
 
 ```kotlin
 // State variable
@@ -114,7 +114,7 @@ View {
 }
 ```
 
-`analyze-source-file.mjs` detects the `if (ctx.X) "A" else "B"` pattern and outputs:
+The pattern produces a `targetLabel → expectLabel` pair that `interaction-protocol.json` can record:
 ```json
 { "kind": "click", "targetLabel": "inactive-label", "expectLabel": "active-label" }
 ```
@@ -311,30 +311,18 @@ spec asserts (stable, not pixel-dependent).
 
 ---
 
-## 4. Mapping source file analysis output to page content
+## 4. Mapping a source file to page content
 
-When `analyze-source-file.mjs` runs on a source file, it produces:
+When reading a source file to write a carrier page, extract the following from the Kotlin source:
 
-```json
-{
-  "sourceType": "component",
-  "suggestedCategory": "components",
-  "props": ["backgroundColor", "borderRadius", "opacity", "src", "tintColor"],
-  "events": ["click", "onLoadSuccess", "onLoadFailure"],
-  "stateTransitions": [],
-  "suggestedActionScripts": []
-}
-```
-
-Use this output as follows:
-
-| Analysis field | How to use in the page |
-|----------------|------------------------|
-| `props` | Each prop becomes a section demonstrating that prop's variants |
-| `events` with state | Wrap in state-driven text pattern → generates `actionScripts` |
-| `moduleMethods` | One trigger button + result text per method |
-| `stateTransitions` (non-empty) | Use the extracted before/after pairs directly as button labels |
-| `suggestedCategory` | Determines which template pattern to use (3a–3e above) |
+| What to look for | How to use in the page |
+|-----------------|------------------------|
+| `when (propKey)` branches | Each prop key → one section demonstrating that prop's variants |
+| `KRCssConst.*` / `KREventConst.*` refs | CSS props / event types exposed by the component |
+| `event { click { ... } }` | Add a click trigger with state-driven text |
+| `event { longPress { ... } }` | Add a long-press trigger with state-driven text |
+| `override fun call(method, ...)` branches | Each module method → one trigger button + result text |
+| Class name suffix | `KRXxxView` → components; `KRXxxModule` → modules; list/scroll → interactions; anim → animations |
 
 **Props-to-sections mapping example** for `KRImageView` with props `[src, resize, tintColor, blurRadius]`:
 

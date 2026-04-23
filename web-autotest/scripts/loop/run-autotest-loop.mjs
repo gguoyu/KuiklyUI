@@ -1715,75 +1715,56 @@ function addManagedSpecsForMissingPages(scan, pageCatalog, context) {
 }
 
 /**
- * C1: For each source file that has no carrier page yet, attempt to auto-generate
- * a Kotlin web_test carrier page + update interaction-protocol.json pageProfiles.
+ * C1: For each source file that has no carrier page yet, emit a carrier-page-needed
+ * signal for AI to handle. All sourceRoots files are render-layer implementations
+ * (KRView.kt, KRImageView.kt, etc.) that never have state-driven text of their own,
+ * so the AI must always read the source and write the carrier page from scratch
+ * using page-generation-guide.md.
  *
- * Only runs when:
- *   - scan.sourceFilesWithoutPage is non-empty (C2 new field)
- *   - options.maxNewSpecs budget allows it
- *   - testability.passed is true for that source file
+ * generate-carrier-page.mjs is used only to update interaction-protocol.json after
+ * the AI has already written the Kotlin file.
  *
- * Returns a list of mutation records and blocker warnings.
+ * Runs in both normal and dry-run mode so AI can always see pending signals.
  */
 function tryGenerateCarrierPages(scan, context, warnings) {
-  if (context.dryRun) return 0;
-
   const candidates = scan.sourceFilesWithoutPage || [];
   if (!candidates.length) return 0;
 
-  const generatorScript = join(repoRoot, 'web-autotest', 'scripts', 'loop', 'generate-carrier-page.mjs');
-  if (!existsSync(generatorScript)) return 0;
-
-  let generated = 0;
+  let signaled = 0;
 
   for (const candidate of candidates) {
-    if (generated >= options.maxNewSpecs) break;
+    if (signaled >= options.maxNewSpecs) break;
 
     const absSourceFile = join(repoRoot, candidate.file);
     if (!existsSync(absSourceFile)) continue;
 
-    let result;
-    try {
-      result = runScriptJson(generatorScript, absSourceFile, '--write');
-    } catch (err) {
-      warnings.push({
-        type: 'carrier-page-generation-error',
-        file: candidate.file,
-        message: `generate-carrier-page failed: ${err.message}`,
-      });
-      continue;
-    }
-
-    if (!result.testability?.passed) {
-      warnings.push({
-        type: 'carrier-page-testability-blocker',
-        file: candidate.file,
-        suggestedPageName: result.pageName,
-        reason: result.testability?.reason || 'testability check failed',
-        message: `Cannot auto-generate carrier page for ${candidate.fileName}: ${result.testability?.reason}`,
-      });
-      continue;
-    }
-
-    if (result.written) {
-      context.mutations.push({
-        type: 'generate-carrier-page',
-        file: result.kotlinFile,
-        pageName: result.pageName,
-        category: result.suggestedCategory,
-        pageProfileUpdated: Boolean(result.pageProfileEntry),
-      });
-      generated += 1;
-    } else if (result.warnings?.length) {
-      // Already exists or skipped
-      for (const w of result.warnings) {
-        warnings.push({ type: 'carrier-page-skipped', message: w });
-      }
-    }
+    // Emit carrier-page-needed for every candidate — AI reads source + page-generation-guide.md
+    warnings.push({
+      type: 'carrier-page-needed',
+      file: candidate.file,
+      fileName: candidate.fileName,
+      suggestedPageName: candidate.suggestedPageName,
+      suggestedCategory: candidate.suggestedCategory,
+      targetPath: join(
+        'demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test',
+        candidate.suggestedCategory,
+        `${candidate.suggestedPageName}.kt`
+      ).replace(/\\/g, '/'),
+      action: 'AI_GENERATE_CARRIER_PAGE',
+      instructions: [
+        `Read the source file at ${candidate.file}`,
+        `Read web-autotest/references/page-generation-guide.md for Kotlin DSL patterns`,
+        `Generate a carrier page with state-driven text for each testable behavior`,
+        `Write the Kotlin file to the targetPath above`,
+        `Run node web-autotest/scripts/loop/generate-carrier-page.mjs ${candidate.file} --write to update interaction-protocol.json`,
+      ],
+    });
+    signaled += 1;
   }
 
-  return generated;
+  return signaled;
 }
+
 
 function rankCoverageCandidates(suggestions, pageCatalog, managedIndex, specIndex) {
   const candidateEntries = [];

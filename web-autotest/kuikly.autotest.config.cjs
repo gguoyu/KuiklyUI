@@ -9,7 +9,8 @@ module.exports = {
 
   /**
    * Source roots for the Kotlin render layer under test.
-   * analyze-source-file.mjs scans these directories to discover testable behaviors.
+   * scan-web-test-pages.mjs scans these directories to find source files that have no
+   * matching web_test carrier page, and emits carrier-page-needed signals for AI to handle.
    * When reusing this framework in another project, update these paths to point
    * at the project's own render-layer source directories.
    */

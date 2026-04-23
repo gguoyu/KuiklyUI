@@ -40,14 +40,33 @@ node web-autotest/scripts/loop/build-autotest-report.mjs
 
 1. Run `scan-web-test-pages.mjs` before changing code.
 2. If `nonWebTestSpecTargets` is non-empty, stop immediately: delete those specs or recreate the missing capability under `web_test` and retarget the spec.
-3. If completeness already fails, fix that first.
-4. Run `kuikly-test.mjs --full`.
-5. If the test run fails, inspect `web-autotest/reports/test-results.json` via `analyze-playwright-results.mjs`.
-6. Fix only issues that are clearly in test code, snapshot baselines, or missing coverage tests.
-7. Re-run the narrowest affected test while iterating.
-8. Re-run `--full` before considering the loop complete.
-9. If coverage still fails, use `summarize-coverage.mjs` and `suggest-test-targets.mjs` to pick the next source object to target.
-10. Before keeping a newly generated managed spec, run its focused rerun and roll it back if the rerun still fails.
+3. If completeness already fails (`missingSpecCount > 0`), fix that first.
+4. If `sourceFilesWithoutPage` is non-empty, handle carrier page gaps — see **Carrier page generation** below.
+5. Run `kuikly-test.mjs --full`.
+6. If the test run fails, inspect `web-autotest/reports/test-results.json` via `analyze-playwright-results.mjs`.
+7. Fix only issues that are clearly in test code, snapshot baselines, or missing coverage tests.
+8. Re-run the narrowest affected test while iterating.
+9. Re-run `--full` before considering the loop complete.
+10. If coverage still fails, use `summarize-coverage.mjs` and `suggest-test-targets.mjs` to pick the next source object to target.
+11. Before keeping a newly generated managed spec, run its focused rerun and roll it back if the rerun still fails.
+
+## Carrier page generation
+
+When `scan-web-test-pages.mjs` reports `sourceFilesWithoutPage`, source files under `sourceRoots`
+have no matching `web_test` carrier page. All these files are render-layer implementations
+without state-driven text, so the loop emits `carrier-page-needed` signals — the AI must
+write each carrier page from scratch.
+
+**AI carrier page workflow:**
+1. Read the source file to understand its props, events, and behaviors.
+2. Read `references/page-generation-guide.md` for the Kotlin DSL patterns.
+3. Write a carrier page with the **state-driven text pattern** — every testable behavior must have a button whose label changes after the action, so specs can assert the state change.
+4. Write the Kotlin file to the `targetPath` from the warning.
+5. Run `generate-carrier-page.mjs <source-file> --write` to update `interaction-protocol.json`.
+
+**Stop and emit a manual-review warning** when:
+- The source file is internal infrastructure (scheduler, serializer, DOM utils) with no user-facing behavior.
+- The behavior requires external SDK or network access that cannot be simulated deterministically.
 
 ## What counts as a test issue
 

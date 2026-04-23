@@ -2,14 +2,17 @@
 /**
  * generate-carrier-page.mjs
  *
- * Generates a Kotlin web_test carrier page from an analyze-source-file.mjs result.
- * Also updates rules/interaction-protocol.json with the new page's actionScripts (B3).
+ * Generates a Kotlin web_test carrier page scaffold from a source file path,
+ * and updates rules/interaction-protocol.json with the new page's actionScripts.
  *
  * Usage:
- *   node web-autotest/scripts/loop/generate-carrier-page.mjs <path-to-kt-source-file> [--dry-run] [--write]
+ *   node web-autotest/scripts/loop/generate-carrier-page.mjs <path-to-kt-source-file> [--write]
  *
- *   --dry-run   Print the generated Kotlin code without writing files (default)
- *   --write     Write the Kotlin file to webTestRoot and update interaction-protocol.json
+ *   (default) Print the generated Kotlin scaffold without writing files
+ *   --write   Write the Kotlin file to webTestRoot and update interaction-protocol.json
+ *
+ * Note: When the AI has already written a better Kotlin file manually, run with --write
+ * only to update interaction-protocol.json (the existing Kotlin file is not overwritten).
  *
  * Output: JSON to stdout with { kotlinFile, kotlinCode, pageProfileEntry, written }
  */
@@ -19,7 +22,6 @@ import { basename, dirname, join, relative } from 'path';
 import { createRequire } from 'module';
 import { repoRoot, webTestRoot } from '../lib/paths.mjs';
 import { toPosix } from '../lib/fs-utils.mjs';
-import { runScriptJson } from '../lib/script-runner.mjs';
 
 const require = createRequire(import.meta.url);
 const autotestConfig = require(join(repoRoot, 'web-autotest', 'kuikly.autotest.config.cjs'));
@@ -35,28 +37,24 @@ if (!sourceFilePath) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 1: Run analyze-source-file to get behaviors
+// Infer metadata directly from the source file path and name
 // ---------------------------------------------------------------------------
 
-const analyzerScript = join(repoRoot, 'web-autotest', 'scripts', 'loop', 'analyze-source-file.mjs');
-let analysis;
-try {
-  analysis = runScriptJson(analyzerScript, sourceFilePath);
-} catch (err) {
-  console.error(JSON.stringify({ error: `analyze-source-file failed: ${err.message}` }));
-  process.exit(1);
-}
+const fileName = basename(sourceFilePath, '.kt');
+const suggestedCategory = inferCategory(fileName, sourceFilePath);
+const props = [];
+const events = [];
+const moduleMethods = [];
+const stateTransitions = [];
+const suggestedActionScripts = [];
 
-const {
-  fileName,
-  suggestedCategory,
-  props,
-  events,
-  moduleMethods,
-  stateTransitions,
-  suggestedActionScripts,
-  testability,
-} = analysis;
+function inferCategory(name, filePath) {
+  const posix = filePath.replace(/\\/g, '/').toLowerCase();
+  if (/\/module\//.test(posix) || /Module$/.test(name)) return 'modules';
+  if (/list|scroll/i.test(name)) return 'interactions';
+  if (/anim|transition/i.test(name)) return 'animations';
+  return 'components';
+}
 
 const pageName = suggestPageName(fileName, suggestedCategory);
 const packageSuffix = suggestedCategory;
@@ -733,7 +731,6 @@ console.log(JSON.stringify({
   kotlinFile: toPosix(relative(repoRoot, outputPath)),
   kotlinCode,
   pageProfileEntry,
-  testability,
   dryRun,
   written,
   warnings,
