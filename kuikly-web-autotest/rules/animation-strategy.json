@@ -1,0 +1,38 @@
+{
+  "defaults": {
+    "genericTemplateProfile": "default",
+    "repairTemplateProfile": "animation-generic-repair",
+    "preferredWait": "waitForAnimationEnd",
+    "fallbackWaitMs": 900,
+    "ciFallbackWaitMs": 1200,
+    "preferStateAssertions": true
+  },
+  "pageProfiles": {
+    "JSFrameAnimTestPage": {
+      "preferredWait": "waitForAnimationEnd",
+      "fallbackWaitMs": 1200,
+      "ciFallbackWaitMs": 1600,
+      "preferStateAssertions": true,
+      "repairTemplateProfile": "animation-jsframe-state-only"
+    },
+    "PropertyAnimTestPage": {
+      "preferredWait": "waitForAnimationEnd",
+      "fallbackWaitMs": 900,
+      "ciFallbackWaitMs": 1400,
+      "preferStateAssertions": true,
+      "repairTemplateProfile": "animation-property-toggle-only"
+    },
+    "CSSTransitionTestPage": {
+      "preferredWait": "waitForTransitionEnd",
+      "fallbackWaitMs": 700,
+      "ciFallbackWaitMs": 1000,
+      "preferStateAssertions": true
+    },
+    "PAGAnimTestPage": {
+      "preferredWait": "time-based-fallback",
+      "fallbackWaitMs": 1200,
+      "ciFallbackWaitMs": 1800,
+      "preferStateAssertions": false
+    }
+  }
+}

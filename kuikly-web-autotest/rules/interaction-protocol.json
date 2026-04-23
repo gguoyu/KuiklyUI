@@ -1,0 +1,106 @@
+{
+  "defaults": {
+    "actions": [],
+    "maxActionLabels": 4,
+    "postActionWaitMs": 250,
+    "recheckPageReadyAfterAction": true,
+    "scrollDeltaY": 520,
+    "inputText": "Hello Kuikly"
+  },
+  "categoryProfiles": {
+    "default": {
+      "actions": []
+    },
+    "interactions": {
+      "actions": [
+        "click-visible-labels"
+      ],
+      "maxActionLabels": 3,
+      "postActionWaitMs": 400
+    },
+    "animations": {
+      "actions": [
+        "click-visible-labels"
+      ],
+      "maxActionLabels": 2,
+      "postActionWaitMs": 600
+    },
+    "modules": {
+      "actions": [
+        "click-visible-labels"
+      ],
+      "maxActionLabels": 2,
+      "postActionWaitMs": 800
+    },
+    "composite": {
+      "actions": [
+        "click-visible-labels"
+      ],
+      "maxActionLabels": 3,
+      "postActionWaitMs": 500
+    }
+  },
+  "componentProfiles": {
+    "KRListView": {
+      "actions": [
+        "scroll-first-list",
+        "click-visible-labels"
+      ],
+      "postActionWaitMs": 450,
+      "scrollDeltaY": 650
+    },
+    "KRInputView": {
+      "actions": [
+        "fill-first-input",
+        "click-visible-labels"
+      ],
+      "inputText": "Hello Kuikly",
+      "postActionWaitMs": 250
+    },
+    "KRScrollView": {
+      "actions": [
+        "scroll-first-list",
+        "click-visible-labels"
+      ],
+      "scrollDeltaY": 500
+    }
+  },
+  "pageProfiles": {
+    "InputTestPage": {
+      "actions": [
+        "fill-first-input",
+        "click-visible-labels"
+      ],
+      "inputText": "Hello Kuikly",
+      "maxActionLabels": 2
+    },
+    "ClickTestPage": {
+      "actions": [
+        "click-visible-labels"
+      ],
+      "maxActionLabels": 4
+    },
+    "ModalTestPage": {
+      "actions": [
+        "click-visible-labels"
+      ],
+      "maxActionLabels": 3,
+      "postActionWaitMs": 500
+    },
+    "ListScrollTestPage": {
+      "actions": [
+        "scroll-first-list",
+        "click-visible-labels"
+      ],
+      "maxActionLabels": 2,
+      "scrollDeltaY": 700
+    },
+    "GestureTestPage": {
+      "actions": [
+        "click-visible-labels"
+      ],
+      "maxActionLabels": 2,
+      "postActionWaitMs": 500
+    }
+  }
+}

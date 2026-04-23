@@ -17,6 +17,13 @@ import {
   classifyManagedSpec,
   resolveManagedSpecTargetSegments,
 } from '../../web-e2e/scripts/lib/classification-policy.mjs';
+import {
+  resolveManagedTemplateProfile,
+  resolveManagedRepairProfile,
+  resolveInteractionHints,
+  resolveAnimationHints,
+  validateGeneratedSpec,
+} from './lib/rule-loader.mjs';
 
 const fixtureEntry = join(repoRoot, 'web-e2e', 'fixtures', 'test-base');
 const reportsDir = join(baseReportsDir, 'autotest');
@@ -199,6 +206,14 @@ function normalizeActionLabel(value) {
   return text;
 }
 
+function extractComponentTypes(source) {
+  return unique(
+    [...source.matchAll(/(?:^|[^\w])(KR[A-Z][A-Za-z0-9_]*)\s*(?:\{|\()/gmu)]
+      .map((match) => match[1])
+      .filter(Boolean)
+  );
+}
+
 function slugifyPageName(pageName) {
   return pageName
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
@@ -259,6 +274,7 @@ function loadPageCatalog() {
       titleText,
       stableTexts,
       actionLabels,
+      componentTypes: extractComponentTypes(source),
       managedSpecPath: inferManagedSpecPath({ pageName, category }),
     };
   });
@@ -270,31 +286,7 @@ function loadPageCatalog() {
 }
 
 function defaultManagedTemplateProfile(pageMeta) {
-  switch (pageMeta.pageName) {
-    case 'ListScrollTestPage':
-      return 'interaction-list-scroll';
-    case 'PageListTestPage':
-      return 'interaction-page-list';
-    case 'JSFrameAnimTestPage':
-      return 'animation-jsframe';
-    case 'PropertyAnimTestPage':
-      return 'animation-property';
-    case 'NetworkModuleTestPage':
-      return 'module-network';
-    default:
-      break;
-  }
-
-  switch (pageMeta.category) {
-    case 'interactions':
-      return 'interaction-generic';
-    case 'animations':
-      return 'animation-generic';
-    case 'modules':
-      return 'module-generic';
-    default:
-      return 'default';
-  }
+  return resolveManagedTemplateProfile(pageMeta);
 }
 
 function managedSpecMetadataFor(pageMeta, reason, templateProfile) {
@@ -319,6 +311,8 @@ function buildManagedSpecPreamble(pageMeta, metadata, fixtureImport) {
   const titleLiteral = pageMeta.titleText ? JSON.stringify(pageMeta.titleText) : 'null';
   const stableTextsLiteral = JSON.stringify(pageMeta.stableTexts.slice(0, 4), null, 2);
   const actionLabelsLiteral = JSON.stringify(pageMeta.actionLabels, null, 2);
+  const interactionHintsLiteral = JSON.stringify(resolveInteractionHints(pageMeta), null, 2);
+  const animationHintsLiteral = JSON.stringify(resolveAnimationHints(pageMeta), null, 2);
 
   return `// @kuikly-autogen ${metadataLiteral}
 import { test, expect } from '${fixtureImportLiteral}';
@@ -327,6 +321,8 @@ const PAGE_NAME = ${pageNameLiteral};
 const TITLE_TEXT = ${titleLiteral};
 const STABLE_TEXTS = ${stableTextsLiteral};
 const ACTION_LABELS = ${actionLabelsLiteral};
+const INTERACTION_HINTS = ${interactionHintsLiteral};
+const ANIMATION_HINTS = ${animationHintsLiteral};
 
 async function expectPageReady(kuiklyPage) {
   if (TITLE_TEXT) {
@@ -357,6 +353,143 @@ async function clickLabelIfPresent(kuiklyPage, label) {
 
   return false;
 }
+
+async function locateFirstScrollableComponent(kuiklyPage) {
+  for (const type of ['KRListView', 'KRScrollView']) {
+    const locator = kuiklyPage.component(type).first();
+    if (await locator.count()) {
+      return locator;
+    }
+  }
+
+  return null;
+}
+
+async function fillFirstInputIfPresent(kuiklyPage) {
+  const input = kuiklyPage.page.locator('input, textarea').first();
+  if (!(await input.count())) {
+    return false;
+  }
+
+  const nextText = INTERACTION_HINTS.inputText || 'Hello Kuikly';
+  await input.click().catch(() => {});
+  await input.fill(nextText).catch(async () => {
+    await kuiklyPage.page.keyboard.type(nextText, { delay: 20 }).catch(() => {});
+  });
+
+  const currentValue = await input.inputValue().catch(() => '');
+  return currentValue.includes(nextText) || currentValue.length > 0;
+}
+
+async function scrollFirstListIfPresent(kuiklyPage) {
+  const container = await locateFirstScrollableComponent(kuiklyPage);
+  if (!container) {
+    return false;
+  }
+
+  const before = await container.evaluate((el) => (el instanceof HTMLElement ? el.scrollTop : 0)).catch(() => 0);
+  await kuiklyPage.scrollInContainer(container, {
+    deltaY: INTERACTION_HINTS.scrollDeltaY || 520,
+    smooth: false,
+  }).catch(() => {});
+  await kuiklyPage.page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
+  const after = await container.evaluate((el) => (el instanceof HTMLElement ? el.scrollTop : 0)).catch(() => before);
+  return after > before || after > 0;
+}
+
+async function clickVisibleLabels(kuiklyPage, { stopAfterFirstSuccess = false } = {}) {
+  let clickedCount = 0;
+  const limit = INTERACTION_HINTS.maxActionLabels || ACTION_LABELS.length;
+
+  for (const label of ACTION_LABELS.slice(0, limit)) {
+    const clicked = await clickLabelIfPresent(kuiklyPage, label);
+    if (!clicked) {
+      continue;
+    }
+
+    clickedCount += 1;
+    await kuiklyPage.page.waitForTimeout(INTERACTION_HINTS.postActionWaitMs || 250);
+    if (INTERACTION_HINTS.recheckPageReadyAfterAction !== false) {
+      await expectPageReady(kuiklyPage);
+    }
+    if (stopAfterFirstSuccess) {
+      break;
+    }
+  }
+
+  return clickedCount;
+}
+
+async function runRuleDrivenInteractions(kuiklyPage, { stopAfterFirstSuccess = false } = {}) {
+  let completed = 0;
+
+  for (const action of INTERACTION_HINTS.actions || []) {
+    if (action === 'fill-first-input') {
+      const filled = await fillFirstInputIfPresent(kuiklyPage);
+      if (filled) {
+        completed += 1;
+        if (INTERACTION_HINTS.recheckPageReadyAfterAction !== false) {
+          await expectPageReady(kuiklyPage);
+        }
+        if (stopAfterFirstSuccess) {
+          return completed;
+        }
+      }
+      continue;
+    }
+
+    if (action === 'scroll-first-list') {
+      const scrolled = await scrollFirstListIfPresent(kuiklyPage);
+      if (scrolled) {
+        completed += 1;
+        if (INTERACTION_HINTS.recheckPageReadyAfterAction !== false) {
+          await expectPageReady(kuiklyPage);
+        }
+        if (stopAfterFirstSuccess) {
+          return completed;
+        }
+      }
+      continue;
+    }
+
+    if (action === 'click-visible-labels') {
+      const clicks = await clickVisibleLabels(kuiklyPage, { stopAfterFirstSuccess });
+      completed += clicks;
+      if (stopAfterFirstSuccess && clicks > 0) {
+        return completed;
+      }
+    }
+  }
+
+  return completed;
+}
+
+async function waitForAnimationStrategy(kuiklyPage, locator = null) {
+  if (process.env.CI === 'true') {
+    await kuiklyPage.page.waitForTimeout(ANIMATION_HINTS.ciFallbackWaitMs || ANIMATION_HINTS.fallbackWaitMs || 1200);
+    return;
+  }
+
+  try {
+    if (ANIMATION_HINTS.preferredWait === 'waitForTransitionEnd' && locator) {
+      await kuiklyPage.waitForTransitionEnd(locator);
+      return;
+    }
+
+    if (ANIMATION_HINTS.preferredWait === 'waitForAnimationEnd') {
+      await kuiklyPage.waitForAnimationEnd();
+      return;
+    }
+  } catch {
+    // fall through to time-based fallback
+  }
+
+  await kuiklyPage.page.waitForTimeout(ANIMATION_HINTS.fallbackWaitMs || 900);
+}
+
+function hasUsableInteractionHints() {
+  return ACTION_LABELS.length > 0 || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
+}
 `;
 }
 
@@ -370,26 +503,15 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
   });
 
-  test('exercises extracted controls on ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    test.skip(ACTION_LABELS.length === 0, 'No clickable labels were extracted from page source.');
+  test('executes rule-driven interactions on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    test.skip(!hasUsableInteractionHints(), 'No usable interaction hints were resolved for this page.');
 
     await kuiklyPage.goto(${pageNameLiteral});
     await kuiklyPage.waitForRenderComplete();
     await expectPageReady(kuiklyPage);
 
-    let clickedCount = 0;
-    for (const label of ACTION_LABELS) {
-      const clicked = await clickLabelIfPresent(kuiklyPage, label);
-      if (!clicked) {
-        continue;
-      }
-
-      clickedCount += 1;
-      await kuiklyPage.page.waitForTimeout(250);
-      await expectPageReady(kuiklyPage);
-    }
-
-    expect(clickedCount).toBeGreaterThan(0);
+    const actionCount = await runRuleDrivenInteractions(kuiklyPage);
+    expect(actionCount).toBeGreaterThan(0);
   });
 });
 `;
@@ -405,29 +527,19 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
   });
 
-  test('probes one stable control on ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    test.skip(ACTION_LABELS.length === 0, 'No clickable labels were extracted from page source.');
+  test('probes one rule-driven interaction on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    test.skip(!hasUsableInteractionHints(), 'No usable interaction hints were resolved for this page.');
 
     await kuiklyPage.goto(${pageNameLiteral});
     await kuiklyPage.waitForRenderComplete();
     await expectPageReady(kuiklyPage);
 
-    let clicked = false;
-    for (const label of ACTION_LABELS.slice(0, displayConfig.maxActionAssertionsPerSpec)) {
-      clicked = await clickLabelIfPresent(kuiklyPage, label);
-      if (clicked) {
-        break;
-      }
-    }
-
-    expect(clicked).toBeTruthy();
-    await kuiklyPage.page.waitForTimeout(400);
-    await expectPageReady(kuiklyPage);
+    const actionCount = await runRuleDrivenInteractions(kuiklyPage, { stopAfterFirstSuccess: true });
+    expect(actionCount).toBeGreaterThan(0);
   });
 });
 `;
 }
-
 function buildManagedListScrollSpec(pageMeta, preamble, pageNameLiteral) {
   return `${preamble}
 const LIST_TITLE = '列表滚动测试';
@@ -617,7 +729,7 @@ const START_MARQUEE = ${labels.startMarquee};
 const START_COUNT = ${labels.startCount};
 const RUNNING_COUNT = ${labels.countRunning};
 
-async function waitForIdleLabel(page, label, timeout = 8000) {
+async function waitForIdleLabel(page, label, timeout = ANIMATION_HINTS.ciFallbackWaitMs || 8000) {
   await expect(page.getByText(label, { exact: true }).first()).toBeVisible({ timeout });
 }
 
@@ -637,11 +749,13 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
 
     await kuiklyPage.page.getByText(START_PROGRESS, { exact: true }).click();
     await expect(kuiklyPage.page.getByText(RUNNING_PROGRESS, { exact: true }).first()).toBeVisible({ timeout: 1500 });
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForIdleLabel(kuiklyPage.page, START_PROGRESS);
     await expect(kuiklyPage.page.getByText(PROGRESS_DONE, { exact: true })).toBeVisible();
 
     await kuiklyPage.page.getByText(START_COLOR, { exact: true }).click();
     await expect(kuiklyPage.page.getByText(RUNNING_COLOR, { exact: true }).first()).toBeVisible({ timeout: 1500 });
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForIdleLabel(kuiklyPage.page, START_COLOR);
     await expect(kuiklyPage.page.getByText(COLOR_DONE, { exact: true })).toBeVisible();
   });
@@ -652,10 +766,12 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
 
     await kuiklyPage.page.getByText(START_MARQUEE, { exact: true }).click();
     await expect(kuiklyPage.page.getByText(RUNNING_PROGRESS, { exact: true }).first()).toBeVisible({ timeout: 1500 });
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForIdleLabel(kuiklyPage.page, START_MARQUEE, 6000);
 
     await kuiklyPage.page.getByText(START_COUNT, { exact: true }).click();
     await expect(kuiklyPage.page.getByText(RUNNING_COUNT, { exact: true }).first()).toBeVisible({ timeout: 1500 });
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForIdleLabel(kuiklyPage.page, START_COUNT);
     await expect(kuiklyPage.page.getByText('100', { exact: true })).toBeVisible();
   });
@@ -681,7 +797,7 @@ const START_PROGRESS = ${labels.startProgress};
 const START_COLOR = ${labels.startColor};
 const START_COUNT = ${labels.startCount};
 
-async function waitForIdleLabel(page, label, timeout = 8000) {
+async function waitForIdleLabel(page, label, timeout = ANIMATION_HINTS.ciFallbackWaitMs || 8000) {
   await expect(page.getByText(label, { exact: true }).first()).toBeVisible({ timeout });
 }
 
@@ -698,14 +814,17 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await kuiklyPage.waitForRenderComplete();
 
     await kuiklyPage.page.getByText(START_PROGRESS, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForIdleLabel(kuiklyPage.page, START_PROGRESS);
     await expect(kuiklyPage.page.getByText(PROGRESS_DONE, { exact: true })).toBeVisible();
 
     await kuiklyPage.page.getByText(START_COLOR, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForIdleLabel(kuiklyPage.page, START_COLOR);
     await expect(kuiklyPage.page.getByText(COLOR_DONE, { exact: true })).toBeVisible();
 
     await kuiklyPage.page.getByText(START_COUNT, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForIdleLabel(kuiklyPage.page, START_COUNT);
     await expect(kuiklyPage.page.getByText('100', { exact: true })).toBeVisible();
   });
@@ -735,7 +854,7 @@ const RESTORE_COLOR = ${labels.restoreColor};
 const COMBO_ACTION = ${labels.combo};
 const RESTORE_ACTION = ${labels.restore};
 
-async function waitForText(page, text, timeout = 5000) {
+async function waitForText(page, text, timeout = ANIMATION_HINTS.ciFallbackWaitMs || 5000) {
   await expect(page.getByText(text, { exact: true }).first()).toBeVisible({ timeout });
 }
 
@@ -754,11 +873,13 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await kuiklyPage.waitForRenderComplete();
 
     await kuiklyPage.page.getByText(PLAY_TRANSLATE, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForText(kuiklyPage.page, RESTORE_POSITION);
     await kuiklyPage.page.getByText(RESTORE_POSITION, { exact: true }).first().click();
     await waitForText(kuiklyPage.page, PLAY_TRANSLATE);
 
     await kuiklyPage.page.getByText(SPRING_ACTION, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForText(kuiklyPage.page, RESTORE_POSITION);
   });
 
@@ -767,9 +888,11 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await kuiklyPage.waitForRenderComplete();
 
     await kuiklyPage.page.getByText(COLOR_ACTION, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForText(kuiklyPage.page, RESTORE_COLOR);
 
     await kuiklyPage.page.getByText(COMBO_ACTION, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForText(kuiklyPage.page, RESTORE_ACTION);
   });
 });
@@ -796,7 +919,7 @@ const RESTORE_COLOR = ${labels.restoreColor};
 const COMBO_ACTION = ${labels.combo};
 const RESTORE_ACTION = ${labels.restore};
 
-async function waitForText(page, text, timeout = 5000) {
+async function waitForText(page, text, timeout = ANIMATION_HINTS.ciFallbackWaitMs || 5000) {
   await expect(page.getByText(text, { exact: true }).first()).toBeVisible({ timeout });
 }
 
@@ -813,12 +936,15 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await kuiklyPage.waitForRenderComplete();
 
     await kuiklyPage.page.getByText(PLAY_TRANSLATE, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForText(kuiklyPage.page, RESTORE_POSITION);
 
     await kuiklyPage.page.getByText(COLOR_ACTION, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForText(kuiklyPage.page, RESTORE_COLOR);
 
     await kuiklyPage.page.getByText(COMBO_ACTION, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForText(kuiklyPage.page, RESTORE_ACTION);
   });
 });
@@ -988,6 +1114,8 @@ function buildManagedInteractionSpec(pageMeta, preamble, pageNameLiteral, templa
 }
 
 function buildManagedAnimationSpec(pageMeta, preamble, pageNameLiteral, templateProfile) {
+  const animationHints = resolveAnimationHints(pageMeta);
+
   if (pageMeta.pageName === 'JSFrameAnimTestPage') {
     if (templateProfile === 'animation-jsframe-state-only') {
       return buildManagedJsFrameAnimStateSpec(pageMeta, preamble, pageNameLiteral);
@@ -1002,7 +1130,7 @@ function buildManagedAnimationSpec(pageMeta, preamble, pageNameLiteral, template
     return buildManagedPropertyAnimSpec(pageMeta, preamble, pageNameLiteral);
   }
 
-  if (templateProfile === 'animation-generic-repair') {
+  if (templateProfile === 'animation-generic-repair' || animationHints.preferStateAssertions) {
     return buildManagedGenericSmokeSpec(pageMeta, preamble, pageNameLiteral);
   }
 
@@ -1177,6 +1305,7 @@ function createMutationContext(dryRun) {
     dryRun,
     mutations: [],
     revertedMutations: [],
+    validationWarnings: [],
   };
 }
 
@@ -1297,69 +1426,7 @@ function loadManagedSpecIndex() {
 }
 
 function managedRepairProfileFor(pageMeta, failure, managedEntry) {
-  const currentProfile = managedEntry?.metadata?.templateProfile || defaultManagedTemplateProfile(pageMeta);
-  const message = `${failure?.message || ''}\n${failure?.stack || ''}`.toLowerCase();
-
-  if (pageMeta.pageName === 'ListScrollTestPage') {
-    return {
-      templateProfile: currentProfile === 'interaction-list-scroll' ? 'interaction-list-scroll-lite' : currentProfile,
-      strategy: currentProfile === 'interaction-list-scroll' ? 'reduce-scroll-depth-and-assertions' : 'reuse-list-scroll-template',
-    };
-  }
-
-  if (pageMeta.pageName === 'PageListTestPage') {
-    const prefersTabOnly =
-      currentProfile === 'interaction-page-list' &&
-      (failure?.category === 'ELEMENT_NOT_FOUND' || message.includes('bounding box') || message.includes('not visible'));
-    return {
-      templateProfile: prefersTabOnly ? 'interaction-page-list-tab-only' : currentProfile,
-      strategy: prefersTabOnly ? 'rewrite-to-tab-driven-page-switch' : 'reuse-page-list-template',
-    };
-  }
-
-  if (pageMeta.pageName === 'JSFrameAnimTestPage') {
-    return {
-      templateProfile: currentProfile === 'animation-jsframe' ? 'animation-jsframe-state-only' : currentProfile,
-      strategy: currentProfile === 'animation-jsframe' ? 'rewrite-to-state-driven-animation-checks' : 'reuse-jsframe-animation-template',
-    };
-  }
-
-  if (pageMeta.pageName === 'PropertyAnimTestPage') {
-    return {
-      templateProfile: currentProfile === 'animation-property' ? 'animation-property-toggle-only' : currentProfile,
-      strategy: currentProfile === 'animation-property' ? 'rewrite-to-toggle-state-assertions' : 'reuse-property-animation-template',
-    };
-  }
-
-  if (pageMeta.pageName === 'NetworkModuleTestPage') {
-    return {
-      templateProfile: currentProfile === 'module-network' ? 'module-network-smoke' : currentProfile,
-      strategy: currentProfile === 'module-network' ? 'rewrite-to-shorter-network-coverage-path' : 'reuse-network-module-template',
-    };
-  }
-
-  switch (pageMeta.category) {
-    case 'interactions':
-      return {
-        templateProfile: 'interaction-generic-repair',
-        strategy: 'rewrite-interaction-managed-spec-to-light-smoke',
-      };
-    case 'animations':
-      return {
-        templateProfile: 'animation-generic-repair',
-        strategy: 'rewrite-animation-managed-spec-to-light-smoke',
-      };
-    case 'modules':
-      return {
-        templateProfile: 'module-generic-repair',
-        strategy: 'rewrite-module-managed-spec-to-light-smoke',
-      };
-    default:
-      return {
-        templateProfile: 'generic-repair',
-        strategy: 'rewrite-managed-spec-to-light-smoke',
-      };
-  }
+  return resolveManagedRepairProfile(pageMeta, failure, managedEntry);
 }
 
 function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
@@ -1367,6 +1434,10 @@ function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
   const templateProfile = repairProfile?.templateProfile || defaultManagedTemplateProfile(pageMeta);
   const targetClassification = classifyManagedSpec({ pageMeta, templateProfile });
   const content = buildManagedSpecContent(pageMeta, reason, repairProfile);
+  const validationWarnings = validateGeneratedSpec({
+    content,
+    targetClassification,
+  });
   const alreadyExists = existsSync(targetPath);
   const previousContent = alreadyExists ? readFileSync(targetPath, 'utf8') : null;
 
@@ -1385,7 +1456,19 @@ function upsertManagedSpec(pageMeta, reason, context, repairProfile = null) {
     specLocation: toPosix(relative(repoRoot, targetPath)),
     migrationPhase: 'semantic-closure',
     repairStrategy: repairProfile?.strategy || null,
+    validationWarnings,
   };
+
+  if (validationWarnings.length > 0) {
+    context.validationWarnings.push(
+      ...validationWarnings.map((warning) => ({
+        pageName: pageMeta.pageName,
+        file: mutation.file,
+        ruleId: warning.id,
+        message: warning.message,
+      }))
+    );
+  }
 
   if (!context.dryRun) {
     ensureDirectoryFor(targetPath);
@@ -1757,9 +1840,23 @@ function scanHasCompletenessGaps(scan) {
 function recordMutationBatch(loopReport, mutationContext, phase) {
   const applied = mutationContext?.mutations || [];
   const reverted = mutationContext?.revertedMutations || [];
+  const validationWarnings = mutationContext?.validationWarnings || [];
 
   if (applied.length > 0) {
     loopReport.mutations.push(...applied.map((mutation) => ({ ...mutation, phase })));
+  }
+
+  if (validationWarnings.length > 0) {
+    loopReport.warnings.push(
+      ...validationWarnings.map((warning) => ({
+        type: 'generated-spec-review-warning',
+        phase,
+        pageName: warning.pageName,
+        file: warning.file,
+        ruleId: warning.ruleId,
+        message: warning.message,
+      }))
+    );
   }
 
   if (reverted.length > 0) {

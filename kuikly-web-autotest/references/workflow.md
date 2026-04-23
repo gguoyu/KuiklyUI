@@ -2,7 +2,7 @@
 
 ## Goal
 
-Drive the current repository toward the AUTOTEST closed loop:
+Drive the current repository toward the kuikly-web-autotest closed loop:
 - run `web-e2e` tests through the canonical CLI
 - output Kotlin coverage from V8 data
 - identify broken cases
@@ -72,5 +72,6 @@ node kuikly-web-autotest/scripts/build-autotest-report.mjs
 
 ## Cautions
 
-- Do not assume page-to-spec mappings from `AUTOTEST.md` are complete; scan the filesystem each time.
+- Do not assume page-to-spec mappings from legacy docs are complete; scan the filesystem each time.
+- Prefer the skill-owned references and `kuikly-web-autotest/rules/*.json` over ad-hoc heuristics when deciding how to generate or repair specs.
 - Do not auto-update snapshots unless there is evidence that the UI change is intended.

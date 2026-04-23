@@ -1,0 +1,134 @@
+{
+  "categoryDefaults": {
+    "default": "default",
+    "interactions": "interaction-generic",
+    "animations": "animation-generic",
+    "modules": "module-generic"
+  },
+  "categoryRepairDefaults": {
+    "default": {
+      "templateProfile": "generic-repair",
+      "strategy": "rewrite-managed-spec-to-light-smoke"
+    },
+    "interactions": {
+      "templateProfile": "interaction-generic-repair",
+      "strategy": "rewrite-interaction-managed-spec-to-light-smoke"
+    },
+    "animations": {
+      "templateProfile": "animation-generic-repair",
+      "strategy": "rewrite-animation-managed-spec-to-light-smoke"
+    },
+    "modules": {
+      "templateProfile": "module-generic-repair",
+      "strategy": "rewrite-module-managed-spec-to-light-smoke"
+    }
+  },
+  "pageProfiles": {
+    "ListScrollTestPage": {
+      "defaultTemplateProfile": "interaction-list-scroll",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "interaction-list-scroll"
+            ]
+          },
+          "templateProfile": "interaction-list-scroll-lite",
+          "strategy": "reduce-scroll-depth-and-assertions"
+        },
+        {
+          "templateProfile": "interaction-list-scroll-lite",
+          "strategy": "reuse-list-scroll-template"
+        }
+      ]
+    },
+    "PageListTestPage": {
+      "defaultTemplateProfile": "interaction-page-list",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "interaction-page-list"
+            ],
+            "failureCategories": [
+              "ELEMENT_NOT_FOUND"
+            ]
+          },
+          "templateProfile": "interaction-page-list-tab-only",
+          "strategy": "rewrite-to-tab-driven-page-switch"
+        },
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "interaction-page-list"
+            ],
+            "messageIncludes": [
+              "bounding box",
+              "not visible"
+            ]
+          },
+          "templateProfile": "interaction-page-list-tab-only",
+          "strategy": "rewrite-to-tab-driven-page-switch"
+        },
+        {
+          "templateProfile": "interaction-page-list",
+          "strategy": "reuse-page-list-template"
+        }
+      ]
+    },
+    "JSFrameAnimTestPage": {
+      "defaultTemplateProfile": "animation-jsframe",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "animation-jsframe"
+            ]
+          },
+          "templateProfile": "animation-jsframe-state-only",
+          "strategy": "rewrite-to-state-driven-animation-checks"
+        },
+        {
+          "templateProfile": "animation-jsframe-state-only",
+          "strategy": "reuse-jsframe-animation-template"
+        }
+      ]
+    },
+    "PropertyAnimTestPage": {
+      "defaultTemplateProfile": "animation-property",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "animation-property"
+            ]
+          },
+          "templateProfile": "animation-property-toggle-only",
+          "strategy": "rewrite-to-toggle-state-assertions"
+        },
+        {
+          "templateProfile": "animation-property-toggle-only",
+          "strategy": "reuse-property-animation-template"
+        }
+      ]
+    },
+    "NetworkModuleTestPage": {
+      "defaultTemplateProfile": "module-network",
+      "repairProfiles": [
+        {
+          "match": {
+            "currentTemplateProfiles": [
+              "module-network"
+            ]
+          },
+          "templateProfile": "module-network-smoke",
+          "strategy": "rewrite-to-shorter-network-coverage-path"
+        },
+        {
+          "templateProfile": "module-network-smoke",
+          "strategy": "reuse-network-module-template"
+        }
+      ]
+    }
+  }
+}

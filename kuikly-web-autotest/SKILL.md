@@ -1,6 +1,6 @@
 ﻿---
 name: kuikly-web-autotest
-description: Run and maintain the KuiklyUI web automated test closed loop. Use when Codex needs to execute web-e2e end-to-end tests, collect and check Kotlin coverage, inspect failing cases, detect missing web_test page coverage, identify low-coverage Kotlin files, decide whether a failure is a test issue or a product issue, and drive the repo toward the AUTOTEST.md workflow with minimal manual intervention.
+description: Run and maintain the KuiklyUI web automated test closed loop. Use when Codex needs to execute web-e2e end-to-end tests, collect and check Kotlin coverage, inspect failing cases, detect missing web_test page coverage, identify low-coverage Kotlin files, decide whether a failure is a test issue or a product issue, and drive the repo through the kuikly-web-autotest skill workflow with minimal manual intervention.
 ---
 
 # Kuikly Web Autotest
@@ -21,6 +21,26 @@ Treat `web-e2e/scripts/kuikly-test.mjs --full` as the canonical execution entryp
 ## Fixed operating mode
 
 This skill is the fixed project workflow for KuiklyUI web autotest.
+
+## Rule sources of truth
+
+When extending tests or backfilling coverage, use the skill-owned references and rules below instead of depending on `web-e2e/AUTOTEST.md`.
+
+Human-readable references:
+- `kuikly-web-autotest/references/workflow.md`
+- `kuikly-web-autotest/references/page-mapping.md`
+- `kuikly-web-autotest/references/coverage-policy.md`
+- `kuikly-web-autotest/references/failure-policy.md`
+- `kuikly-web-autotest/references/test-page-design.md`
+- `kuikly-web-autotest/references/interaction-protocol.md`
+- `kuikly-web-autotest/references/animation-strategy.md`
+- `kuikly-web-autotest/references/review-checklist.md`
+
+Machine-readable rules consumed by the loop:
+- `kuikly-web-autotest/rules/template-profiles.json`
+- `kuikly-web-autotest/rules/interaction-protocol.json`
+- `kuikly-web-autotest/rules/animation-strategy.json`
+- `kuikly-web-autotest/rules/review-checklist.json`
 
 - Default AI trigger: when the user asks to run or continue the web autotest closed loop, improve web coverage, or inspect web autotest results, use this skill directly.
 - Default real run: `node kuikly-web-autotest/scripts/run-autotest-loop.mjs --skip-build --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan`

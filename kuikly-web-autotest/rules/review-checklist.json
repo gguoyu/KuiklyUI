@@ -1,0 +1,57 @@
+{
+  "globalRequiredSnippets": [
+    "await kuiklyPage.waitForRenderComplete()"
+  ],
+  "classificationRules": {
+    "static": {
+      "requiredOneOf": [
+        "toBeVisible(",
+        "toHaveText(",
+        "toHaveCSS("
+      ]
+    },
+    "functional": {
+      "requiredOneOf": [
+        ".click(",
+        ".fill(",
+        "keyboard.type(",
+        "scrollInContainer("
+      ],
+      "minimumExpectCount": 2
+    },
+    "visual": {
+      "requiredOneOf": [
+        "toHaveScreenshot("
+      ]
+    },
+    "hybrid": {
+      "requiredOneOf": [
+        "toHaveScreenshot("
+      ],
+      "requiredAlso": [
+        ".click(",
+        "toBeVisible("
+      ]
+    }
+  },
+  "antiPatterns": [
+    {
+      "id": "timeout-without-stable-assert",
+      "message": "Generated spec waits with timeout but does not appear to assert a stable post-wait result.",
+      "includes": [
+        "waitForTimeout("
+      ],
+      "requiresOneOf": [
+        "toBeVisible(",
+        "toHaveText(",
+        "toHaveCSS(",
+        "toHaveScreenshot("
+      ]
+    },
+    {
+      "id": "high-index-nth-selector",
+      "message": "Generated spec uses a high nth() selector and may be brittle.",
+      "pattern": "\\.nth\\((?:[5-9]|\\d{2,})\\)"
+    }
+  ]
+}
