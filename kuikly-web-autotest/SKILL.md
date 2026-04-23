@@ -24,7 +24,7 @@ This skill is the fixed project workflow for KuiklyUI web autotest.
 
 ## Rule sources of truth
 
-When extending tests or backfilling coverage, use the skill-owned references and rules below instead of depending on `web-e2e/AUTOTEST.md`.
+When extending tests or backfilling coverage, use the skill-owned references and rules below as the source of truth.
 
 Human-readable references:
 - `kuikly-web-autotest/references/workflow.md`

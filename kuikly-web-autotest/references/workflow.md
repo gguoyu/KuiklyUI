@@ -72,6 +72,6 @@ node kuikly-web-autotest/scripts/build-autotest-report.mjs
 
 ## Cautions
 
-- Do not assume page-to-spec mappings from legacy docs are complete; scan the filesystem each time.
+- Do not assume any hand-maintained page-to-spec mapping is complete; scan the filesystem each time.
 - Prefer the skill-owned references and `kuikly-web-autotest/rules/*.json` over ad-hoc heuristics when deciding how to generate or repair specs.
 - Do not auto-update snapshots unless there is evidence that the UI change is intended.
