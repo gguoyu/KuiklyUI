@@ -363,3 +363,38 @@ Answer yes to all before generating:
 5. Would a generated spec for this page be able to answer: *"what behavior branch am I now more confident about?"*
 
 If any answer is no, revise the page design before writing the file.
+
+---
+
+## 7. Carrier page design principles
+
+### Core principles
+
+- **Single responsibility**: each test page should focus on one component, one style family, or one narrow interaction scenario.
+- **Deterministic content**: prefer fixed text, fixed item counts, fixed image URLs, and embedded data over network-driven or random content.
+- **Stable layout**: keep geometry and visual hierarchy predictable so assertions and screenshots remain durable.
+- **No external dependencies**: avoid network requests, local storage dependencies, and other non-essential runtime coupling unless the page explicitly exists to test that module behavior.
+- **Direct accessibility**: every page must be routable through `kuiklyPage.goto('<PageName>')`.
+
+### Carrier page rules
+
+- `web-autotest/tests/` must target only pages registered under `demo/.../pages/web_test/`.
+- If no existing `web_test` carrier can express the missing capability, add a carrier page before adding the spec.
+- Do not create placeholder carrier pages that only show a title and do not expose the missing behavior itself.
+- If the intended page behavior is still ambiguous after reading nearby `web_test` patterns and the source file under test, stop and emit a manual-review warning.
+
+### What a good page exposes
+
+A good carrier page gives the loop at least one of the following:
+- stable title text
+- stable visible content text
+- stable action labels
+- stable `data-kuikly-component` nodes
+- stable state transitions after a click / input / scroll
+
+### Review questions
+
+Before keeping a new carrier page, confirm:
+- Does the page cover a real missing capability rather than duplicate an existing carrier?
+- Can the spec interact with it using stable selectors and stable oracles?
+- Does it avoid unnecessary business logic and unrelated branches?

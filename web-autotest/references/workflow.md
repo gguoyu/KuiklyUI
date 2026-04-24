@@ -33,7 +33,6 @@ node web-autotest/scripts/loop/scan-web-test-pages.mjs
 node web-autotest/scripts/loop/analyze-playwright-results.mjs
 node web-autotest/scripts/loop/summarize-coverage.mjs
 node web-autotest/scripts/loop/suggest-test-targets.mjs
-node web-autotest/scripts/loop/build-autotest-report.mjs
 ```
 
 ## Practical loop
@@ -96,7 +95,7 @@ write each carrier page from scratch.
 
 - Do not assume any hand-maintained page-to-spec mapping is complete; scan the filesystem each time.
 - Prefer the skill-owned references and `web-autotest/rules/*.json` over ad-hoc heuristics when deciding how to generate or repair specs.
-- Use `backfill-priority.md`, `feature-completeness.md`, and `testability-hard-rules.md` before generating a new managed spec for coverage backfill.
-- Use `repair-ladder.md` and `classification-upgrade-rules.md` when a repaired spec starts to drift semantically.
+- Use `coverage-policy.md` and `feature-completeness.md` before generating a new managed spec for coverage backfill.
+- Use `classification-upgrade-rules.md` when a repaired spec starts to drift semantically.
 - Do not auto-update snapshots unless there is evidence that the UI change is intended.
 - Do not keep or repair specs that target pages outside `demo/.../pages/web_test/`; delete them or rebuild the capability under `web_test` first.

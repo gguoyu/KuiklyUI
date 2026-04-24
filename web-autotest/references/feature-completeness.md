@@ -1,6 +1,6 @@
 # Feature Completeness Reference
 
-Use this reference after a page has been selected for AI backfill.
+Use this reference after a page has been selected for AI backfill, and before keeping a generated or repaired spec.
 
 ## Minimum expectation by scenario
 
@@ -44,21 +44,12 @@ A useful static spec should include:
 - at least one `data-kuikly-component` anchor assertion
 - do not use screenshots unless the page is intentionally moved to `visual`
 
-A useful functional spec (when the page exposes interaction) should add:
-- at least one stable state change after a tap or property toggle
-- a visible-text or CSS-property assertion proving the component rendered differently after the action
-
 ### Style-display pages (`styles` category)
 
 A useful static spec should include:
 - `kuiklyPage.goto` + `waitForRenderComplete`
-- at least one `toHaveCSS` assertion on a key style property (e.g. `border-radius`, `box-shadow`, `opacity`, `transform`)
-  or at least 2 stable visible text labels that name the style variant shown on the page
+- at least one `toHaveCSS` assertion on a key style property, or at least 2 stable visible text labels naming the style variant
 - do not treat a style spec as complete if it only asserts `toBeVisible` with no style verification
-
-A useful visual spec (when pixel-accurate verification is the goal) should add:
-- a `toHaveScreenshot` assertion with the page in its initial rendered state
-- a second screenshot after a state change when the page exposes style toggling
 
 ## Smoke-only patterns to reject
 
@@ -75,3 +66,73 @@ For every generated backfill spec, ask:
 > If this spec passed, what exact behavior branch would we now be more confident about?
 
 If that question cannot be answered in one sentence, the spec is too weak for AI-driven coverage backfill.
+
+---
+
+## Testability Hard Rules
+
+Use these before creating or refreshing a managed spec.
+
+### Stable oracle requirements
+
+A page is not eligible for automatic backfill unless it exposes at least one stable oracle:
+- stable page title or stable visible text
+- stable action result text
+- stable `data-kuikly-component` anchor used together with a deterministic state assertion
+- a page-specific scripted interaction with an explicit expected label
+
+### Actionability requirements
+
+For interaction-oriented automatic backfill, the page must expose at least one usable action path:
+- explicit action scripts with expected results
+- deterministic input flow
+- deterministic scroll flow
+- stable visible labels that map to a known state change
+
+A page that only offers a clickable surface without a stable post-action oracle should be skipped.
+
+### Hard stop cases
+
+Stop and warn instead of generating a managed spec when:
+- the page has no stable oracle
+- the page has no usable action path for its category
+- the page has no stable post-action outcome
+- the page is marked as known-flaky and has no page-specific repair strategy
+- the only proof would rely on runtime internals, obfuscated names, or ad-hoc debug objects
+
+---
+
+## Spec Review Checklist
+
+Use this after generating or repairing a managed spec.
+
+### Read-before-write checks
+
+- Read the target `web_test` page source before inventing interactions.
+- If the spec is intended to improve coverage for a Kotlin runtime file, verify the page can actually trigger that behavior.
+- Reuse nearby `web_test` patterns when adding a carrier page; do not invent new page conventions casually.
+
+### Spec quality checks
+
+- The spec should call `kuiklyPage.goto('<PageName>')`.
+- The spec should wait for render before making assertions.
+- The spec should use stable oracles: visible text, stable attributes, `data-kuikly-component`, bounding boxes, or screenshots.
+- The spec should exercise a real behavior branch, not only add trivial visibility assertions.
+- The spec should stay aligned with semantic intent: static vs functional vs visual.
+- If a spec appears to satisfy a higher semantic level, flag it with `classification-upgrade-rules.md` instead of silently keeping the lower classification.
+
+### Low-confidence signals
+
+Treat the generated spec as low confidence when:
+- it depends only on `waitForTimeout()` without a stable post-wait assertion
+- it has no meaningful `expect(...)` after an interaction
+- it relies on high-index `nth(...)` selectors without page-specific justification
+- it cannot explain which branch or behavior it is trying to cover
+- it matches a known bad pattern from `anti-patterns-catalog.md`
+
+### Stop conditions
+
+Stop and warn instead of forcing automation when:
+- page behavior is ambiguous
+- the carrier page is missing and nearby patterns do not make the expected behavior obvious
+- the only possible assertion would hide a product bug rather than validate behavior

@@ -29,15 +29,9 @@ Human-readable references:
 - `web-autotest/references/workflow.md`
 - `web-autotest/references/page-mapping.md`
 - `web-autotest/references/coverage-policy.md`
-- `web-autotest/references/backfill-priority.md`
 - `web-autotest/references/feature-completeness.md`
-- `web-autotest/references/testability-hard-rules.md`
 - `web-autotest/references/failure-policy.md`
-- `web-autotest/references/repair-ladder.md`
-- `web-autotest/references/test-page-design.md`
 - `web-autotest/references/interaction-protocol.md`
-- `web-autotest/references/animation-strategy.md`
-- `web-autotest/references/review-checklist.md`
 - `web-autotest/references/classification-upgrade-rules.md`
 - `web-autotest/references/anti-patterns-catalog.md`
 - `web-autotest/references/spec-templates.md`
@@ -115,7 +109,7 @@ Automatic mutation scope:
 - Most newly added handwritten specs do **not** require changes to `web-autotest/scripts/lib/classification-policy.mjs`; placing the file under the correct semantic directory is enough.
 - Update `web-autotest/scripts/lib/classification-policy.mjs` only when CLI `--level static|functional|visual|hybrid` routing changes, when managed page-category routing changes (`CATEGORY_TARGET_SEGMENTS` / `MANAGED_TARGET_CLASSIFICATION`), or when a new paired scenario must be added to `HYBRID_TARGETS`.
 - Use stable, repeatable observable results as test oracles, such as text, DOM nodes, `data-kuikly-component`, stable attributes, bounding boxes, and screenshots.
-- Use `backfill-priority.md`, `feature-completeness.md`, `testability-hard-rules.md`, and `classification-upgrade-rules.md` together when deciding whether a generated spec is worth keeping.
+- Use `feature-completeness.md` and `classification-upgrade-rules.md` together when deciding whether a generated spec is worth keeping.
 - Do not use runtime artifacts, build artifacts, obfuscated export names, internal method names, or temporary injected objects as assertions or generated-oracle inputs.
 
 2. Scan page and spec completeness directly when you need detailed raw data.
@@ -168,7 +162,7 @@ Use the results to find:
 7. Build a single report before deciding edits.
 
 ```bash
-node web-autotest/scripts/loop/build-autotest-report.mjs
+
 ```
 
 Prefer this report as the working summary for the closed loop.
@@ -224,7 +218,7 @@ Stop and emit a manual-review warning when:
 - If a failure is caused by stale assertions, stale locators, or missing waits, fix the test.
 - If a screenshot diff matches intentional UI changes in modified source files, update snapshots.
 - If a failure indicates unexpected product behavior with no supporting code change, treat it as a code warning and do not silently weaken the test.
-- If coverage is below threshold, add or extend tests based on the low-coverage source object, following `backfill-priority.md` for target ordering and `feature-completeness.md` for minimum behavior closure, then rerun the full flow.
+- If coverage is below threshold, add or extend tests based on the low-coverage source object, following `coverage-policy.md` for target ordering and `feature-completeness.md` for minimum behavior closure, then rerun the full flow.
 - If a handwritten spec already exists for a page and that file is a page-level blocker with only skipped or pending tests, do not auto-generate a parallel managed spec for the same page.
 - If a spec targets a page outside `demo/.../pages/web_test/`, delete or migrate that spec before continuing; do not grandfather legacy non-`web_test` targets.
 - If a target capability is not represented in `web_test` but the intended behavior is already obvious from the source file and existing patterns, generate the carrier page (see **Carrier page generation** above) before adding the spec.
