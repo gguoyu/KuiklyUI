@@ -6,16 +6,16 @@ test.describe('SearchTestPage visual', () => {
     await kuiklyPage.waitForRenderComplete();
   });
 
-  test('视觉回归：SearchTestPage 初始状态截图', async ({ kuiklyPage }) => {
+  test('visual regression: SearchTestPage initial state', async ({ kuiklyPage }) => {
     await expect(kuiklyPage.page).toHaveScreenshot('search-test-initial.png', {
       maxDiffPixels: 300,
     });
   });
 
-  test('视觉回归：SearchTestPage 搜索 berry 过滤后截图', async ({ kuiklyPage }) => {
-    const input = kuiklyPage.page.getByPlaceholder('搜索水果...');
+  test('visual regression: SearchTestPage filtered by berry', async ({ kuiklyPage }) => {
+    const input = kuiklyPage.page.getByPlaceholder('search...');
     await input.fill('berry');
-    await kuiklyPage.page.getByText('搜索').click();
+    await kuiklyPage.page.getByText('search').click();
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page).toHaveScreenshot('search-test-filtered.png', {
@@ -23,8 +23,8 @@ test.describe('SearchTestPage visual', () => {
     });
   });
 
-  test('视觉回归：SearchTestPage 点击列表项后截图', async ({ kuiklyPage }) => {
-    await kuiklyPage.page.getByText('Mango 芒果').click();
+  test('visual regression: SearchTestPage after item selected', async ({ kuiklyPage }) => {
+    await kuiklyPage.page.getByText('Mango').first().click();
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page).toHaveScreenshot('search-test-item-selected.png', {

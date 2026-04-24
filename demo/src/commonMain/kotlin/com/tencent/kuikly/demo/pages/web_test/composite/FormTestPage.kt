@@ -28,24 +28,23 @@ import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
 
 /**
- * 组合场景测试：表单场景
+ * Composite scenario: Form
  *
- * 验证多组件协同：多输入框 + 开关 + 提交按钮 + 表单验证
+ * Validates multi-component cooperation: multiple inputs + toggles + submit + validation
  *
- * 测试覆盖：
- * 1. 姓名输入框 — 必填项验证
- * 2. 邮箱输入框 — 格式校验
- * 3. 手机号输入框 — 数字键盘
- * 4. 备注输入框 — 多行文本
- * 5. 订阅开关 — 布尔值切换
- * 6. 协议同意开关 — 布尔值切换
- * 7. 提交按钮 — 校验所有字段后展示结果
- * 8. 重置按钮 — 清空所有字段
+ * Tests covered:
+ * 1. Name input — required field validation
+ * 2. Email input — format validation
+ * 3. Phone input — numeric keyboard
+ * 4. Note input — multiline text
+ * 5. Subscribe toggle — boolean toggle
+ * 6. Agree terms toggle — boolean toggle
+ * 7. Submit button — validates all fields then shows result
+ * 8. Reset button — clears all fields
  */
 @Page("FormTestPage")
 internal class FormTestPage : Pager() {
 
-    // === 表单字段状态 ===
     private var nameValue by observable("")
     private var emailValue by observable("")
     private var phoneValue by observable("")
@@ -53,11 +52,9 @@ internal class FormTestPage : Pager() {
     private var subscribeEnabled by observable(false)
     private var agreeTerms by observable(false)
 
-    // === 提交反馈状态 ===
     private var submitResult by observable("")
     private var hasSubmitted by observable(false)
 
-    // === 校验错误状态 ===
     private var nameError by observable("")
     private var emailError by observable("")
 
@@ -73,10 +70,9 @@ internal class FormTestPage : Pager() {
                     flex(1f)
                 }
 
-                // 标题
                 Text {
                     attr {
-                        text("用户信息表单")
+                        text("User Info Form")
                         fontSize(20f)
                         fontWeightBold()
                         marginTop(20f)
@@ -87,7 +83,7 @@ internal class FormTestPage : Pager() {
 
                 Text {
                     attr {
-                        text("请填写以下信息，带 * 为必填项")
+                        text("Fields marked * are required")
                         fontSize(13f)
                         marginTop(4f)
                         marginLeft(16f)
@@ -96,7 +92,6 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                // === 分隔线 ===
                 View {
                     attr {
                         height(0.5f)
@@ -105,10 +100,10 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                // === 姓名输入 ===
+                // Name
                 Text {
                     attr {
-                        text("* 姓名")
+                        text("* Name")
                         fontSize(14f)
                         fontWeightBold()
                         marginLeft(16f)
@@ -137,13 +132,13 @@ internal class FormTestPage : Pager() {
                             height(42f)
                             fontSize(15f)
                             color(Color.BLACK)
-                            placeholder("请输入姓名")
+                            placeholder("enter name")
                             placeholderColor(Color(0xFF999999))
                         }
                         event {
                             textDidChange { params ->
                                 ctx.nameValue = params.text
-                                ctx.nameError = if (params.text.isBlank()) "姓名不能为空" else ""
+                                ctx.nameError = if (params.text.isBlank()) "name is required" else ""
                             }
                         }
                     }
@@ -161,10 +156,10 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                // === 邮箱输入 ===
+                // Email
                 Text {
                     attr {
-                        text("* 邮箱")
+                        text("* Email")
                         fontSize(14f)
                         fontWeightBold()
                         marginLeft(16f)
@@ -194,15 +189,15 @@ internal class FormTestPage : Pager() {
                             height(42f)
                             fontSize(15f)
                             color(Color.BLACK)
-                            placeholder("请输入邮箱地址")
+                            placeholder("enter email")
                             placeholderColor(Color(0xFF999999))
                         }
                         event {
                             textDidChange { params ->
                                 ctx.emailValue = params.text
                                 ctx.emailError = when {
-                                    params.text.isBlank() -> "邮箱不能为空"
-                                    !params.text.contains("@") -> "请输入有效的邮箱格式"
+                                    params.text.isBlank() -> "email is required"
+                                    !params.text.contains("@") -> "invalid email format"
                                     else -> ""
                                 }
                             }
@@ -222,10 +217,10 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                // === 手机号输入 ===
+                // Phone
                 Text {
                     attr {
-                        text("手机号")
+                        text("Phone")
                         fontSize(14f)
                         fontWeightBold()
                         marginLeft(16f)
@@ -250,7 +245,7 @@ internal class FormTestPage : Pager() {
                             height(42f)
                             fontSize(15f)
                             color(Color.BLACK)
-                            placeholder("请输入手机号（选填）")
+                            placeholder("enter phone (optional)")
                             placeholderColor(Color(0xFF999999))
                             keyboardTypeNumber()
                             maxTextLength(11)
@@ -263,10 +258,10 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                // === 备注输入 ===
+                // Note
                 Text {
                     attr {
-                        text("备注")
+                        text("Note")
                         fontSize(14f)
                         fontWeightBold()
                         marginLeft(16f)
@@ -290,7 +285,7 @@ internal class FormTestPage : Pager() {
                             flex(1f)
                             fontSize(15f)
                             color(Color.BLACK)
-                            placeholder("备注信息（选填）")
+                            placeholder("note (optional)")
                             placeholderColor(Color(0xFF999999))
                             maxTextLength(200)
                         }
@@ -302,7 +297,7 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                // === 开关项 1: 订阅邮件 ===
+                // Subscribe toggle
                 View {
                     attr {
                         flexDirectionRow()
@@ -314,7 +309,7 @@ internal class FormTestPage : Pager() {
                     }
                     Text {
                         attr {
-                            text("订阅产品更新邮件")
+                            text("Subscribe to updates")
                             fontSize(14f)
                             flex(1f)
                             color(Color.BLACK)
@@ -345,7 +340,7 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                // === 开关项 2: 同意协议 ===
+                // Agree terms toggle
                 View {
                     attr {
                         flexDirectionRow()
@@ -357,7 +352,7 @@ internal class FormTestPage : Pager() {
                     }
                     Text {
                         attr {
-                            text("我已阅读并同意用户协议")
+                            text("I agree to the terms")
                             fontSize(14f)
                             flex(1f)
                             color(Color.BLACK)
@@ -388,7 +383,7 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                // === 提交结果展示 ===
+                // Submit result
                 if (ctx.hasSubmitted && ctx.submitResult.isNotEmpty()) {
                     View {
                         attr {
@@ -407,14 +402,13 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                // === 操作按钮区 ===
+                // Action buttons
                 View {
                     attr {
                         flexDirectionRow()
                         margin(left = 16f, right = 16f, top = 24f)
                     }
 
-                    // 重置按钮
                     View {
                         attr {
                             flex(1f)
@@ -440,7 +434,7 @@ internal class FormTestPage : Pager() {
                         }
                         Text {
                             attr {
-                                text("重置")
+                                text("reset")
                                 fontSize(16f)
                                 color(0xFF666666)
                                 fontWeightBold()
@@ -448,7 +442,6 @@ internal class FormTestPage : Pager() {
                         }
                     }
 
-                    // 提交按钮
                     View {
                         attr {
                             flex(2f)
@@ -461,35 +454,30 @@ internal class FormTestPage : Pager() {
                         }
                         event {
                             click {
-                                // 校验必填项
                                 var valid = true
                                 if (ctx.nameValue.isBlank()) {
-                                    ctx.nameError = "姓名不能为空"
+                                    ctx.nameError = "name is required"
                                     valid = false
                                 }
                                 if (ctx.emailValue.isBlank()) {
-                                    ctx.emailError = "邮箱不能为空"
+                                    ctx.emailError = "email is required"
                                     valid = false
                                 } else if (!ctx.emailValue.contains("@")) {
-                                    ctx.emailError = "请输入有效的邮箱格式"
+                                    ctx.emailError = "invalid email format"
                                     valid = false
                                 }
                                 if (!ctx.agreeTerms) {
                                     valid = false
                                 }
                                 if (valid) {
-                                    ctx.submitResult = "提交成功！\n" +
-                                        "姓名: ${ctx.nameValue}\n" +
-                                        "邮箱: ${ctx.emailValue}\n" +
-                                        (if (ctx.phoneValue.isNotEmpty()) "手机: ${ctx.phoneValue}\n" else "") +
-                                        "订阅邮件: ${if (ctx.subscribeEnabled) "是" else "否"}"
+                                    ctx.submitResult = "submit ok: ${ctx.nameValue} / ${ctx.emailValue}"
                                     ctx.hasSubmitted = true
                                 }
                             }
                         }
                         Text {
                             attr {
-                                text("提交表单")
+                                text("submit")
                                 fontSize(16f)
                                 color(Color.WHITE)
                                 fontWeightBold()
@@ -498,7 +486,6 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                // 底部间距
                 View {
                     attr {
                         height(60f)

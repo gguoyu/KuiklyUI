@@ -17,8 +17,8 @@ async function longPressTarget(target: Locator, holdMs: number = 850) {
   await page.waitForTimeout(250);
 }
 
-test.describe('Gesture functional 验证', () => {
-  test('水平翻页区域在滑动后仍应保持可交互', async ({ kuiklyPage }) => {
+test.describe('Gesture functional', () => {
+  test('horizontal scroll area should remain interactive after swipe', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('GestureTestPage');
     await kuiklyPage.waitForRenderComplete();
 
@@ -32,79 +32,79 @@ test.describe('Gesture functional 验证', () => {
     await expect(kuiklyPage.page.getByText('Page 1 of 5')).toBeVisible();
   });
 
-  test('点击区域后计数应正确递增', async ({ kuiklyPage }) => {
+  test('tap counter should increment on each click', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('GestureTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('点击计数: 0').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('tap-count: 0').first()).toBeVisible();
 
-    await kuiklyPage.page.getByText('快速点击此区域').click();
+    await kuiklyPage.page.getByText('tap here').click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('点击计数: 1').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('tap-count: 1').first()).toBeVisible();
 
-    await kuiklyPage.page.getByText('快速点击此区域').click();
+    await kuiklyPage.page.getByText('tap here').click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('点击计数: 2').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('tap-count: 2').first()).toBeVisible();
   });
 
-  test('点击不同区域后应更新当前区域标签', async ({ kuiklyPage }) => {
+  test('tapping different zones should update current-zone label', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('GestureTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('当前区域: 未点击')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('current-zone: none')).toBeVisible();
 
-    await kuiklyPage.page.getByText('区域 A').click();
+    await kuiklyPage.page.getByText('zone-a').click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('当前区域: A')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('current-zone: a')).toBeVisible();
 
-    await kuiklyPage.page.getByText('区域 B').click();
+    await kuiklyPage.page.getByText('zone-b').click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('当前区域: B')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('current-zone: b')).toBeVisible();
 
-    await kuiklyPage.page.getByText('区域 C').click();
+    await kuiklyPage.page.getByText('zone-c').click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('当前区域: C')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('current-zone: c')).toBeVisible();
   });
 
-  test('点击区域后应更新操作日志', async ({ kuiklyPage }) => {
+  test('tapping a zone should update gesture-log', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('GestureTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('操作日志: 等待操作...')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: idle')).toBeVisible();
 
-    await kuiklyPage.page.getByText('区域 B').click();
+    await kuiklyPage.page.getByText('zone-b').click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('操作日志: 点击了区域 B')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: tapped zone-b')).toBeVisible();
   });
 
-  test('连续快速点击后计数与日志应继续递增', async ({ kuiklyPage }) => {
+  test('rapid successive taps should keep incrementing count and log', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('GestureTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    const target = kuiklyPage.page.getByText('快速点击此区域', { exact: true });
+    const target = kuiklyPage.page.getByText('tap here', { exact: true });
 
     await target.click();
     await target.click();
     await target.click();
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('点击计数: 3').first()).toBeVisible();
-    await expect(kuiklyPage.page.getByText('操作日志: 单击 #3')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('tap-count: 3').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: tap #3')).toBeVisible();
   });
 
-  test('长按二次触发后应恢复未激活状态', async ({ kuiklyPage }) => {
+  test('second long press should deactivate the long press state', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('GestureTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    const target = kuiklyPage.page.getByText('长按此区域', { exact: true });
+    const target = kuiklyPage.page.getByText('long-press-area', { exact: true });
     await longPressTarget(target);
 
-    await expect(kuiklyPage.page.getByText('长按状态: 已激活')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('操作日志: 长按激活')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: active')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: long-press-activated')).toBeVisible();
 
-    await longPressTarget(kuiklyPage.page.getByText('长按已激活！', { exact: true }));
+    await longPressTarget(kuiklyPage.page.getByText('long-pressed', { exact: true }));
 
-    await expect(kuiklyPage.page.getByText('长按状态: 未激活')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('操作日志: 长按取消')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: inactive')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: long-press-cancelled')).toBeVisible();
   });
 });

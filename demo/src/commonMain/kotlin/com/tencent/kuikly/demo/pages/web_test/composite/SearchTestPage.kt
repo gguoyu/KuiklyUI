@@ -28,47 +28,29 @@ import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
 
 /**
- * 组合场景测试：搜索场景
+ * Composite scenario: Search
  *
- * 验证多组件协同：输入框 + 点击触发 + 列表结果渲染
+ * Validates multi-component cooperation: Input + click trigger + list rendering
  *
- * 测试覆盖：
- * 1. 搜索框输入 — Input 组件文本输入
- * 2. 搜索按钮点击 — 过滤固定数据集
- * 3. 结果列表渲染 — 按关键词过滤后更新列表
- * 4. 列表项点击 — 选中高亮并显示选中内容
- * 5. 清空搜索 — 恢复全量列表
+ * Tests covered:
+ * 1. Search input — Input text entry
+ * 2. Search button click — filters a fixed data set
+ * 3. Result list rendering — updates list after keyword filter
+ * 4. List item click — highlight selection and show selected item
+ * 5. Clear search — restore full list
  */
 @Page("SearchTestPage")
 internal class SearchTestPage : Pager() {
 
     companion object {
-        // 固定搜索数据集，不依赖网络
         private val ALL_ITEMS = listOf(
-            "Apple 苹果",
-            "Banana 香蕉",
-            "Cherry 樱桃",
-            "Date 枣子",
-            "Elderberry 接骨木莓",
-            "Fig 无花果",
-            "Grape 葡萄",
-            "Honeydew 蜜瓜",
-            "Kiwi 奇异果",
-            "Lemon 柠檬",
-            "Mango 芒果",
-            "Nectarine 油桃",
-            "Orange 橙子",
-            "Papaya 木瓜",
-            "Quince 榅桲",
-            "Raspberry 覆盆子",
-            "Strawberry 草莓",
-            "Tangerine 橘子",
-            "Ugli 丑橘",
-            "Watermelon 西瓜"
+            "Apple", "Banana", "Cherry", "Date", "Elderberry",
+            "Fig", "Grape", "Honeydew", "Kiwi", "Lemon",
+            "Mango", "Nectarine", "Orange", "Papaya", "Quince",
+            "Raspberry", "Strawberry", "Tangerine", "Ugli", "Watermelon"
         )
     }
 
-    // === 响应式状态 ===
     private var searchText by observable("")
     private var displayItems by observable(ALL_ITEMS)
     private var selectedItem by observable("")
@@ -81,7 +63,7 @@ internal class SearchTestPage : Pager() {
                 backgroundColor(Color.WHITE)
             }
 
-            // === 顶部搜索栏（固定在顶部，不在 List 内）===
+            // Search bar (pinned above list)
             View {
                 attr {
                     flexDirectionRow()
@@ -90,7 +72,6 @@ internal class SearchTestPage : Pager() {
                     backgroundColor(Color.WHITE)
                 }
 
-                // 搜索输入框
                 View {
                     attr {
                         flex(1f)
@@ -108,13 +89,12 @@ internal class SearchTestPage : Pager() {
                             height(38f)
                             fontSize(15f)
                             color(Color.BLACK)
-                            placeholder("搜索水果...")
+                            placeholder("search...")
                             placeholderColor(Color(0xFF999999))
                         }
                         event {
                             textDidChange { params ->
                                 ctx.searchText = params.text
-                                // 输入时实时过滤
                                 if (params.text.isEmpty()) {
                                     ctx.displayItems = ALL_ITEMS
                                     ctx.hasSearched = false
@@ -124,7 +104,6 @@ internal class SearchTestPage : Pager() {
                     }
                 }
 
-                // 搜索按钮
                 View {
                     attr {
                         marginLeft(8f)
@@ -147,7 +126,7 @@ internal class SearchTestPage : Pager() {
                     }
                     Text {
                         attr {
-                            text("搜索")
+                            text("search")
                             fontSize(14f)
                             color(Color.WHITE)
                             fontWeightBold()
@@ -156,7 +135,7 @@ internal class SearchTestPage : Pager() {
                 }
             }
 
-            // === 搜索结果统计 ===
+            // Stats row
             View {
                 attr {
                     flexDirectionRow()
@@ -168,15 +147,14 @@ internal class SearchTestPage : Pager() {
                     attr {
                         text(
                             if (ctx.hasSearched)
-                                "找到 ${ctx.displayItems.size} 个结果"
+                                "found: ${ctx.displayItems.size}"
                             else
-                                "共 ${ctx.displayItems.size} 个水果"
+                                "total: ${ctx.displayItems.size}"
                         )
                         fontSize(13f)
                         color(0xFF666666)
                     }
                 }
-                // 清空按钮（搜索过才显示）
                 if (ctx.hasSearched) {
                     View {
                         attr {
@@ -194,7 +172,7 @@ internal class SearchTestPage : Pager() {
                         }
                         Text {
                             attr {
-                                text("清空")
+                                text("clear")
                                 fontSize(13f)
                                 color(0xFF666666)
                             }
@@ -203,7 +181,7 @@ internal class SearchTestPage : Pager() {
                 }
             }
 
-            // === 选中结果展示 ===
+            // Selected item banner
             if (ctx.selectedItem.isNotEmpty()) {
                 View {
                     attr {
@@ -214,7 +192,7 @@ internal class SearchTestPage : Pager() {
                     }
                     Text {
                         attr {
-                            text("已选中: ${ctx.selectedItem}")
+                            text("selected: ${ctx.selectedItem}")
                             fontSize(14f)
                             color(Color(0xFF1565C0))
                             fontWeightBold()
@@ -223,7 +201,7 @@ internal class SearchTestPage : Pager() {
                 }
             }
 
-            // === 结果列表 ===
+            // Result list
             List {
                 attr {
                     flex(1f)
@@ -245,7 +223,6 @@ internal class SearchTestPage : Pager() {
                             }
                         }
 
-                        // 序号
                         View {
                             attr {
                                 size(28f, 28f)
@@ -268,7 +245,6 @@ internal class SearchTestPage : Pager() {
                             }
                         }
 
-                        // 名称
                         Text {
                             attr {
                                 text(item)
@@ -280,7 +256,6 @@ internal class SearchTestPage : Pager() {
                             }
                         }
 
-                        // 选中图标
                         if (ctx.selectedItem == item) {
                             Text {
                                 attr {
@@ -293,7 +268,6 @@ internal class SearchTestPage : Pager() {
                         }
                     }
 
-                    // 分隔线
                     if (index < ctx.displayItems.size - 1) {
                         View {
                             attr {
@@ -305,7 +279,6 @@ internal class SearchTestPage : Pager() {
                     }
                 }
 
-                // 无结果提示
                 if (ctx.displayItems.isEmpty()) {
                     View {
                         attr {
@@ -314,7 +287,7 @@ internal class SearchTestPage : Pager() {
                         }
                         Text {
                             attr {
-                                text("未找到相关水果")
+                                text("no results")
                                 fontSize(16f)
                                 color(0xFF999999)
                             }
@@ -322,7 +295,6 @@ internal class SearchTestPage : Pager() {
                     }
                 }
 
-                // 底部间距
                 View {
                     attr {
                         height(50f)

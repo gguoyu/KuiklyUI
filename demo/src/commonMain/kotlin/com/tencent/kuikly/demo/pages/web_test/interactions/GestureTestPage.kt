@@ -26,14 +26,14 @@ import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
 
 /**
- * L2 复杂交互测试：手势交互验证页面
+ * Gesture interaction test page
  *
- * 测试覆盖：
- * 1. 水平滑动翻页 — Scroller 横向滚动 + 页面指示器
- * 2. 双击事件 — 双击触发缩放文本
- * 3. 长按拖拽 — 长按后改变状态
- * 4. 多区域手势 — 不同区域响应不同手势
- * 5. 手势状态指示面板
+ * Tests covered:
+ * 1. Horizontal scroll pager — Scroller horizontal scroll + page indicator
+ * 2. Tap counter — click increments counter
+ * 3. Long press — toggles active state
+ * 4. Multi-zone tap — different zones respond independently
+ * 5. Gesture status panel
  */
 @Page("GestureTestPage")
 internal class GestureTestPage : Pager() {
@@ -44,13 +44,11 @@ internal class GestureTestPage : Pager() {
         )
     }
 
-    // === 响应式状态 ===
     private var currentPage by observable(0)
-    private var doubleTapCount by observable(0)
+    private var tapCount by observable(0)
     private var longPressActive by observable(false)
-    private var swipeDirection by observable("未滑动")
-    private var gestureLog by observable("等待操作...")
-    private var tapZone by observable("未点击")
+    private var gestureLog by observable("idle")
+    private var tapZone by observable("none")
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -64,10 +62,10 @@ internal class GestureTestPage : Pager() {
                     flex(1f)
                 }
 
-                // === Section 1: 水平翻页 ===
+                // === Section 1: Horizontal Scroll Pager ===
                 Text {
                     attr {
-                        text("1. 水平翻页")
+                        text("1. Horizontal Scroll Pager")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(16f)
@@ -77,7 +75,7 @@ internal class GestureTestPage : Pager() {
                 }
                 Text {
                     attr {
-                        text("左右滑动查看不同页面")
+                        text("swipe left or right")
                         fontSize(12f)
                         marginTop(4f)
                         marginLeft(16f)
@@ -99,7 +97,6 @@ internal class GestureTestPage : Pager() {
                             scrollEnable(true)
                             showScrollerIndicator(false)
                         }
-                        // 5 个翻页卡片
                         for (i in 0 until 5) {
                             View {
                                 attr {
@@ -111,23 +108,14 @@ internal class GestureTestPage : Pager() {
                                 }
                                 Text {
                                     attr {
-                                        text("第 ${i + 1} 页")
+                                        text("Page ${i + 1} of 5")
                                         fontSize(24f)
                                         fontWeightBold()
                                         color(Color.WHITE)
                                     }
                                 }
-                                Text {
-                                    attr {
-                                        text("Page ${i + 1} of 5")
-                                        fontSize(14f)
-                                        color(Color(0xCCFFFFFF))
-                                        marginTop(8f)
-                                    }
-                                }
                             }
                         }
-                        // 右侧间距
                         View {
                             attr {
                                 size(16f, 1f)
@@ -136,7 +124,6 @@ internal class GestureTestPage : Pager() {
                     }
                 }
 
-                // 页码指示器
                 View {
                     attr {
                         flexDirectionRow()
@@ -157,10 +144,10 @@ internal class GestureTestPage : Pager() {
                     }
                 }
 
-                // === Section 2: 双击事件 ===
+                // === Section 2: Tap Counter ===
                 Text {
                     attr {
-                        text("2. 双击事件")
+                        text("2. Tap Counter")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(24f)
@@ -174,20 +161,20 @@ internal class GestureTestPage : Pager() {
                         margin(left = 16f, right = 16f, top = 8f)
                         height(80f)
                         backgroundColor(
-                            if (ctx.doubleTapCount % 2 == 0) Color(0xFF2196F3) else Color(0xFFFF9800)
+                            if (ctx.tapCount % 2 == 0) Color(0xFF2196F3) else Color(0xFFFF9800)
                         )
                         borderRadius(12f)
                         allCenter()
                     }
                     event {
                         click {
-                            ctx.doubleTapCount = ctx.doubleTapCount + 1
-                            ctx.gestureLog = "单击 #${ctx.doubleTapCount}"
+                            ctx.tapCount = ctx.tapCount + 1
+                            ctx.gestureLog = "tap #${ctx.tapCount}"
                         }
                     }
                     Text {
                         attr {
-                            text("点击计数: ${ctx.doubleTapCount}")
+                            text("tap-count: ${ctx.tapCount}")
                             fontSize(20f)
                             fontWeightBold()
                             color(Color.WHITE)
@@ -195,7 +182,7 @@ internal class GestureTestPage : Pager() {
                     }
                     Text {
                         attr {
-                            text("快速点击此区域")
+                            text("tap here")
                             fontSize(12f)
                             color(Color(0xCCFFFFFF))
                             marginTop(4f)
@@ -203,10 +190,10 @@ internal class GestureTestPage : Pager() {
                     }
                 }
 
-                // === Section 3: 长按事件 ===
+                // === Section 3: Long Press ===
                 Text {
                     attr {
-                        text("3. 长按事件")
+                        text("3. Long Press")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(24f)
@@ -228,13 +215,13 @@ internal class GestureTestPage : Pager() {
                     event {
                         longPress {
                             ctx.longPressActive = !ctx.longPressActive
-                            ctx.gestureLog = if (ctx.longPressActive) "长按激活" else "长按取消"
+                            ctx.gestureLog = if (ctx.longPressActive) "long-press-activated" else "long-press-cancelled"
                         }
                     }
                     Text {
                         attr {
                             text(
-                                if (ctx.longPressActive) "长按已激活！" else "长按此区域"
+                                if (ctx.longPressActive) "long-pressed" else "long-press-area"
                             )
                             fontSize(18f)
                             fontWeightBold()
@@ -244,7 +231,7 @@ internal class GestureTestPage : Pager() {
                     Text {
                         attr {
                             text(
-                                if (ctx.longPressActive) "再次长按可取消" else "按住不放约 500ms"
+                                if (ctx.longPressActive) "long-press again to deactivate" else "hold ~500ms"
                             )
                             fontSize(12f)
                             color(Color(0xCCFFFFFF))
@@ -253,10 +240,10 @@ internal class GestureTestPage : Pager() {
                     }
                 }
 
-                // === Section 4: 多区域点击 ===
+                // === Section 4: Multi-Zone Tap ===
                 Text {
                     attr {
-                        text("4. 多区域点击")
+                        text("4. Multi-Zone Tap")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(24f)
@@ -272,12 +259,11 @@ internal class GestureTestPage : Pager() {
                         height(80f)
                     }
 
-                    // 区域 A
                     View {
                         attr {
                             flex(1f)
                             backgroundColor(
-                                if (ctx.tapZone == "A") Color(0xFF4CAF50) else Color(0xFFA5D6A7)
+                                if (ctx.tapZone == "a") Color(0xFF4CAF50) else Color(0xFFA5D6A7)
                             )
                             borderRadius(8f)
                             allCenter()
@@ -285,13 +271,13 @@ internal class GestureTestPage : Pager() {
                         }
                         event {
                             click {
-                                ctx.tapZone = "A"
-                                ctx.gestureLog = "点击了区域 A"
+                                ctx.tapZone = "a"
+                                ctx.gestureLog = "tapped zone-a"
                             }
                         }
                         Text {
                             attr {
-                                text("区域 A")
+                                text("zone-a")
                                 fontSize(16f)
                                 fontWeightBold()
                                 color(Color.WHITE)
@@ -299,12 +285,11 @@ internal class GestureTestPage : Pager() {
                         }
                     }
 
-                    // 区域 B
                     View {
                         attr {
                             flex(1f)
                             backgroundColor(
-                                if (ctx.tapZone == "B") Color(0xFF2196F3) else Color(0xFF90CAF9)
+                                if (ctx.tapZone == "b") Color(0xFF2196F3) else Color(0xFF90CAF9)
                             )
                             borderRadius(8f)
                             allCenter()
@@ -312,13 +297,13 @@ internal class GestureTestPage : Pager() {
                         }
                         event {
                             click {
-                                ctx.tapZone = "B"
-                                ctx.gestureLog = "点击了区域 B"
+                                ctx.tapZone = "b"
+                                ctx.gestureLog = "tapped zone-b"
                             }
                         }
                         Text {
                             attr {
-                                text("区域 B")
+                                text("zone-b")
                                 fontSize(16f)
                                 fontWeightBold()
                                 color(Color.WHITE)
@@ -326,25 +311,24 @@ internal class GestureTestPage : Pager() {
                         }
                     }
 
-                    // 区域 C
                     View {
                         attr {
                             flex(1f)
                             backgroundColor(
-                                if (ctx.tapZone == "C") Color(0xFFFF9800) else Color(0xFFFFCC80)
+                                if (ctx.tapZone == "c") Color(0xFFFF9800) else Color(0xFFFFCC80)
                             )
                             borderRadius(8f)
                             allCenter()
                         }
                         event {
                             click {
-                                ctx.tapZone = "C"
-                                ctx.gestureLog = "点击了区域 C"
+                                ctx.tapZone = "c"
+                                ctx.gestureLog = "tapped zone-c"
                             }
                         }
                         Text {
                             attr {
-                                text("区域 C")
+                                text("zone-c")
                                 fontSize(16f)
                                 fontWeightBold()
                                 color(Color.WHITE)
@@ -353,10 +337,10 @@ internal class GestureTestPage : Pager() {
                     }
                 }
 
-                // === Section 5: 手势状态面板 ===
+                // === Section 5: Status Panel ===
                 Text {
                     attr {
-                        text("5. 手势状态面板")
+                        text("5. Status Panel")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(24f)
@@ -375,22 +359,14 @@ internal class GestureTestPage : Pager() {
 
                     Text {
                         attr {
-                            text("点击计数: ${ctx.doubleTapCount}")
+                            text("tap-count: ${ctx.tapCount}")
                             fontSize(14f)
                             color(Color.BLACK)
                         }
                     }
                     Text {
                         attr {
-                            text("长按状态: ${if (ctx.longPressActive) "已激活" else "未激活"}")
-                            fontSize(14f)
-                            color(Color.BLACK)
-                            marginTop(8f)
-                        }
-                    }
-                    Text {
-                        attr {
-                            text("当前区域: ${ctx.tapZone}")
+                            text("long-press-status: ${if (ctx.longPressActive) "active" else "inactive"}")
                             fontSize(14f)
                             color(Color.BLACK)
                             marginTop(8f)
@@ -398,7 +374,15 @@ internal class GestureTestPage : Pager() {
                     }
                     Text {
                         attr {
-                            text("操作日志: ${ctx.gestureLog}")
+                            text("current-zone: ${ctx.tapZone}")
+                            fontSize(14f)
+                            color(Color.BLACK)
+                            marginTop(8f)
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("gesture-log: ${ctx.gestureLog}")
                             fontSize(14f)
                             color(0xFF666666)
                             marginTop(8f)
@@ -406,7 +390,6 @@ internal class GestureTestPage : Pager() {
                     }
                 }
 
-                // 底部间距
                 View {
                     attr {
                         height(50f)

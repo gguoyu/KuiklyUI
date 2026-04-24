@@ -5,7 +5,7 @@ async function getStatText(page: import('@playwright/test').Page): Promise<strin
     const els = document.querySelectorAll('p');
     for (const p of els) {
       const text = p.textContent || '';
-      if (text.includes('个水果') || text.includes('个结果')) {
+      if (text.startsWith('found:') || text.startsWith('total:')) {
         return text;
       }
     }
@@ -32,76 +32,76 @@ test.describe('SearchTestPage functional', () => {
     await kuiklyPage.waitForRenderComplete();
   });
 
-  test('fill + 点击搜索后统计文字应从"共 N"变为"找到 N 个结果"', async ({ kuiklyPage }) => {
-    const input = kuiklyPage.page.getByPlaceholder('搜索水果...');
+  test('fill + search should change stat from "total: N" to "found: N"', async ({ kuiklyPage }) => {
+    const input = kuiklyPage.page.getByPlaceholder('search...');
     await input.fill('berry');
-    await kuiklyPage.page.getByText('搜索').click();
+    await kuiklyPage.page.getByText('search').click();
     await kuiklyPage.waitForRenderComplete();
 
     const stat = await getStatText(kuiklyPage.page);
-    expect(stat).toMatch(/找到 3 个结果/);
+    expect(stat).toMatch(/found: 3/);
   });
 
-  test('搜索 mango 应返回 1 个结果', async ({ kuiklyPage }) => {
-    const input = kuiklyPage.page.getByPlaceholder('搜索水果...');
+  test('search mango should return 1 result', async ({ kuiklyPage }) => {
+    const input = kuiklyPage.page.getByPlaceholder('search...');
     await input.fill('mango');
-    await kuiklyPage.page.getByText('搜索').click();
+    await kuiklyPage.page.getByText('search').click();
     await kuiklyPage.waitForRenderComplete();
 
     const stat = await getStatText(kuiklyPage.page);
-    expect(stat).toMatch(/找到 1 个结果/);
+    expect(stat).toMatch(/found: 1/);
   });
 
-  test('搜索不存在关键词应显示“找到 0 个结果”', async ({ kuiklyPage }) => {
-    const input = kuiklyPage.page.getByPlaceholder('搜索水果...');
+  test('search with no match should show "found: 0"', async ({ kuiklyPage }) => {
+    const input = kuiklyPage.page.getByPlaceholder('search...');
     await input.fill('zzznomatch999');
-    await kuiklyPage.page.getByText('搜索').click();
+    await kuiklyPage.page.getByText('search').click();
     await kuiklyPage.waitForRenderComplete();
 
     const stat = await getStatText(kuiklyPage.page);
-    expect(stat).toMatch(/找到 0 个结果/);
+    expect(stat).toMatch(/found: 0/);
   });
 
-  test('清空输入框后应将统计文字恢复为“共 N 个水果”', async ({ kuiklyPage }) => {
-    const input = kuiklyPage.page.getByPlaceholder('搜索水果...');
+  test('clearing input should restore "total: N" stat', async ({ kuiklyPage }) => {
+    const input = kuiklyPage.page.getByPlaceholder('search...');
     await input.fill('mango');
-    await kuiklyPage.page.getByText('搜索').click();
+    await kuiklyPage.page.getByText('search').click();
     await kuiklyPage.waitForRenderComplete();
 
     let stat = await getStatText(kuiklyPage.page);
-    expect(stat).toMatch(/找到 1 个结果/);
+    expect(stat).toMatch(/found: 1/);
 
     await input.fill('');
     await kuiklyPage.waitForRenderComplete();
 
     stat = await getStatText(kuiklyPage.page);
-    expect(stat).toContain('共 20 个水果');
+    expect(stat).toContain('total: 20');
   });
 
-  test('连续不同关键词搜索结果数应各自正确', async ({ kuiklyPage }) => {
-    const input = kuiklyPage.page.getByPlaceholder('搜索水果...');
+  test('consecutive searches should each return correct counts', async ({ kuiklyPage }) => {
+    const input = kuiklyPage.page.getByPlaceholder('search...');
 
     await input.fill('a');
-    await kuiklyPage.page.getByText('搜索').click();
+    await kuiklyPage.page.getByText('search').click();
     await kuiklyPage.waitForRenderComplete();
     const statA = await getStatText(kuiklyPage.page);
     const countA = parseInt(statA.match(/\d+/)?.[0] || '0', 10);
     expect(countA).toBeGreaterThan(1);
 
     await input.fill('watermelon');
-    await kuiklyPage.page.getByText('搜索').click();
+    await kuiklyPage.page.getByText('search').click();
     await kuiklyPage.waitForRenderComplete();
     const statWatermelon = await getStatText(kuiklyPage.page);
-    expect(statWatermelon).toMatch(/找到 1 个结果/);
+    expect(statWatermelon).toMatch(/found: 1/);
   });
 
-  test('点击列表项应改变该行背景色', async ({ kuiklyPage }) => {
-    const bgBefore = await getRowBgForText(kuiklyPage.page, 'Apple 苹果');
+  test('clicking a list item should change its background color', async ({ kuiklyPage }) => {
+    const bgBefore = await getRowBgForText(kuiklyPage.page, 'Apple');
 
-    await kuiklyPage.page.getByText('Apple 苹果').click();
+    await kuiklyPage.page.getByText('Apple').first().click();
     await kuiklyPage.waitForRenderComplete();
 
-    const bgAfter = await getRowBgForText(kuiklyPage.page, 'Apple 苹果');
+    const bgAfter = await getRowBgForText(kuiklyPage.page, 'Apple');
     expect(bgAfter).not.toBe(bgBefore);
   });
 });

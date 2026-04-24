@@ -156,6 +156,99 @@
           "expectLabel": "long-twice"
         }
       ]
+    },
+    "ModalTestPage": {
+      "actions": [
+        "run-action-scripts"
+      ],
+      "maxActionLabels": 3,
+      "postActionWaitMs": 500,
+      "actionScripts": [
+        {
+          "kind": "click",
+          "targetLabel": "show-alert",
+          "expectLabel": "confirm-action"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "show-action-sheet",
+          "expectLabel": "select-an-action"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "show-custom-modal",
+          "expectLabel": "custom-modal"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "confirm",
+          "expectLabel": "confirmed"
+        }
+      ]
+    },
+    "GestureTestPage": {
+      "actions": [
+        "run-action-scripts"
+      ],
+      "maxActionLabels": 2,
+      "postActionWaitMs": 500,
+      "actionScripts": [
+        {
+          "kind": "click",
+          "targetLabel": "tap-count: 0",
+          "expectLabel": "tap-count: 1"
+        },
+        {
+          "kind": "long-press",
+          "targetLabel": "long-press-area",
+          "expectLabel": "long-pressed"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "zone-b",
+          "expectLabel": "current-zone: b"
+        }
+      ]
+    },
+    "SearchTestPage": {
+      "actions": [
+        "fill-first-input",
+        "run-action-scripts"
+      ],
+      "inputText": "Apple",
+      "postActionWaitMs": 350,
+      "actionScripts": [
+        {
+          "kind": "click",
+          "targetLabel": "search",
+          "expectLabel": "found: 1"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "Apple",
+          "expectLabel": "selected: Apple"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "clear",
+          "expectLabel": "total: 20"
+        }
+      ]
+    },
+    "FormTestPage": {
+      "actions": [
+        "fill-first-input",
+        "run-action-scripts"
+      ],
+      "inputText": "Alice",
+      "postActionWaitMs": 350,
+      "actionScripts": [
+        {
+          "kind": "click",
+          "targetLabel": "submit",
+          "expectLabel": "email is required"
+        }
+      ]
     }
   }
 }

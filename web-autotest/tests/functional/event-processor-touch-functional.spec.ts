@@ -212,7 +212,7 @@ test.describe('EventProcessor touch branches functional', () => {
     await kuiklyPage.waitForRenderComplete();
     const client = await enableTouchEmulation(kuiklyPage.page);
 
-    const longPressTarget = kuiklyPage.page.getByText('长按此区域', { exact: true });
+    const longPressTarget = kuiklyPage.page.getByText('long-press-area', { exact: true });
     const { x, y } = await getCenter(longPressTarget);
 
     await dispatchTouchSequence(client, [{ type: 'touchStart', x, y }]);
@@ -221,15 +221,15 @@ test.describe('EventProcessor touch branches functional', () => {
     await kuiklyPage.page.waitForTimeout(100);
     await dispatchTouchSequence(client, [{ type: 'touchEnd' }]);
     await kuiklyPage.page.waitForTimeout(800);
-    await expect(kuiklyPage.page.getByText('长按状态: 未激活')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: inactive')).toBeVisible();
 
     await dispatchTouchSequence(client, [{ type: 'touchStart', x, y }]);
     await kuiklyPage.page.waitForTimeout(820);
-    await expect(kuiklyPage.page.getByText('长按状态: 已激活')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: active')).toBeVisible();
 
     await dispatchTouchSequence(client, [{ type: 'touchCancel' }]);
     await kuiklyPage.page.waitForTimeout(200);
-    await expect(kuiklyPage.page.getByText('长按状态: 已激活')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: active')).toBeVisible();
   });
 
   test('touch 长按激活后轻微移动时应触发 move 分支并回写取消日志', async ({ kuiklyPage }) => {
@@ -237,13 +237,13 @@ test.describe('EventProcessor touch branches functional', () => {
     await kuiklyPage.waitForRenderComplete();
     const client = await enableTouchEmulation(kuiklyPage.page);
 
-    await touchHold(client, kuiklyPage.page.getByText('长按此区域', { exact: true }), 820, {
+    await touchHold(client, kuiklyPage.page.getByText('long-press-area', { exact: true }), 820, {
       moveBy: { dx: 24, dy: 6 },
     });
     await kuiklyPage.page.waitForTimeout(150);
 
-    await expect(kuiklyPage.page.getByText('长按状态: 未激活')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('操作日志: 长按取消')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: inactive')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: long-press-cancelled')).toBeVisible();
   });
 
   test('touch pan 从非左侧边缘开始拖拽时不应触发页面位移', async ({ kuiklyPage }) => {

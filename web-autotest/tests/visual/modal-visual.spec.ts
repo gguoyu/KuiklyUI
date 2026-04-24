@@ -1,7 +1,7 @@
 import { test, expect } from '../../fixtures/test-base';
 
-test.describe('Modal 视觉验证', () => {
-  test('视觉回归：ModalTestPage 初始状态截图', async ({ kuiklyPage }) => {
+test.describe('Modal visual', () => {
+  test('visual regression: ModalTestPage initial state', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('ModalTestPage');
     await kuiklyPage.waitForRenderComplete();
 

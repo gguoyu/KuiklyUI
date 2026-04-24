@@ -29,7 +29,7 @@ async function getSubmitBtnBg(page: import('@playwright/test').Page): Promise<st
     const els = document.querySelectorAll('[data-kuikly-component="KRView"]');
     for (const el of Array.from(els)) {
       const htmlEl = el as HTMLElement;
-      if (htmlEl.innerText?.trim() === '提交表单') {
+      if (htmlEl.innerText?.trim() === 'submit') {
         return window.getComputedStyle(htmlEl).backgroundColor;
       }
     }
@@ -43,26 +43,26 @@ test.describe('FormTestPage functional', () => {
     await kuiklyPage.waitForRenderComplete();
   });
 
-  test('fill() 姓名和邮箱后输入框应有内容显示', async ({ kuiklyPage }) => {
-    await kuiklyPage.page.getByPlaceholder('请输入姓名').fill('张三');
-    await kuiklyPage.page.getByPlaceholder('请输入邮箱地址').fill('zhangsan@example.com');
+  test('filling name and email should reflect input values', async ({ kuiklyPage }) => {
+    await kuiklyPage.page.getByPlaceholder('enter name').fill('Alice');
+    await kuiklyPage.page.getByPlaceholder('enter email').fill('alice@example.com');
     await kuiklyPage.waitForRenderComplete();
 
-    const nameVal = await kuiklyPage.page.getByPlaceholder('请输入姓名').inputValue();
-    const emailVal = await kuiklyPage.page.getByPlaceholder('请输入邮箱地址').inputValue();
-    expect(nameVal).toBe('张三');
-    expect(emailVal).toBe('zhangsan@example.com');
+    const nameVal = await kuiklyPage.page.getByPlaceholder('enter name').inputValue();
+    const emailVal = await kuiklyPage.page.getByPlaceholder('enter email').inputValue();
+    expect(nameVal).toBe('Alice');
+    expect(emailVal).toBe('alice@example.com');
   });
 
-  test('fill() 手机号后 input value 应正确', async ({ kuiklyPage }) => {
-    await kuiklyPage.page.getByPlaceholder('请输入手机号（选填）').fill('13800138000');
+  test('filling phone should reflect correct input value', async ({ kuiklyPage }) => {
+    await kuiklyPage.page.getByPlaceholder('enter phone (optional)').fill('13800138000');
     await kuiklyPage.waitForRenderComplete();
 
-    const val = await kuiklyPage.page.getByPlaceholder('请输入手机号（选填）').inputValue();
+    const val = await kuiklyPage.page.getByPlaceholder('enter phone (optional)').inputValue();
     expect(val).toBe('13800138000');
   });
 
-  test('点击协议开关后提交按钮应变为蓝色', async ({ kuiklyPage }) => {
+  test('toggling the agree-terms switch should turn submit button blue', async ({ kuiklyPage }) => {
     const bgBefore = await getSubmitBtnBg(kuiklyPage.page);
     const toggles = await getToggleCenters(kuiklyPage.page);
     expect(toggles.length).toBeGreaterThanOrEqual(2);
@@ -76,7 +76,7 @@ test.describe('FormTestPage functional', () => {
     expect(bgAfter).toMatch(/33|150|243/);
   });
 
-  test('点击订阅开关应改变其背景色', async ({ kuiklyPage }) => {
+  test('toggling the subscribe switch should change its background', async ({ kuiklyPage }) => {
     const toggles = await getToggleCenters(kuiklyPage.page);
     expect(toggles.length).toBeGreaterThanOrEqual(1);
 
@@ -90,9 +90,8 @@ test.describe('FormTestPage functional', () => {
     expect(bgAfter).not.toBe(bgBefore);
   });
 
-  test('完整填写并同意协议后点击提交应无报错', async ({ kuiklyPage }) => {
-    await kuiklyPage.page.getByPlaceholder('请输入姓名').fill('张三');
-    await kuiklyPage.page.getByPlaceholder('请输入邮箱地址').fill('zhangsan@example.com');
+  test('submitting with empty email should show email-is-required error', async ({ kuiklyPage }) => {
+    await kuiklyPage.page.getByPlaceholder('enter name').fill('Alice');
     await kuiklyPage.waitForRenderComplete();
 
     const toggles = await getToggleCenters(kuiklyPage.page);
@@ -101,15 +100,32 @@ test.describe('FormTestPage functional', () => {
       await kuiklyPage.waitForRenderComplete();
     }
 
-    await kuiklyPage.page.getByText('提交表单').click();
+    await kuiklyPage.page.getByText('submit', { exact: true }).click();
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('提交表单')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('email is required')).toBeVisible();
   });
 
-  test('重置按钮点击后页面不报错且提交按钮可见', async ({ kuiklyPage }) => {
-    await kuiklyPage.page.getByPlaceholder('请输入姓名').fill('李四');
-    await kuiklyPage.page.getByPlaceholder('请输入邮箱地址').fill('lisi@test.com');
+  test('full valid submit should not error and keep submit button visible', async ({ kuiklyPage }) => {
+    await kuiklyPage.page.getByPlaceholder('enter name').fill('Alice');
+    await kuiklyPage.page.getByPlaceholder('enter email').fill('alice@example.com');
+    await kuiklyPage.waitForRenderComplete();
+
+    const toggles = await getToggleCenters(kuiklyPage.page);
+    if (toggles.length >= 2) {
+      await kuiklyPage.page.mouse.click(toggles[1].cx, toggles[1].cy);
+      await kuiklyPage.waitForRenderComplete();
+    }
+
+    await kuiklyPage.page.getByText('submit', { exact: true }).click();
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText('submit', { exact: true })).toBeVisible();
+  });
+
+  test('reset should clear fields and grey out submit button', async ({ kuiklyPage }) => {
+    await kuiklyPage.page.getByPlaceholder('enter name').fill('Bob');
+    await kuiklyPage.page.getByPlaceholder('enter email').fill('bob@test.com');
     await kuiklyPage.waitForRenderComplete();
 
     const toggles = await getToggleCenters(kuiklyPage.page);
@@ -121,12 +137,12 @@ test.describe('FormTestPage functional', () => {
     const bgBeforeReset = await getSubmitBtnBg(kuiklyPage.page);
     expect(bgBeforeReset).toMatch(/33|150|243/);
 
-    await kuiklyPage.page.getByText('重置').click();
+    await kuiklyPage.page.getByText('reset', { exact: true }).click();
     await kuiklyPage.waitForRenderComplete();
 
     const bgAfterReset = await getSubmitBtnBg(kuiklyPage.page);
     expect(bgAfterReset).toMatch(/187|bbb/i);
-    await expect(kuiklyPage.page.getByText('提交表单')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('重置')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('submit', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('reset', { exact: true })).toBeVisible();
   });
 });

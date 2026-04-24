@@ -23,16 +23,16 @@ test.describe('FormTestPage visual', () => {
     await kuiklyPage.waitForRenderComplete();
   });
 
-  test('视觉回归：FormTestPage 初始状态截图', async ({ kuiklyPage }) => {
+  test('visual regression: FormTestPage initial state', async ({ kuiklyPage }) => {
     await expect(kuiklyPage.page).toHaveScreenshot('form-test-initial.png', {
       maxDiffPixels: 300,
     });
   });
 
-  test('视觉回归：FormTestPage 填写并同意协议截图', async ({ kuiklyPage }) => {
-    await kuiklyPage.page.getByPlaceholder('请输入姓名').fill('李四');
-    await kuiklyPage.page.getByPlaceholder('请输入邮箱地址').fill('lisi@example.com');
-    await kuiklyPage.page.getByPlaceholder('请输入手机号（选填）').fill('13800138000');
+  test('visual regression: FormTestPage filled and agreed', async ({ kuiklyPage }) => {
+    await kuiklyPage.page.getByPlaceholder('enter name').fill('Alice');
+    await kuiklyPage.page.getByPlaceholder('enter email').fill('alice@example.com');
+    await kuiklyPage.page.getByPlaceholder('enter phone (optional)').fill('13800138000');
     await kuiklyPage.waitForRenderComplete();
 
     const toggles = await getToggleCenters(kuiklyPage.page);

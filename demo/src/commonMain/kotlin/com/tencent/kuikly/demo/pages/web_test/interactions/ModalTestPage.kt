@@ -28,24 +28,23 @@ import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
 
 /**
- * 弹窗交互验证测试页面
+ * Modal interaction test page
  *
- * 测试覆盖：
- * 1. AlertDialog — 标准弹窗（标题+内容+按钮）
- * 2. ActionSheet — 底部操作菜单
- * 3. 自定义 Modal — 全屏自定义弹窗
- * 4. 弹窗交互结果 — 弹窗操作后的状态变化
+ * Tests covered:
+ * 1. AlertDialog — standard dialog (title + message + buttons)
+ * 2. ActionSheet — bottom action sheet
+ * 3. Custom Modal — full-screen custom modal
+ * 4. Result panel — state changes after modal interactions
  */
 @Page("ModalTestPage")
 internal class ModalTestPage : Pager() {
 
-    // === 响应式状态 ===
     private var showAlert by observable(false)
     private var showActionSheet by observable(false)
     private var showCustomModal by observable(false)
-    private var alertResult by observable("未操作")
-    private var actionSheetResult by observable("未操作")
-    private var customModalResult by observable("未操作")
+    private var alertResult by observable("none")
+    private var actionSheetResult by observable("none")
+    private var customModalResult by observable("none")
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -59,10 +58,10 @@ internal class ModalTestPage : Pager() {
                     flex(1f)
                 }
 
-                // === Section 1: AlertDialog 弹窗 ===
+                // === Section 1: AlertDialog ===
                 Text {
                     attr {
-                        text("1. AlertDialog 弹窗")
+                        text("1. AlertDialog")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(16f)
@@ -71,7 +70,6 @@ internal class ModalTestPage : Pager() {
                     }
                 }
 
-                // 触发按钮
                 View {
                     attr {
                         margin(left = 16f, right = 16f, top = 12f)
@@ -87,7 +85,7 @@ internal class ModalTestPage : Pager() {
                     }
                     Text {
                         attr {
-                            text("显示 Alert 弹窗")
+                            text("show-alert")
                             fontSize(16f)
                             color(Color.WHITE)
                             fontWeightBold()
@@ -95,10 +93,9 @@ internal class ModalTestPage : Pager() {
                     }
                 }
 
-                // Alert 操作结果
                 Text {
                     attr {
-                        text("Alert 结果: ${ctx.alertResult}")
+                        text("alert-result: ${ctx.alertResult}")
                         fontSize(13f)
                         marginTop(6f)
                         marginLeft(16f)
@@ -106,10 +103,10 @@ internal class ModalTestPage : Pager() {
                     }
                 }
 
-                // === Section 2: ActionSheet 底部菜单 ===
+                // === Section 2: ActionSheet ===
                 Text {
                     attr {
-                        text("2. ActionSheet 底部菜单")
+                        text("2. ActionSheet")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(24f)
@@ -118,7 +115,6 @@ internal class ModalTestPage : Pager() {
                     }
                 }
 
-                // 触发按钮
                 View {
                     attr {
                         margin(left = 16f, right = 16f, top = 12f)
@@ -134,7 +130,7 @@ internal class ModalTestPage : Pager() {
                     }
                     Text {
                         attr {
-                            text("显示 ActionSheet")
+                            text("show-action-sheet")
                             fontSize(16f)
                             color(Color.WHITE)
                             fontWeightBold()
@@ -142,10 +138,9 @@ internal class ModalTestPage : Pager() {
                     }
                 }
 
-                // ActionSheet 操作结果
                 Text {
                     attr {
-                        text("ActionSheet 结果: ${ctx.actionSheetResult}")
+                        text("action-sheet-result: ${ctx.actionSheetResult}")
                         fontSize(13f)
                         marginTop(6f)
                         marginLeft(16f)
@@ -153,10 +148,10 @@ internal class ModalTestPage : Pager() {
                     }
                 }
 
-                // === Section 3: 自定义 Modal 弹窗 ===
+                // === Section 3: Custom Modal ===
                 Text {
                     attr {
-                        text("3. 自定义 Modal 弹窗")
+                        text("3. Custom Modal")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(24f)
@@ -165,7 +160,6 @@ internal class ModalTestPage : Pager() {
                     }
                 }
 
-                // 触发按钮
                 View {
                     attr {
                         margin(left = 16f, right = 16f, top = 12f)
@@ -181,7 +175,7 @@ internal class ModalTestPage : Pager() {
                     }
                     Text {
                         attr {
-                            text("显示自定义弹窗")
+                            text("show-custom-modal")
                             fontSize(16f)
                             color(Color.WHITE)
                             fontWeightBold()
@@ -189,10 +183,9 @@ internal class ModalTestPage : Pager() {
                     }
                 }
 
-                // 自定义 Modal 操作结果
                 Text {
                     attr {
-                        text("自定义弹窗结果: ${ctx.customModalResult}")
+                        text("custom-modal-result: ${ctx.customModalResult}")
                         fontSize(13f)
                         marginTop(6f)
                         marginLeft(16f)
@@ -200,10 +193,10 @@ internal class ModalTestPage : Pager() {
                     }
                 }
 
-                // === Section 4: 操作状态面板 ===
+                // === Section 4: Result Summary ===
                 Text {
                     attr {
-                        text("4. 操作结果汇总")
+                        text("4. Result Summary")
                         fontSize(16f)
                         fontWeightBold()
                         marginTop(24f)
@@ -224,14 +217,13 @@ internal class ModalTestPage : Pager() {
                         attr {
                             text("Alert: ${ctx.alertResult}\n" +
                                  "ActionSheet: ${ctx.actionSheetResult}\n" +
-                                 "自定义弹窗: ${ctx.customModalResult}")
+                                 "CustomModal: ${ctx.customModalResult}")
                             fontSize(14f)
                             color(Color.BLACK)
                         }
                     }
                 }
 
-                // 底部间距
                 View {
                     attr {
                         height(50f)
@@ -239,22 +231,18 @@ internal class ModalTestPage : Pager() {
                 }
             }
 
-            // =======================================
-            // 弹窗组件（渲染在页面层级之上）
-            // =======================================
-
-            // Alert Dialog
+            // AlertDialog
             AlertDialog {
                 attr {
                     showAlert(ctx.showAlert)
-                    title("确认操作")
-                    message("这是一个测试 Alert 弹窗，请选择操作。")
-                    actionButtons("取消", "确定")
+                    title("confirm-action")
+                    message("This is a test Alert dialog.")
+                    actionButtons("cancel", "ok")
                 }
                 event {
                     clickActionButton { buttonIndex ->
                         ctx.showAlert = false
-                        ctx.alertResult = if (buttonIndex == 0) "点击了取消" else "点击了确定"
+                        ctx.alertResult = if (buttonIndex == 0) "cancelled" else "confirmed"
                     }
                 }
             }
@@ -263,22 +251,21 @@ internal class ModalTestPage : Pager() {
             ActionSheet {
                 attr {
                     showActionSheet(ctx.showActionSheet)
-                    descriptionOfActions("请选择一个操作")
-                    actionButtons("取消", "拍照", "从相册选择", "从文件选择")
+                    descriptionOfActions("select-an-action")
+                    actionButtons("cancel", "take-photo", "from-album", "from-file")
                 }
                 event {
                     clickActionButton { buttonIndex ->
                         ctx.showActionSheet = false
-                        val actions = listOf("取消", "拍照", "从相册选择", "从文件选择")
-                        ctx.actionSheetResult = "选择了: ${actions[buttonIndex]}"
+                        val actions = listOf("cancel", "take-photo", "from-album", "from-file")
+                        ctx.actionSheetResult = "selected: ${actions[buttonIndex]}"
                     }
                 }
             }
 
-            // 自定义 Modal
+            // Custom Modal
             if (ctx.showCustomModal) {
                 Modal {
-                    // 半透明背景
                     View {
                         attr {
                             absolutePosition(left = 0f, top = 0f, right = 0f, bottom = 0f)
@@ -288,11 +275,10 @@ internal class ModalTestPage : Pager() {
                         event {
                             click {
                                 ctx.showCustomModal = false
-                                ctx.customModalResult = "点击了背景关闭"
+                                ctx.customModalResult = "bg-dismissed"
                             }
                         }
 
-                        // 弹窗内容
                         View {
                             attr {
                                 size(280f, 200f)
@@ -302,14 +288,13 @@ internal class ModalTestPage : Pager() {
                             }
                             event {
                                 click {
-                                    // 阻止冒泡到背景
+                                    // stop propagation to background
                                 }
                             }
 
-                            // 标题
                             Text {
                                 attr {
-                                    text("自定义弹窗")
+                                    text("custom-modal")
                                     fontSize(18f)
                                     fontWeightBold()
                                     color(Color.BLACK)
@@ -317,10 +302,9 @@ internal class ModalTestPage : Pager() {
                                 }
                             }
 
-                            // 内容
                             Text {
                                 attr {
-                                    text("这是一个自定义的 Modal 弹窗内容")
+                                    text("custom modal content")
                                     fontSize(14f)
                                     color(0xFF666666)
                                     marginBottom(24f)
@@ -328,7 +312,6 @@ internal class ModalTestPage : Pager() {
                                 }
                             }
 
-                            // 确认按钮
                             View {
                                 attr {
                                     width(120f)
@@ -340,12 +323,12 @@ internal class ModalTestPage : Pager() {
                                 event {
                                     click {
                                         ctx.showCustomModal = false
-                                        ctx.customModalResult = "点击了确认按钮"
+                                        ctx.customModalResult = "confirmed"
                                     }
                                 }
                                 Text {
                                     attr {
-                                        text("确认")
+                                        text("confirm")
                                         fontSize(14f)
                                         color(Color.WHITE)
                                         fontWeightBold()
