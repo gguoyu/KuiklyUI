@@ -49,10 +49,24 @@ Machine-readable rules consumed by the loop:
 - `web-autotest/rules/anti-examples.json`
 
 - Default AI trigger: when the user asks to run or continue the web autotest closed loop, improve web coverage, or inspect web autotest results, use this skill directly.
-- Default real run: `node web-autotest/scripts/loop/run-autotest-loop.mjs --skip-build --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan`
-- Default focused rerun: `node web-autotest/scripts/kuikly-test.mjs --skip-build --test <spec>`
 - Primary machine-readable output: `web-autotest/reports/autotest/loop-report.json`
 - User-facing quick reference: `web-autotest/docs/QUICKSTART.md`
+
+## Build vs skip-build — decide first
+
+**Before running any loop command, answer: have any `.kt` files under `web_test/` been added or changed since the last successful build?**
+
+| Situation | Command |
+|-----------|---------|
+| First run, or any new/modified Kotlin carrier page since last build | `node web-autotest/scripts/loop/run-autotest-loop.mjs --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan` |
+| Only spec (`.ts`) or rules (`.json`) changes, build artifacts are current | `node web-autotest/scripts/loop/run-autotest-loop.mjs --skip-build --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan` |
+
+**Default focused rerun (spec iteration only):**
+```bash
+node web-autotest/scripts/kuikly-test.mjs --skip-build --test <spec>
+```
+
+Why this matters: `--skip-build` reuses the last compiled JS bundle. A new Kotlin carrier page that has not been compiled will not be loadable by Playwright — the loop will generate a spec for it, the focused verification will immediately fail ("page not found"), and the spec will be rolled back. Always build first when Kotlin files change.
 
 When coverage is still below threshold, continue the closed loop automatically as long as the next move stays inside the safe mutation scope below.
 
@@ -185,14 +199,20 @@ The warning contains:
 ### How to generate the carrier page (AI task)
 
 1. **Read the source file** at `warning.file` to understand what it exposes (props, events, behaviors).
-2. **Read `web-autotest/references/page-generation-guide.md`** for the Kotlin DSL patterns appropriate for `warning.suggestedCategory`.
-3. **Generate the Kotlin carrier page** following the state-driven text pattern — every testable behavior must have a stable text oracle (a label whose text changes with state). Do not generate placeholder pages.
-4. **Write the file** to `warning.targetPath`.
-5. **Run the generator script** to update `interaction-protocol.json` with the new page's `actionScripts`:
+2. **Verify Kotlin DSL API names before writing the carrier page.** The DSL method names exposed to page authors (e.g. `editable()`, `placeholder()`, `maxTextLength()`) are defined in the view's `Attr` class under `core/src/commonMain/kotlin/com/tencent/kuikly/core/views/`. Always grep for the exact method name before using it — do not guess. Example:
+   ```bash
+   grep -n "fun editable\|fun placeholder\|fun maxText" core/src/commonMain/kotlin/com/tencent/kuikly/core/views/InputView.kt
+   ```
+   A compile error (`Unresolved reference`) means the method name is wrong. Fix it before running the build.
+3. **Read `web-autotest/references/page-generation-guide.md`** for the Kotlin DSL patterns appropriate for `warning.suggestedCategory`.
+4. **Generate the Kotlin carrier page** following the state-driven text pattern — every testable behavior must have a stable text oracle (a label whose text changes with state). Do not generate placeholder pages.
+5. **Write the file** to `warning.targetPath`.
+6. **Run the generator script** to update `interaction-protocol.json` with the new page's `actionScripts`:
    ```bash
    node web-autotest/scripts/loop/generate-carrier-page.mjs <source-file> --write
    ```
-6. **Run a full build** — new Kotlin carrier pages must be compiled into the JS bundle before they can be loaded by Playwright. Never use `--skip-build` after adding a new carrier page:
+   The `--write` flag updates `interaction-protocol.json` **and** writes a scaffold Kotlin file only if the target path does not already exist. If you already wrote the Kotlin file manually (recommended), the script will skip the Kotlin write and only update the JSON — this is the correct behavior. Do not delete your handwritten Kotlin file before running this command.
+7. **Run a full build** — new Kotlin carrier pages must be compiled into the JS bundle before they can be loaded by Playwright. Never use `--skip-build` after adding a new carrier page:
    ```bash
    node web-autotest/scripts/loop/run-autotest-loop.mjs --max-rounds 1
    ```
@@ -213,11 +233,25 @@ Stop and emit a manual-review warning when:
 - the intended behavior requires external SDK or network access that cannot be simulated in a deterministic `web_test` page
 - nearby `web_test` patterns do not provide enough signal to infer what the page should test
 
+## Known headless rendering limits
+
+Some Kotlin source paths are permanently unreachable under Playwright headless Chromium. Do not spend loop rounds trying to cover them — escalate immediately instead.
+
+| Pattern | Root cause | Action |
+|---------|-----------|--------|
+| `KRTextFieldView.kt` / `KRTextAreaView.kt` event handlers (`textDidChange`, `focus`, `blur`) | Kuikly's Input component fires its `input` DOM event only on real user typing; Playwright `fill()` and `type()` do not trigger it in headless mode | Accept current coverage; skip |
+| `KRView.kt` / `KuiklyRenderCSSKTX.kt` branch paths that require dynamic style re-application | Some CSS branches require a re-render cycle that does not happen in headless timing | Accept current coverage; skip |
+| Any `KRView` that uses `if/Modal` DSL for overlay rendering | Kuikly's `Modal` component does not render in headless Chromium | Mark spec as `test.skip` with `[KNOWN: Modal headless rendering issue]` |
+| Any submit / confirm `KRView` button whose click event does not fire in a specific page context | Kuikly click dispatch depends on view hierarchy; some deeply-nested views do not receive synthetic clicks | Verify with `page.evaluate`; if confirmed, mark as `test.skip` with `[KNOWN: KRView click headless issue]` |
+
+When a coverage gap falls into one of the above patterns and the loop has already attempted at least 2 rounds without improvement, stop and escalate rather than continuing.
+
 ## Decision rules
 
 - If a failure is caused by stale assertions, stale locators, or missing waits, fix the test.
 - If a screenshot diff matches intentional UI changes in modified source files, update snapshots.
 - If a failure indicates unexpected product behavior with no supporting code change, treat it as a code warning and do not silently weaken the test.
+- If a failure category is `PAGE_CRASH`: this is always a product-layer issue. Mark the crashing test as `test.skip` with comment `[KNOWN: PAGE_CRASH on <PageName>]` and emit a manual-review warning. Do not delete or rewrite the test logic — just skip it so the suite can continue.
 - If coverage is below threshold, add or extend tests based on the low-coverage source object, following `coverage-policy.md` for target ordering and `feature-completeness.md` for minimum behavior closure, then rerun the full flow.
 - If a handwritten spec already exists for a page and that file is a page-level blocker with only skipped or pending tests, do not auto-generate a parallel managed spec for the same page.
 - If a spec targets a page outside `<webTestRoot>/`, delete or migrate that spec before continuing; do not grandfather legacy non-`web_test` targets.
@@ -231,6 +265,7 @@ Stop and emit a manual-review warning when:
 - the source object with low coverage has no reasonable `web_test` carrier page yet and the intended behavior remains unclear after reading the source file
 - the pipeline itself is broken and not attributable to test code
 - after reasonable retries, the same failure still points to product behavior rather than test behavior
+- coverage has not improved after 2+ loop rounds on the same target, and the uncovered paths fall under a **Known headless rendering limit** (see section above) — accept the gap, record it as a known limitation, and stop
 
 ## Output expectations
 
