@@ -192,10 +192,19 @@ The warning contains:
    ```bash
    node web-autotest/scripts/loop/generate-carrier-page.mjs <source-file> --write
    ```
-6. **Re-run the loop** to generate specs for the new page:
+6. **Run a full build** — new Kotlin carrier pages must be compiled into the JS bundle before they can be loaded by Playwright. Never use `--skip-build` after adding a new carrier page:
    ```bash
-   node web-autotest/scripts/loop/run-autotest-loop.mjs --skip-build --max-rounds 1
+   node web-autotest/scripts/loop/run-autotest-loop.mjs --max-rounds 1
    ```
+   If you use `--skip-build` when a new carrier page exists but has not yet been built, the loop will generate a spec for the page, the focused verification will fail (page not found), and the spec will be rolled back.
+
+**`--skip-build` is only safe when:**
+- No new Kotlin carrier pages have been added since the last successful build.
+- You are only modifying TypeScript spec files or rules JSON.
+
+**Always use a full build (no `--skip-build`) when:**
+- A new Kotlin carrier page (`.kt` file) was written to `web_test/`.
+- A Kotlin carrier page was modified to change its UI text or behavior.
 
 ### When to stop instead of generating
 

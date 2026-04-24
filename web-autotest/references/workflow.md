@@ -49,6 +49,21 @@ node web-autotest/scripts/loop/suggest-test-targets.mjs
 10. If coverage still fails, use `summarize-coverage.mjs` and `suggest-test-targets.mjs` to pick the next source object to target.
 11. Before keeping a newly generated managed spec, run its focused rerun and roll it back if the rerun still fails.
 
+## When to use `--skip-build`
+
+`--skip-build` skips the Kotlin/JS Gradle build and reuses the last compiled bundle.
+
+**Safe to use `--skip-build` when:**
+- No new Kotlin carrier pages (`.kt` files) have been added to `web_test/` since the last build.
+- Changes are limited to TypeScript spec files, `rules/*.json`, or other non-Kotlin files.
+- You are iterating quickly on spec repairs or coverage spec generation against existing pages.
+
+**Do NOT use `--skip-build` when:**
+- A new Kotlin carrier page was written to `web_test/` — it must be compiled into the JS bundle before Playwright can load it.
+- An existing Kotlin carrier page was modified (e.g. UI text changed to English).
+
+If `--skip-build` is used after adding a new carrier page, the loop will generate a managed spec for that page, the focused verification run will fail with "page not found" (because the page is not yet in the bundle), and the spec will be rolled back immediately.
+
 ## Carrier page generation
 
 When `scan-web-test-pages.mjs` reports `sourceFilesWithoutPage`, source files under `sourceRoots`
