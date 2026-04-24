@@ -40,4 +40,19 @@ test.describe('CSSPropsTestPage functional', () => {
     await expect(kuiklyPage.page.getByText('overflow-hidden')).toBeVisible();
     await expect(kuiklyPage.page.getByText('overflow-visible')).toBeVisible();
   });
+
+  test('z-index views render with zIndex prop applied', async ({ kuiklyPage }) => {
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 600, smooth: false });
+    await expect(kuiklyPage.page.getByText('6. Z-Index')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('zindex-10', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('zindex-1', { exact: true })).toBeVisible();
+  });
+
+  test('accessibility label view renders with accessibility prop applied', async ({ kuiklyPage }) => {
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 800, smooth: false });
+    await expect(kuiklyPage.page.getByText('7. Accessibility')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('accessibility-label-button')).toBeVisible();
+  });
 });

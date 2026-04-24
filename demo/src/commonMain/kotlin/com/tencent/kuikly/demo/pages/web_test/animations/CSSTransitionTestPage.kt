@@ -16,6 +16,7 @@
 package com.tencent.kuikly.demo.pages.web_test.animations
 
 import com.tencent.kuikly.core.annotations.Page
+import com.tencent.kuikly.core.base.Animation
 import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.pager.Pager
@@ -41,6 +42,7 @@ internal class CSSTransitionTestPage : Pager() {
     private var isColorChanged by observable(false)
     private var isWidthExpanded by observable(false)
     private var isComboAnimated by observable(false)
+    private var isRepeatAnim by observable(false)
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -226,6 +228,62 @@ internal class CSSTransitionTestPage : Pager() {
                 }
 
                 // 底部间距
+                View {
+                    attr {
+                        height(50f)
+                    }
+                }
+
+                // === Section 5: Repeat Forever Animation (triggers repeatStyleAnimation) ===
+                Text {
+                    attr {
+                        text("5. Repeat Animation")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(Color(0xFF1976D2))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.isRepeatAnim = !ctx.isRepeatAnim
+                        }
+                    }
+                    Text {
+                        attr {
+                            text(if (ctx.isRepeatAnim) "repeat-running" else "repeat-idle")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // Animated view with repeatForever — triggers repeatStyleAnimation in KuiklyRenderCSSKTX
+                View {
+                    attr {
+                        margin(left = 16f, top = 8f)
+                        size(60f, 60f)
+                        backgroundColor(Color(0xFFE53935))
+                        borderRadius(8f)
+                        animation(
+                            Animation.linear(durationS = 1f).repeatForever(true),
+                            ctx.isRepeatAnim
+                        )
+                        opacity(if (ctx.isRepeatAnim) 0.2f else 1.0f)
+                    }
+                }
+
                 View {
                     attr {
                         height(50f)

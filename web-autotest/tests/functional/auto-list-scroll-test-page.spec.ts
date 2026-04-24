@@ -7,7 +7,7 @@ const STABLE_TEXTS = [
   "列表滚动测试",
   "选中: ${ctx.clickedItemText}",
   "列表手势: ${ctx.listGestureText}",
-  "分组${group + 1} 第${item + 1}项 · 副标题描述"
+  "scroll-events: ${ctx.scrollEventCount}"
 ];
 const ACTION_LABELS = [
   "分组 ${group + 1}",

@@ -52,6 +52,10 @@ internal class ListScrollTestPage : Pager() {
     private var clickedItemText by observable("未选择")
     private var listGestureText by observable("未触发")
     private var scrollReachedBottom by observable(false)
+    private var scrollEventCount by observable(0)
+    private var dragBeginCount by observable(0)
+    private var dragEndCount by observable(0)
+    private var scrollEndCount by observable(0)
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -98,6 +102,30 @@ internal class ListScrollTestPage : Pager() {
                             marginTop(2f)
                         }
                     }
+                    Text {
+                        attr {
+                            text("scroll-events: ${ctx.scrollEventCount}")
+                            fontSize(10f)
+                            color(Color(0xAAFFFFFF))
+                            marginTop(2f)
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("drag-begin: ${ctx.dragBeginCount}")
+                            fontSize(10f)
+                            color(Color(0xAAFFFFFF))
+                            marginTop(1f)
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("drag-end: ${ctx.dragEndCount}")
+                            fontSize(10f)
+                            color(Color(0xAAFFFFFF))
+                            marginTop(1f)
+                        }
+                    }
                 }
             }
 
@@ -112,6 +140,18 @@ internal class ListScrollTestPage : Pager() {
                     }
                     doubleClick {
                         ctx.listGestureText = "双击"
+                    }
+                    scroll {
+                        ctx.scrollEventCount = ctx.scrollEventCount + 1
+                    }
+                    dragBegin {
+                        ctx.dragBeginCount = ctx.dragBeginCount + 1
+                    }
+                    dragEnd {
+                        ctx.dragEndCount = ctx.dragEndCount + 1
+                    }
+                    scrollEnd {
+                        ctx.scrollEndCount = ctx.scrollEndCount + 1
                     }
                 }
 

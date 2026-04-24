@@ -92,4 +92,39 @@ test.describe('CSS Transition 功能验证', () => {
       expect(widthAfter!.width).toBeGreaterThan(widthBefore.width);
     }
   });
+
+  test('Repeat 动画：点击按钮后切换到 repeat-running 状态', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 600, smooth: false });
+
+    const repeatBtn = kuiklyPage.page.getByText('repeat-idle', { exact: true });
+    await expect(repeatBtn).toBeVisible();
+
+    await repeatBtn.click();
+    await kuiklyPage.waitForRenderComplete();
+
+    // Label should update to repeat-running
+    await expect(kuiklyPage.page.getByText('repeat-running', { exact: true })).toBeVisible();
+  });
+
+  test('Repeat 动画：再次点击应切换回 repeat-idle', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 600, smooth: false });
+
+    // Start animation
+    await kuiklyPage.page.getByText('repeat-idle', { exact: true }).click();
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.getByText('repeat-running', { exact: true })).toBeVisible();
+
+    // Stop animation
+    await kuiklyPage.page.getByText('repeat-running', { exact: true }).click();
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.getByText('repeat-idle', { exact: true })).toBeVisible();
+  });
 });

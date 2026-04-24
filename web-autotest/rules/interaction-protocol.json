@@ -67,83 +67,187 @@
   },
   "pageProfiles": {
     "InputTestPage": {
-      "actions": ["fill-first-input", "click-visible-labels"],
+      "actions": [
+        "fill-first-input",
+        "click-visible-labels"
+      ],
       "inputText": "Hello Kuikly",
       "maxActionLabels": 2
     },
     "ClickTestPage": {
-      "actions": ["click-visible-labels"],
+      "actions": [
+        "click-visible-labels"
+      ],
       "maxActionLabels": 4
     },
     "ListScrollTestPage": {
-      "actions": ["scroll-first-list", "click-visible-labels"],
+      "actions": [
+        "scroll-first-list",
+        "click-visible-labels"
+      ],
       "maxActionLabels": 2,
       "scrollDeltaY": 700
     },
     "EventCaptureTestPage": {
-      "actions": ["run-action-scripts"],
+      "actions": [
+        "run-action-scripts"
+      ],
       "observableOutcome": "bounding-box-shift",
       "actionScripts": [
-        { "kind": "click", "targetLabel": "reset", "expectLabel": "capture-title" }
+        {
+          "kind": "click",
+          "targetLabel": "reset",
+          "expectLabel": "capture-title"
+        }
       ]
     },
     "NotifyModuleTestPage": {
-      "actions": ["run-action-scripts"],
+      "actions": [
+        "run-action-scripts"
+      ],
       "postActionWaitMs": 300,
       "actionScripts": [
-        { "kind": "click", "targetLabel": "send", "expectLabel": "count:1" },
-        { "kind": "click", "targetLabel": "send", "expectLabel": "count:2" }
+        {
+          "kind": "click",
+          "targetLabel": "send",
+          "expectLabel": "count:1"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "send",
+          "expectLabel": "count:2"
+        }
       ]
     },
     "ButtonEventTestPage": {
-      "actions": ["run-action-scripts"],
+      "actions": [
+        "run-action-scripts"
+      ],
       "postActionWaitMs": 250,
       "actionScripts": [
-        { "kind": "click",      "targetLabel": "click-button",  "expectLabel": "click-once"   },
-        { "kind": "click",      "targetLabel": "click-once",    "expectLabel": "click-twice"  },
-        { "kind": "double-click","targetLabel": "double-button", "expectLabel": "double-once"  },
-        { "kind": "double-click","targetLabel": "double-once",   "expectLabel": "double-twice" },
-        { "kind": "long-press", "targetLabel": "long-button",   "expectLabel": "long-once"    },
-        { "kind": "long-press", "targetLabel": "long-once",     "expectLabel": "long-twice"   }
+        {
+          "kind": "click",
+          "targetLabel": "click-button",
+          "expectLabel": "click-once"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "click-once",
+          "expectLabel": "click-twice"
+        },
+        {
+          "kind": "double-click",
+          "targetLabel": "double-button",
+          "expectLabel": "double-once"
+        },
+        {
+          "kind": "double-click",
+          "targetLabel": "double-once",
+          "expectLabel": "double-twice"
+        },
+        {
+          "kind": "long-press",
+          "targetLabel": "long-button",
+          "expectLabel": "long-once"
+        },
+        {
+          "kind": "long-press",
+          "targetLabel": "long-once",
+          "expectLabel": "long-twice"
+        }
       ]
     },
     "ModalTestPage": {
-      "actions": ["run-action-scripts"],
+      "actions": [
+        "run-action-scripts"
+      ],
       "maxActionLabels": 3,
       "postActionWaitMs": 500,
       "actionScripts": [
-        { "kind": "click", "targetLabel": "show-alert",        "expectLabel": "confirm-action"   },
-        { "kind": "click", "targetLabel": "show-action-sheet", "expectLabel": "select-an-action" },
-        { "kind": "click", "targetLabel": "show-custom-modal", "expectLabel": "custom-modal"     },
-        { "kind": "click", "targetLabel": "confirm",           "expectLabel": "confirmed"        }
+        {
+          "kind": "click",
+          "targetLabel": "show-alert",
+          "expectLabel": "confirm-action"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "show-action-sheet",
+          "expectLabel": "select-an-action"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "show-custom-modal",
+          "expectLabel": "custom-modal"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "confirm",
+          "expectLabel": "confirmed"
+        }
       ]
     },
     "GestureTestPage": {
-      "actions": ["run-action-scripts"],
+      "actions": [
+        "run-action-scripts"
+      ],
       "maxActionLabels": 2,
       "postActionWaitMs": 500,
       "actionScripts": [
-        { "kind": "click",      "targetLabel": "tap-count: 0",  "expectLabel": "tap-count: 1"   },
-        { "kind": "long-press", "targetLabel": "long-press-area","expectLabel": "long-pressed"  },
-        { "kind": "click",      "targetLabel": "zone-b",        "expectLabel": "current-zone: b"}
+        {
+          "kind": "click",
+          "targetLabel": "tap-count: 0",
+          "expectLabel": "tap-count: 1"
+        },
+        {
+          "kind": "long-press",
+          "targetLabel": "long-press-area",
+          "expectLabel": "long-pressed"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "zone-b",
+          "expectLabel": "current-zone: b"
+        }
       ]
     },
     "SearchTestPage": {
-      "actions": ["fill-first-input", "run-action-scripts"],
+      "actions": [
+        "fill-first-input",
+        "run-action-scripts"
+      ],
       "inputText": "Apple",
       "postActionWaitMs": 350,
       "actionScripts": [
-        { "kind": "click", "targetLabel": "search", "expectLabel": "found: 1"       },
-        { "kind": "click", "targetLabel": "Apple",  "expectLabel": "selected: Apple"},
-        { "kind": "click", "targetLabel": "clear",  "expectLabel": "total: 20"      }
+        {
+          "kind": "click",
+          "targetLabel": "search",
+          "expectLabel": "found: 1"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "Apple",
+          "expectLabel": "selected: Apple"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "clear",
+          "expectLabel": "total: 20"
+        }
       ]
     },
     "FormTestPage": {
-      "actions": ["fill-first-input", "run-action-scripts"],
+      "actions": [
+        "fill-first-input",
+        "run-action-scripts"
+      ],
       "inputText": "Alice",
       "postActionWaitMs": 350,
       "actionScripts": [
-        { "kind": "click", "targetLabel": "submit", "expectLabel": "email is required" }
+        {
+          "kind": "click",
+          "targetLabel": "submit",
+          "expectLabel": "email is required"
+        }
       ]
     },
     "CalendarModuleTestPage": {
@@ -152,33 +256,94 @@
       ],
       "postActionWaitMs": 500,
       "actionScripts": [
-        { "kind": "click", "targetLabel": "timestampToCalendar", "expectLabel": "calendar:2024" },
-        { "kind": "click", "targetLabel": "formatTimestamp",     "expectLabel": "formatted:2024" },
-        { "kind": "click", "targetLabel": "formatWithQuotes",    "expectLabel": "quoted:2024"    }
+        {
+          "kind": "click",
+          "targetLabel": "timestampToCalendar",
+          "expectLabel": "calendar:2024"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "formatTimestamp",
+          "expectLabel": "formatted:2024"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "formatWithQuotes",
+          "expectLabel": "quoted:2024年10月01日"
+        }
       ]
     },
     "CSSPropsTestPage": {
-      "actions": ["run-action-scripts"],
+      "actions": [
+        "run-action-scripts"
+      ],
       "postActionWaitMs": 250,
       "actionScripts": [
-        { "kind": "click", "targetLabel": "touch-enabled",  "expectLabel": "touch-disabled" },
-        { "kind": "click", "targetLabel": "touch-disabled", "expectLabel": "touch-enabled"  }
+        {
+          "kind": "click",
+          "targetLabel": "touch-enabled",
+          "expectLabel": "touch-disabled"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "touch-disabled",
+          "expectLabel": "touch-enabled"
+        }
       ]
     },
     "KRTextAreaViewTestPage": {
-      "actions": ["run-action-scripts"],
+      "actions": [
+        "run-action-scripts"
+      ],
       "postActionWaitMs": 250,
       "actionScripts": [
-        { "kind": "click", "targetLabel": "textarea-readonly-inactive", "expectLabel": "textarea-readonly-active" },
-        { "kind": "click", "targetLabel": "textarea-clear-idle",        "expectLabel": "textarea-cleared: 1"      }
+        {
+          "kind": "click",
+          "targetLabel": "textarea-readonly-inactive",
+          "expectLabel": "textarea-readonly-active"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "textarea-clear-idle",
+          "expectLabel": "textarea-cleared: 1"
+        }
       ]
     },
     "KRTextFieldViewTestPage": {
-      "actions": ["run-action-scripts"],
+      "actions": [
+        "run-action-scripts"
+      ],
       "postActionWaitMs": 250,
       "actionScripts": [
-        { "kind": "click", "targetLabel": "readonly-inactive", "expectLabel": "readonly-active"  },
-        { "kind": "click", "targetLabel": "clear-idle",        "expectLabel": "clear-count: 1"   }
+        {
+          "kind": "click",
+          "targetLabel": "readonly-inactive",
+          "expectLabel": "readonly-active"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "clear-idle",
+          "expectLabel": "clear-count: 1"
+        }
+      ]
+    },
+    "KRViewTouchTestPage": {
+      "actions": [
+        "run-action-scripts"
+      ],
+      "maxActionLabels": 2,
+      "postActionWaitMs": 300,
+      "actionScripts": [
+        {
+          "kind": "click",
+          "targetLabel": "touch-area",
+          "expectLabel": "touch-down: 1"
+        },
+        {
+          "kind": "dblclick",
+          "targetLabel": "dblclick-idle",
+          "expectLabel": "dblclick-count: 1"
+        }
       ]
     }
   }

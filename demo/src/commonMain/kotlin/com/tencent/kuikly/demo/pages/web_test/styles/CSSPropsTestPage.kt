@@ -286,6 +286,88 @@ internal class CSSPropsTestPage : Pager() {
                 }
 
                 View { attr { height(50f) } }
+
+                // === Section 6: Z-Index ===
+                Text {
+                    attr {
+                        text("6. Z-Index")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(Color(0xFF1976D2))
+                        borderRadius(8f)
+                        allCenter()
+                        zIndex(10)
+                    }
+                    Text {
+                        attr {
+                            text("zindex-10")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(Color(0xFF43A047))
+                        borderRadius(8f)
+                        allCenter()
+                        zIndex(1)
+                    }
+                    Text {
+                        attr {
+                            text("zindex-1")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                        }
+                    }
+                }
+
+                // === Section 7: Accessibility ===
+                Text {
+                    attr {
+                        text("7. Accessibility")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(Color(0xFF8E24AA))
+                        borderRadius(8f)
+                        allCenter()
+                        accessibility("accessibility-label-button")
+                    }
+                    Text {
+                        attr {
+                            text("accessibility-label-button")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                View { attr { height(50f) } }
             }
         }
     }

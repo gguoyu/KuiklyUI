@@ -251,6 +251,62 @@ internal class KRTextAreaViewTestPage : Pager() {
                 }
 
                 View { attr { height(50f) } }
+
+                // === Section 6: Styling & Keyboard ===
+                Text {
+                    attr {
+                        text("6. Styling & Keyboard")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(0xFFF5F5F5)
+                        borderRadius(8f)
+                        padding(all = 8f)
+                    }
+                    TextArea {
+                        attr {
+                            flex(1f)
+                            fontSize(14f)
+                            color(Color.BLACK)
+                            placeholder("center-aligned-area")
+                            placeholderColor(Color(0xFF9E9E9E))
+                            textAlignCenter()
+                            tintColor(Color(0xFF1976D2))
+                            returnKeyTypeSearch()
+                        }
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(0xFFF5F5F5)
+                        borderRadius(8f)
+                        padding(all = 8f)
+                    }
+                    TextArea {
+                        attr {
+                            flex(1f)
+                            fontSize(14f)
+                            color(Color.BLACK)
+                            placeholder("bold-weight-area")
+                            fontWeightBold()
+                            returnKeyTypeDone()
+                        }
+                    }
+                }
+
+                View { attr { height(50f) } }
             }
         }
     }

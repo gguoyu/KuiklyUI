@@ -20,6 +20,8 @@ internal class CalendarModuleTestPage : Pager() {
     private var addResult by observable("added:pending")
     private var formatResult by observable("formatted:pending")
     private var quotedFormatResult by observable("quoted:pending")
+    private var parseResult by observable("parse:pending")
+    private var fieldsResult by observable("fields:pending")
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -89,6 +91,35 @@ internal class CalendarModuleTestPage : Pager() {
                     }
                 }
                 Text { attr { text(ctx.quotedFormatResult); margin(left = 16f, top = 8f) } }
+                Button {
+                    attr { titleAttr { text("parseFormattedTime") }; size(width = 220f, height = 48f); margin(left = 16f, top = 16f); backgroundColor(0xFFE53935) }
+                    event {
+                        click {
+                            // Parse a formatted date string back to timestamp — exercises parseFormat / parseDateStringToLong
+                            val parsed = ctx.acquireModule<CalendarModule>(CalendarModule.MODULE_NAME)
+                                .parseFormattedTime("2024-10-01 08:30:00.100", ctx.formatPattern)
+                            ctx.parseResult = "parse:${parsed}"
+                        }
+                    }
+                }
+                Text { attr { text(ctx.parseResult); margin(left = 16f, top = 8f) } }
+                Button {
+                    attr { titleAttr { text("getMoreFields") }; size(width = 220f, height = 48f); margin(left = 16f, top = 16f); backgroundColor(0xFF1976D2) }
+                    event {
+                        click {
+                            // Get HOUR_OF_DAY, MINUTE, SECOND, MILLISECOND, DAY_OF_YEAR from calendar
+                            val m = ctx.acquireModule<CalendarModule>(CalendarModule.MODULE_NAME)
+                            val cal = m.newCalendarInstance(ctx.sampleTimestamp)
+                            val hour = cal.get(ICalendar.Field.HOUR_OF_DAY)
+                            val min = cal.get(ICalendar.Field.MINUS)
+                            val sec = cal.get(ICalendar.Field.SECOND)
+                            val ms = cal.get(ICalendar.Field.MILLISECOND)
+                            val doy = cal.get(ICalendar.Field.DAY_OF_YEAR)
+                            ctx.fieldsResult = "fields:${hour}-${min}-${sec}-${ms}-${doy}"
+                        }
+                    }
+                }
+                Text { attr { text(ctx.fieldsResult); margin(left = 16f, top = 8f) } }
             }
         }
     }

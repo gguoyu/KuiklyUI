@@ -49,6 +49,8 @@ internal class GestureTestPage : Pager() {
     private var longPressActive by observable(false)
     private var gestureLog by observable("idle")
     private var tapZone by observable("none")
+    private var doubleClickCount by observable(0)
+    private var panState by observable("pan-idle")
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -386,6 +388,86 @@ internal class GestureTestPage : Pager() {
                             fontSize(14f)
                             color(0xFF666666)
                             marginTop(8f)
+                        }
+                    }
+                }
+
+                View {
+                    attr {
+                        height(50f)
+                    }
+                }
+
+                // === Section 6: Double Click ===
+                Text {
+                    attr {
+                        text("6. Double Click")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(80f)
+                        backgroundColor(
+                            if (ctx.doubleClickCount % 2 == 0) Color(0xFF1976D2) else Color(0xFFE53935)
+                        )
+                        borderRadius(12f)
+                        allCenter()
+                    }
+                    event {
+                        doubleClick {
+                            ctx.doubleClickCount += 1
+                            ctx.gestureLog = "double-click #${ctx.doubleClickCount}"
+                        }
+                    }
+                    Text {
+                        attr {
+                            text(if (ctx.doubleClickCount == 0) "double-click-area" else "double-clicked: ${ctx.doubleClickCount}")
+                            fontSize(16f)
+                            fontWeightBold()
+                            color(Color.WHITE)
+                        }
+                    }
+                }
+
+                // === Section 7: Pan ===
+                Text {
+                    attr {
+                        text("7. Pan Gesture")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(80f)
+                        backgroundColor(Color(0xFF00897B))
+                        borderRadius(12f)
+                        allCenter()
+                    }
+                    event {
+                        pan { params ->
+                            ctx.panState = "pan-${params.state}"
+                            ctx.gestureLog = "pan:${params.state}"
+                        }
+                    }
+                    Text {
+                        attr {
+                            text(ctx.panState)
+                            fontSize(16f)
+                            fontWeightBold()
+                            color(Color.WHITE)
                         }
                     }
                 }

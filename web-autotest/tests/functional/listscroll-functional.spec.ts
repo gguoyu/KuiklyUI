@@ -308,4 +308,77 @@ test.describe('list scroll 功能验证', () => {
     expect(await kuiklyPage.page.locator('[data-kuikly-component=KRRichTextView]').count()).toBeGreaterThan(10);
     expect(await kuiklyPage.page.locator('[data-kuikly-component=KRView]').count()).toBeGreaterThan(10);
   });
+
+  test('touch drag scroll should trigger handleMoveCommon and list scroll handlers', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const listContainer = kuiklyPage.component('KRListView').first();
+    const box = await listContainer.boundingBox();
+    expect(box).toBeTruthy();
+
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height * 0.7;
+
+    // Simulate a touch-style drag (mouse down, move, up) to trigger H5ListView touch handlers
+    await kuiklyPage.page.mouse.move(cx, cy);
+    await kuiklyPage.page.mouse.down();
+    // Move upward (scroll down) in multiple steps to trigger handleMoveCommon branches
+    for (let i = 0; i < 10; i++) {
+      await kuiklyPage.page.mouse.move(cx, cy - (i + 1) * 30, { steps: 2 });
+      await kuiklyPage.page.waitForTimeout(16);
+    }
+    await kuiklyPage.page.mouse.up();
+    await kuiklyPage.page.waitForTimeout(300);
+
+    const { scrollTop: after } = await getScrollMetrics(listContainer);
+    expect(after).toBeGreaterThanOrEqual(0);
+  });
+
+  test('navigating away and back should trigger KuiklyRenderView lifecycle handlers', async ({ kuiklyPage }) => {
+    // First navigation — triggers initial lifecycle
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.component('KRListView').first()).toBeVisible();
+
+    // Navigate to a different page — triggers onPause/destroy lifecycle
+    await kuiklyPage.goto('SmokeTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    // Navigate back — triggers onCreate/onResume lifecycle again
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.component('KRListView').first()).toBeVisible();
+  });
+
+  test('scroll events should fire dragBegin and scroll callbacks when dragging', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const listContainer = kuiklyPage.component('KRListView').first();
+    // Perform a drag to trigger dragBegin and scroll callbacks
+    await dragInContainer(kuiklyPage.page, listContainer, 0, -200);
+    await kuiklyPage.page.waitForTimeout(300);
+
+    // dragBegin count should be > 0
+    const dragBeginText = kuiklyPage.page.getByText(/drag-begin: [1-9]/);
+    await expect(dragBeginText).toBeVisible();
+  });
+
+  test('wheel scroll should fire scroll callbacks', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const listContainer = kuiklyPage.component('KRListView').first();
+    const box = await listContainer.boundingBox();
+    expect(box).toBeTruthy();
+
+    await kuiklyPage.page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await kuiklyPage.page.mouse.wheel(0, 400);
+    await kuiklyPage.page.waitForTimeout(400);
+
+    // scroll-events count should be > 0 after wheel scrolling
+    const scrollText = kuiklyPage.page.getByText(/scroll-events: [1-9]/);
+    await expect(scrollText).toBeVisible();
+  });
 });

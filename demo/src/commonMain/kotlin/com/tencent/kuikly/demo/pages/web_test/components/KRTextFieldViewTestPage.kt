@@ -255,6 +255,97 @@ internal class KRTextFieldViewTestPage : Pager() {
                 }
 
                 View { attr { height(50f) } }
+
+                // === Section 6: Keyboard Types ===
+                Text {
+                    attr {
+                        text("6. Keyboard Types")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(0xFFF5F5F5)
+                        borderRadius(8f)
+                        padding(left = 12f)
+                        justifyContentCenter()
+                    }
+                    Input {
+                        attr {
+                            flex(1f)
+                            height(44f)
+                            placeholder("password-input")
+                            keyboardTypePassword()
+                        }
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(0xFFF5F5F5)
+                        borderRadius(8f)
+                        padding(left = 12f)
+                        justifyContentCenter()
+                    }
+                    Input {
+                        attr {
+                            flex(1f)
+                            height(44f)
+                            placeholder("number-input")
+                            keyboardTypeNumber()
+                        }
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(0xFFF5F5F5)
+                        borderRadius(8f)
+                        padding(left = 12f)
+                        justifyContentCenter()
+                    }
+                    Input {
+                        attr {
+                            flex(1f)
+                            height(44f)
+                            placeholder("email-search-input")
+                            keyboardTypeEmail()
+                            returnKeyTypeSearch()
+                        }
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(0xFFF5F5F5)
+                        borderRadius(8f)
+                        padding(left = 12f)
+                        justifyContentCenter()
+                    }
+                    Input {
+                        attr {
+                            flex(1f)
+                            height(44f)
+                            placeholder("done-return-input")
+                            returnKeyTypeDone()
+                        }
+                    }
+                }
+
+                View { attr { height(50f) } }
             }
         }
     }

@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from '../../fixtures/test-base';
+import { test, expect, type Locator, type Page } from '../../fixtures/test-base';
 
 async function longPressTarget(target: Locator, holdMs: number = 850) {
   const box = await target.boundingBox();
@@ -106,5 +106,45 @@ test.describe('Gesture functional', () => {
 
     await expect(kuiklyPage.page.getByText('long-press-status: inactive')).toBeVisible();
     await expect(kuiklyPage.page.getByText('gesture-log: long-press-cancelled')).toBeVisible();
+  });
+
+  test('double clicking the double-click area should increment counter', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('GestureTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const target = kuiklyPage.page.getByText('double-click-area', { exact: true });
+    await target.scrollIntoViewIfNeeded();
+    await expect(target).toBeVisible();
+    await target.dblclick();
+    await kuiklyPage.page.waitForTimeout(400);
+
+    await expect(kuiklyPage.page.getByText('double-clicked: 1', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: double-click #1')).toBeVisible();
+  });
+
+  test('pan gesture on the pan area should transition through pan states', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('GestureTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const panArea = kuiklyPage.page.getByText('pan-idle', { exact: true });
+    await panArea.scrollIntoViewIfNeeded();
+    await expect(panArea).toBeVisible();
+
+    const box = await panArea.boundingBox();
+    if (!box) throw new Error('Pan area not visible');
+
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+
+    await kuiklyPage.page.mouse.move(cx, cy);
+    await kuiklyPage.page.mouse.down();
+    await kuiklyPage.page.mouse.move(cx + 60, cy, { steps: 10 });
+    await kuiklyPage.page.waitForTimeout(80);
+    await kuiklyPage.page.mouse.up();
+    await kuiklyPage.page.waitForTimeout(200);
+
+    // After pan completes, gesture-log should reflect a pan event
+    const log = kuiklyPage.page.getByText(/gesture-log: pan:/);
+    await expect(log).toBeVisible();
   });
 });

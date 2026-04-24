@@ -1,8 +1,5 @@
-// @kuikly-autogen {"pageName":"NetworkModuleTestPage","category":"modules","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/modules/NetworkModuleTestPage.kt","managedBy":"web-autotest","templateProfile":"module-network","targetClassification":"functional","specLocation":"web-autotest/tests/functional/modules/auto-network-module-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-gap","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
+// @kuikly-autogen {"pageName":"NetworkModuleTestPage","category":"modules","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/modules/NetworkModuleTestPage.kt","managedBy":"web-autotest","templateProfile":"module-network","targetClassification":"functional","specLocation":"web-autotest/tests/functional/modules/auto-network-module-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-refresh","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
 import { test, expect } from '../../../fixtures/test-base';
-
-// Port is set in playwright.config.js via process.env.KUIKLY_PORT
-const TEST_SERVER_PORT = Number(process.env.KUIKLY_PORT || 8080);
 
 const PAGE_NAME = "NetworkModuleTestPage";
 const TITLE_TEXT = "NetworkModuleTestPage";
@@ -278,6 +275,9 @@ function hasUsableInteractionHints() {
     || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
 }
 
+// Port is set in playwright.config.js via process.env.KUIKLY_PORT
+const _testServerPort = Number(process.env.KUIKLY_PORT || 8080);
+
 async function waitForOutput(page, text) {
   await expect(page.getByText(text, { exact: false }).first()).toBeVisible({ timeout: 15000 });
 }
@@ -310,13 +310,13 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await waitForOutput(kuiklyPage.page, 'Get request completed:');
     await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
-    await expect(kuiklyPage.page.getByText(`http://localhost:${TEST_SERVER_PORT}/api/network/get?key=value`, { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('http://localhost:' + _testServerPort + '/api/network/get?key=value', { exact: false })).toBeVisible({ timeout: 15000 });
 
     await clickNetworkAction(kuiklyPage.page, 'requestPost');
     await waitForOutput(kuiklyPage.page, 'Post request completed:');
     await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
-    await expect(kuiklyPage.page.getByText(`http://localhost:${TEST_SERVER_PORT}/api/network/post`, { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('http://localhost:' + _testServerPort + '/api/network/post', { exact: false })).toBeVisible({ timeout: 15000 });
 
     await clickNetworkAction(kuiklyPage.page, 'requestPostBinary');
     await waitForOutput(kuiklyPage.page, 'Post request completed:');
