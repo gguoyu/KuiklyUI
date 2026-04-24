@@ -1,12 +1,9 @@
-import { createRequire } from 'module';
-import { join } from 'path';
 import type { Page } from '@playwright/test';
 
 import { test, expect } from '../../../fixtures/test-base';
 
-const _require = createRequire(import.meta.url);
-const { resolvePort } = _require(join(process.cwd(), 'web-autotest', 'config', 'runtime.cjs'));
-const TEST_SERVER_PORT: number = resolvePort();
+// Port is set in playwright.config.js via process.env.KUIKLY_PORT
+const TEST_SERVER_PORT = Number(process.env.KUIKLY_PORT || 8080);
 
 async function waitForResult(page: Page, text: string) {
   await expect(page.getByText(text, { exact: false })).toBeVisible({ timeout: 15000 });

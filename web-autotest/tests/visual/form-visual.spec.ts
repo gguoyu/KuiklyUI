@@ -1,12 +1,19 @@
 import { test, expect } from '../../fixtures/test-base';
 
 async function getToggleCenters(page: import('@playwright/test').Page): Promise<Array<{ cx: number; cy: number }>> {
+  await page.evaluate(() => {
+    const lists = document.querySelectorAll('[data-kuikly-component="KRListView"]');
+    lists.forEach((el) => { (el as HTMLElement).scrollTop = (el as HTMLElement).scrollHeight; });
+    const scrollers = document.querySelectorAll('[data-kuikly-component="KRScrollView"]');
+    scrollers.forEach((el) => { (el as HTMLElement).scrollTop = (el as HTMLElement).scrollHeight; });
+  });
+  await page.waitForTimeout(400);
   return page.evaluate(() => {
     const views = document.querySelectorAll('[data-kuikly-component="KRView"]');
     const result: Array<{ cx: number; cy: number }> = [];
     views.forEach((view) => {
       const box = (view as HTMLElement).getBoundingClientRect();
-      if (Math.abs(box.width - 52) < 5 && Math.abs(box.height - 28) < 5 && box.y > 0) {
+      if (Math.abs(box.width - 52) < 5 && Math.abs(box.height - 28) < 5 && box.top >= 0 && box.top < window.innerHeight) {
         result.push({
           cx: Math.round(box.x + box.width / 2),
           cy: Math.round(box.y + box.height / 2),

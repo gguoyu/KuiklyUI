@@ -1,11 +1,8 @@
 // @kuikly-autogen {"pageName":"NetworkModuleTestPage","category":"modules","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/modules/NetworkModuleTestPage.kt","managedBy":"web-autotest","templateProfile":"module-network","targetClassification":"functional","specLocation":"web-autotest/tests/functional/modules/auto-network-module-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-gap","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
-import { createRequire } from 'module';
-import { join } from 'path';
 import { test, expect } from '../../../fixtures/test-base';
 
-const _require = createRequire(import.meta.url);
-const { resolvePort } = _require(join(process.cwd(), 'web-autotest', 'config', 'runtime.cjs'));
-const TEST_SERVER_PORT: number = resolvePort();
+// Port is set in playwright.config.js via process.env.KUIKLY_PORT
+const TEST_SERVER_PORT = Number(process.env.KUIKLY_PORT || 8080);
 
 const PAGE_NAME = "NetworkModuleTestPage";
 const TITLE_TEXT = "NetworkModuleTestPage";

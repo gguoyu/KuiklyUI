@@ -13,7 +13,23 @@ const projectRoot = join(__dirname, '../..');
 const e2eRoot = join(__dirname, '..');
 const { build, coverage, reporting, runtime } = webE2EConfig;
 const defaultPort = String(runtime.resolvePort());
-const gradleWrapper = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
+// Gradle wrapper selection:
+// - In a MSYS/Git-Bash shell on Windows, spawn with shell:true uses cmd.exe which cannot
+//   run ./gradlew or gradlew.bat directly. We invoke bash explicitly instead.
+// - On plain Windows (cmd/PowerShell), gradlew.bat works fine.
+// - On Unix/Mac, ./gradlew works.
+const isWin = process.platform === 'win32';
+const isMsysShell = Boolean(process.env.MSYSTEM || process.env.MINGW_PREFIX || process.env.CYGWIN);
+let gradleWrapper;
+if (isWin && isMsysShell) {
+  // Running inside Git Bash / MSYS2 on Windows — use bash to execute the sh wrapper
+  gradleWrapper = `bash "${join(projectRoot, 'gradlew').replace(/\\/g, '/')}"`;
+} else if (isWin) {
+  // Plain Windows cmd / PowerShell — use the .bat wrapper via absolute path
+  gradleWrapper = `"${join(projectRoot, 'gradlew.bat')}"`;
+} else {
+  gradleWrapper = './gradlew';
+}
 const gradleBuildArgs = build.gradleBuildArgs;
 
 const args = process.argv.slice(2);

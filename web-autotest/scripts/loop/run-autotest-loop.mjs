@@ -1044,6 +1044,9 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
 
 function buildManagedNetworkModuleSpec(pageMeta, preamble, pageNameLiteral) {
   return `${preamble}
+// Port is set in playwright.config.js via process.env.KUIKLY_PORT
+const _testServerPort = Number(process.env.KUIKLY_PORT || ${testServerPort});
+
 async function waitForOutput(page, text) {
   await expect(page.getByText(text, { exact: false }).first()).toBeVisible({ timeout: 15000 });
 }
@@ -1076,13 +1079,13 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await waitForOutput(kuiklyPage.page, 'Get request completed:');
     await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
-    await expect(kuiklyPage.page.getByText('http://localhost:${testServerPort}/api/network/get?key=value', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('http://localhost:' + _testServerPort + '/api/network/get?key=value', { exact: false })).toBeVisible({ timeout: 15000 });
 
     await clickNetworkAction(kuiklyPage.page, 'requestPost');
     await waitForOutput(kuiklyPage.page, 'Post request completed:');
     await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
-    await expect(kuiklyPage.page.getByText('http://localhost:${testServerPort}/api/network/post', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('http://localhost:' + _testServerPort + '/api/network/post', { exact: false })).toBeVisible({ timeout: 15000 });
 
     await clickNetworkAction(kuiklyPage.page, 'requestPostBinary');
     await waitForOutput(kuiklyPage.page, 'Post request completed:');
