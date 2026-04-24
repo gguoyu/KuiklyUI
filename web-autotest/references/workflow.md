@@ -86,7 +86,7 @@ write each carrier page from scratch.
 ## Current repo-specific facts
 
 - `web-autotest/fixtures/test-base.ts` starts and stops Playwright V8 coverage for each test when `KUIKLY_COLLECT_V8_COVERAGE=true`.
-- `web-autotest/scripts/coverage-report.mjs` reads `.v8_output`, filters coverage to `core-render-web/base` and `core-render-web/h5` Kotlin roots, and uses Monocart to emit HTML/LCOV/JSON reports.
+- `web-autotest/scripts/coverage-report.mjs` reads `.v8_output`, filters coverage to the Kotlin source roots listed in `scopeRoots` inside `kuikly.autotest.config.cjs`, and uses Monocart to emit HTML/LCOV/JSON reports.
 - `web-autotest/scripts/coverage-report.mjs --check` enforces thresholds from `web-autotest/config/coverage.cjs` against the generated `coverage-summary.json` totals.
 - `web-autotest/playwright.config.js` writes a JSON report to `web-autotest/reports/test-results.json`.
 - `web_test` pages currently include components, styles, interactions, animations, composite, and modules categories.

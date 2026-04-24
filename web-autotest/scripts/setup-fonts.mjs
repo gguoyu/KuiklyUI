@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * 字体下载脚本
+ * Font download script
  *
- * 从 Google Fonts CDN 下载 Noto Sans SC 子集字体（Latin + 常用中文），
- * 保存到 web-autotest/fonts/NotoSansSC-Regular.woff2。
+ * Downloads the Noto Sans SC subset font (Latin + common CJK) from Google Fonts CDN
+ * and saves it to web-autotest/fonts/<fontFileName> (configured in kuikly.autotest.config.cjs).
  *
- * 字体用于 serve.js 注入到测试页面，使文字渲染与系统字体解耦，
- * 消除跨平台字体渲染差异，提升截图一致性。
+ * The font is injected into test pages by serve.js to decouple text rendering from system
+ * fonts, eliminating cross-platform rendering differences that would cause screenshot flakiness.
  *
- * 使用方法：
- *   npm run setup       # 安装字体（首次使用或字体文件丢失时执行）
+ * Usage:
+ *   npm run setup       # install font (run once on first use or when font file is missing)
  *   node scripts/setup-fonts.mjs
  */
 
@@ -19,13 +19,17 @@ import { fileURLToPath } from 'url';
 import { createWriteStream } from 'fs';
 import { get as httpsGet } from 'https';
 import { get as httpGet } from 'http';
+import { createRequire } from 'module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const _require = createRequire(import.meta.url);
+const autotestConfig = _require(join(__dirname, '..', 'kuikly.autotest.config.cjs'));
+
 const E2E_ROOT  = join(__dirname, '..');
-const FONTS_DIR = join(E2E_ROOT, 'fonts');
-const FONT_FILE = join(FONTS_DIR, 'NotoSansSC-Regular.woff2');
+const FONTS_DIR = join(E2E_ROOT, autotestConfig.build.fontsDirName || 'fonts');
+const FONT_FILE = join(FONTS_DIR, autotestConfig.build.fontFileName || 'NotoSansSC-Regular.woff2');
 
 // Google Fonts CSS2 API — 请求 Noto Sans SC Regular，仅包含 Latin 和常用中文子集
 // display=block 确保字体加载期间不会出现 FOUT（Flash of Unstyled Text）
