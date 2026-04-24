@@ -33,7 +33,7 @@
     },
     {
       "id": "non-web-test-target",
-      "message": "Spec targets a page outside demo/pages/web_test. Delete the spec or recreate the page under web_test before continuing."
+      "message": "Spec targets a page outside <webTestRoot>. Delete the spec or recreate the page under the configured webTestRoot before continuing."
     }
   ]
 }

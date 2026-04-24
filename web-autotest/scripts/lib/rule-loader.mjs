@@ -4,6 +4,7 @@ import { detectClassificationUpgradeOpportunity } from './classification-policy.
 import { repoRoot } from './paths.mjs';
 
 const rulesRoot = join(repoRoot, 'web-autotest', 'rules');
+const projectRulesRoot = join(repoRoot, 'web-autotest', 'project-rules');
 
 const fallbackTemplateProfiles = Object.freeze({
   categoryDefaults: Object.freeze({
@@ -145,22 +146,32 @@ function loadRuleFile(fileName, fallbackValue) {
     return cache.get(fileName);
   }
 
-  const filePath = join(rulesRoot, fileName);
-  if (!existsSync(filePath)) {
-    cache.set(fileName, fallbackValue);
-    return fallbackValue;
+  // Layer 1: framework defaults (fallbackValue)
+  // Layer 2: web-autotest/rules/ — framework-level generic rules
+  const frameworkPath = join(rulesRoot, fileName);
+  let merged = fallbackValue;
+  if (existsSync(frameworkPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(frameworkPath, 'utf8'));
+      merged = deepMerge(merged, parsed);
+    } catch (error) {
+      console.warn(`[autotest] Failed to load rule file ${fileName}: ${error.message}`);
+    }
   }
 
-  try {
-    const parsed = JSON.parse(readFileSync(filePath, 'utf8'));
-    const merged = deepMerge(fallbackValue, parsed);
-    cache.set(fileName, merged);
-    return merged;
-  } catch (error) {
-    console.warn(`[autotest] Failed to load rule file ${fileName}: ${error.message}`);
-    cache.set(fileName, fallbackValue);
-    return fallbackValue;
+  // Layer 3: web-autotest/project-rules/ — project-specific overrides (page profiles etc.)
+  const projectPath = join(projectRulesRoot, fileName);
+  if (existsSync(projectPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(projectPath, 'utf8'));
+      merged = deepMerge(merged, parsed);
+    } catch (error) {
+      console.warn(`[autotest] Failed to load project rule file ${fileName}: ${error.message}`);
+    }
   }
+
+  cache.set(fileName, merged);
+  return merged;
 }
 
 export function getTemplateProfileRules() {

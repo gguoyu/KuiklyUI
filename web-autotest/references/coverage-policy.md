@@ -11,9 +11,11 @@ These values come from `web-autotest/config/coverage.cjs`. HTML/LCOV/JSON covera
 
 ## Scope
 
-Coverage is intentionally filtered to Kotlin files under:
+Coverage is intentionally filtered to the Kotlin source roots listed under `scopeRoots` in `kuikly.autotest.config.cjs`. For this project those are:
 - `core-render-web/base/src/jsMain/kotlin`
 - `core-render-web/h5/src/jsMain/kotlin`
+
+When reusing this framework in another project, update `scopeRoots` in `kuikly.autotest.config.cjs` to point at the relevant source directories.
 
 Do not assume that other Kotlin modules are part of the enforcement scope unless the coverage script changes.
 
@@ -33,11 +35,14 @@ Do not assume that other Kotlin modules are part of the enforcement scope unless
 7. If no suitable page exists, add a dedicated `web_test` page before writing the spec.
 8. Never point a new or migrated spec at a non-`web_test` page just to recover coverage.
 
-## Good targets in the current repo
+## Good coverage targets
 
-- branch-oriented interaction pages such as `EventCaptureTestPage`, `GestureTestPage`, and `PageListTestPage`
-- module pages under `demo/.../web_test/modules/`
-- component pages that already expose multiple variants but lack explicit branch assertions
+- branch-oriented interaction pages (category `interactions`) — these pages exercise conditional logic and are the highest-value coverage targets
+- module pages (category `modules`) — each module method call exercises a distinct code path
+- component pages that already expose multiple property variants but lack explicit branch assertions
+- composite pages that combine multiple source-layer behaviors in one scenario
+
+Consult `suggest-test-targets.mjs` output and the low-coverage files in `coverage-final.json` to identify the specific pages for the current project.
 
 ## Bad coverage fixes
 
@@ -45,7 +50,7 @@ Do not assume that other Kotlin modules are part of the enforcement scope unless
 - lowering thresholds
 - changing the coverage script scope to hide real gaps
 - deleting meaningful tests to remove failures
-- adding or keeping specs that target pages outside `demo/.../pages/web_test/`
+- adding or keeping specs that target pages outside the configured `webTestRoot`
 
 ## Final gate
 

@@ -378,7 +378,7 @@ If any answer is no, revise the page design before writing the file.
 
 ### Carrier page rules
 
-- `web-autotest/tests/` must target only pages registered under `demo/.../pages/web_test/`.
+- `web-autotest/tests/` must target only pages registered under `<webTestRoot>/`.
 - If no existing `web_test` carrier can express the missing capability, add a carrier page before adding the spec.
 - Do not create placeholder carrier pages that only show a title and do not expose the missing behavior itself.
 - If the intended page behavior is still ambiguous after reading nearby `web_test` patterns and the source file under test, stop and emit a manual-review warning.

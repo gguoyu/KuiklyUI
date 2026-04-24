@@ -1,0 +1,107 @@
+{
+  "pageProfiles": {
+    "ModalTestPage": {
+      "actions": [
+        "run-action-scripts"
+      ],
+      "maxActionLabels": 3,
+      "postActionWaitMs": 500,
+      "actionScripts": [
+        {
+          "kind": "click",
+          "targetLabel": "显示 Alert 弹窗",
+          "expectLabel": "确认操作"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "确定",
+          "expectLabel": "Alert 结果: 点击了确定"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "显示 ActionSheet",
+          "expectLabel": "请选择一个操作"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "从相册选择",
+          "expectLabel": "ActionSheet 结果: 选择了: 从相册选择"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "显示自定义弹窗",
+          "expectLabel": "自定义弹窗"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "确认",
+          "expectLabel": "自定义弹窗结果: 点击了确认按钮"
+        }
+      ]
+    },
+    "GestureTestPage": {
+      "actions": [
+        "run-action-scripts"
+      ],
+      "maxActionLabels": 2,
+      "postActionWaitMs": 500,
+      "actionScripts": [
+        {
+          "kind": "click",
+          "targetLabel": "点击计数: 0",
+          "expectLabel": "点击计数: 1"
+        },
+        {
+          "kind": "long-press",
+          "targetLabel": "长按此区域",
+          "expectLabel": "长按已激活！"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "区域 B",
+          "expectLabel": "当前区域: B"
+        }
+      ]
+    },
+    "SearchTestPage": {
+      "actions": [
+        "fill-first-input",
+        "run-action-scripts"
+      ],
+      "inputText": "Apple",
+      "postActionWaitMs": 350,
+      "actionScripts": [
+        {
+          "kind": "click",
+          "targetLabel": "搜索",
+          "expectLabel": "找到 1 个结果"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "Apple 苹果",
+          "expectLabel": "已选中: Apple 苹果"
+        },
+        {
+          "kind": "click",
+          "targetLabel": "清空",
+          "expectLabel": "共 20 个水果"
+        }
+      ]
+    },
+    "FormTestPage": {
+      "actions": [
+        "fill-first-input",
+        "run-action-scripts"
+      ],
+      "inputText": "Alice",
+      "postActionWaitMs": 350,
+      "actionScripts": [
+        {
+          "kind": "click",
+          "targetLabel": "提交表单",
+          "expectLabel": "邮箱不能为空"
+        }
+      ]
+    }
+  }
+}

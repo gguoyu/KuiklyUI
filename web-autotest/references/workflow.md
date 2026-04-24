@@ -98,4 +98,4 @@ write each carrier page from scratch.
 - Use `coverage-policy.md` and `feature-completeness.md` before generating a new managed spec for coverage backfill.
 - Use `classification-upgrade-rules.md` when a repaired spec starts to drift semantically.
 - Do not auto-update snapshots unless there is evidence that the UI change is intended.
-- Do not keep or repair specs that target pages outside `demo/.../pages/web_test/`; delete them or rebuild the capability under `web_test` first.
+- Do not keep or repair specs that target pages outside `<webTestRoot>/`; delete them or rebuild the capability under `web_test` first.

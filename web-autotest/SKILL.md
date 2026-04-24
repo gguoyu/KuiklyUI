@@ -94,7 +94,7 @@ Automatic mutation scope:
 - create managed coverage specs for low-coverage source objects by following `suggest-test-targets.mjs`
 - refresh managed generated specs after failures in those same generated specs
 - immediately run targeted verification for newly created or refreshed managed specs, and roll them back if the focused rerun still fails
-- never keep, repair, or generate specs that target pages outside `demo/.../pages/web_test/`
+- never keep, repair, or generate specs that target pages outside `<webTestRoot>/`
 - when a legacy spec points at a non-`web_test` page, delete or migrate that spec only after recreating the capability under `web_test`
 - **generate carrier pages for source files that have no `web_test` page yet** — see below
 - do not generate a new managed coverage spec for a page that is already fully represented by a handwritten blocker spec with only skipped or pending tests; treat that page as a blocker and stop
@@ -211,7 +211,7 @@ Stop and emit a manual-review warning when:
 - If a failure indicates unexpected product behavior with no supporting code change, treat it as a code warning and do not silently weaken the test.
 - If coverage is below threshold, add or extend tests based on the low-coverage source object, following `coverage-policy.md` for target ordering and `feature-completeness.md` for minimum behavior closure, then rerun the full flow.
 - If a handwritten spec already exists for a page and that file is a page-level blocker with only skipped or pending tests, do not auto-generate a parallel managed spec for the same page.
-- If a spec targets a page outside `demo/.../pages/web_test/`, delete or migrate that spec before continuing; do not grandfather legacy non-`web_test` targets.
+- If a spec targets a page outside `<webTestRoot>/`, delete or migrate that spec before continuing; do not grandfather legacy non-`web_test` targets.
 - If a target capability is not represented in `web_test` but the intended behavior is already obvious from the source file and existing patterns, generate the carrier page (see **Carrier page generation** above) before adding the spec.
 - If a target capability is not represented in `web_test` and the intended behavior is still ambiguous after reading the source file, stop and report it as a carrier-page blocker.
 - If a new carrier page would only be a placeholder title page and would not express the missing capability itself, stop and report it as a carrier-page blocker instead of creating it.
