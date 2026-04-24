@@ -1,6 +1,12 @@
+import { createRequire } from 'module';
+import { join } from 'path';
 import type { Page } from '@playwright/test';
 
 import { test, expect } from '../../../fixtures/test-base';
+
+const _require = createRequire(import.meta.url);
+const { resolvePort } = _require(join(process.cwd(), 'web-autotest', 'config', 'runtime.cjs'));
+const TEST_SERVER_PORT: number = resolvePort();
 
 async function waitForResult(page: Page, text: string) {
   await expect(page.getByText(text, { exact: false })).toBeVisible({ timeout: 15000 });
@@ -25,7 +31,7 @@ test.describe('KRNetworkModule functional 验证', () => {
     await waitForResult(kuiklyPage.page, 'Get request completed:');
     await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
-    await expect(kuiklyPage.page.getByText('http://localhost:8080/api/network/get?key=value', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText(`http://localhost:${TEST_SERVER_PORT}/api/network/get?key=value`, { exact: false })).toBeVisible({ timeout: 15000 });
   });
 
   test('requestGetBinary 应暴露当前实现下的 GET body 错误路径', async ({ kuiklyPage }) => {
@@ -49,7 +55,7 @@ test.describe('KRNetworkModule functional 验证', () => {
     await waitForResult(kuiklyPage.page, 'Post request completed:');
     await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
-    await expect(kuiklyPage.page.getByText('http://localhost:8080/api/network/post', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText(`http://localhost:${TEST_SERVER_PORT}/api/network/post`, { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('"key":"value"', { exact: false })).toBeVisible({ timeout: 15000 });
   });
 

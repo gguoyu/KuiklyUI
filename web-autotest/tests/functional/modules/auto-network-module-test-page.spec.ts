@@ -1,5 +1,11 @@
 // @kuikly-autogen {"pageName":"NetworkModuleTestPage","category":"modules","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/modules/NetworkModuleTestPage.kt","managedBy":"web-autotest","templateProfile":"module-network","targetClassification":"functional","specLocation":"web-autotest/tests/functional/modules/auto-network-module-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-gap","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
+import { createRequire } from 'module';
+import { join } from 'path';
 import { test, expect } from '../../../fixtures/test-base';
+
+const _require = createRequire(import.meta.url);
+const { resolvePort } = _require(join(process.cwd(), 'web-autotest', 'config', 'runtime.cjs'));
+const TEST_SERVER_PORT: number = resolvePort();
 
 const PAGE_NAME = "NetworkModuleTestPage";
 const TITLE_TEXT = "NetworkModuleTestPage";
@@ -307,13 +313,13 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await waitForOutput(kuiklyPage.page, 'Get request completed:');
     await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
-    await expect(kuiklyPage.page.getByText('http://localhost:8080/api/network/get?key=value', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText(`http://localhost:${TEST_SERVER_PORT}/api/network/get?key=value`, { exact: false })).toBeVisible({ timeout: 15000 });
 
     await clickNetworkAction(kuiklyPage.page, 'requestPost');
     await waitForOutput(kuiklyPage.page, 'Post request completed:');
     await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
-    await expect(kuiklyPage.page.getByText('http://localhost:8080/api/network/post', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText(`http://localhost:${TEST_SERVER_PORT}/api/network/post`, { exact: false })).toBeVisible({ timeout: 15000 });
 
     await clickNetworkAction(kuiklyPage.page, 'requestPostBinary');
     await waitForOutput(kuiklyPage.page, 'Post request completed:');

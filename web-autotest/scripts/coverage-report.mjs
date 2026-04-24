@@ -25,6 +25,29 @@ const reportDir = join(e2eRoot, reporting.coverageDir);
 const generatedKotlinOutputDir = normalize(join(projectRoot, coverageConfig.generatedKotlinOutputDir));
 const coverageScopeRoots = coverageConfig.scopeRoots.map((scopeRoot) => normalize(join(projectRoot, scopeRoot)));
 const targetModuleSet = new Set(coverageConfig.targetModules);
+
+// Derive the repo-relative anchor used to recognise source paths embedded in sourcemaps.
+// e.g. scopeRoots = ['core-render-web/base/...', 'core-render-web/h5/...']
+//   → scopeRootAnchor = 'core-render-web/'
+// This avoids hard-coding the path segment; it is read from kuikly.autotest.config.cjs instead.
+function longestCommonPrefix(strings) {
+  if (!strings.length) return '';
+  let prefix = strings[0];
+  for (let i = 1; i < strings.length; i++) {
+    while (!strings[i].startsWith(prefix)) {
+      prefix = prefix.slice(0, -1);
+      if (!prefix) return '';
+    }
+  }
+  return prefix;
+}
+const scopeRootAnchor = (() => {
+  const normalizedRoots = coverageConfig.scopeRoots.map((r) => r.replace(/\\/g, '/'));
+  const prefix = longestCommonPrefix(normalizedRoots);
+  // Trim to the last complete path segment (up to and including the trailing slash)
+  const slashIndex = prefix.lastIndexOf('/');
+  return slashIndex === -1 ? prefix : prefix.slice(0, slashIndex + 1);
+})();
 const distFileCache = new Map();
 const sourceMapCache = new Map();
 const sourceLineCache = new Map();
@@ -89,7 +112,7 @@ function readJson(filePath) {
 
 function resolveSourceMapSourceFilePath(sourcePath, distFile) {
   const normalizedInput = sourcePath.replace(/\\/g, '/');
-  const projectScopedIndex = normalizedInput.indexOf('core-render-web/');
+  const projectScopedIndex = scopeRootAnchor ? normalizedInput.indexOf(scopeRootAnchor) : -1;
   if (projectScopedIndex !== -1) {
     return normalize(resolve(projectRoot, normalizedInput.slice(projectScopedIndex)));
   }
@@ -171,7 +194,7 @@ function resolveSourcePath(filePath, info = {}) {
   }
 
   const normalizedInput = filePath.replace(/\\/g, '/');
-  const projectScopedIndex = normalizedInput.indexOf('core-render-web/');
+  const projectScopedIndex = scopeRootAnchor ? normalizedInput.indexOf(scopeRootAnchor) : -1;
   if (projectScopedIndex !== -1) {
     return normalize(resolve(projectRoot, normalizedInput.slice(projectScopedIndex)));
   }
@@ -912,10 +935,10 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
 
 function getReportRelativeSourcePath(filePath) {
   const normalizedPath = filePath.replace(/\\/g, '/');
-  const projectScopedIndex = normalizedPath.indexOf('core-render-web/');
+  const projectScopedIndex = scopeRootAnchor ? normalizedPath.indexOf(scopeRootAnchor) : -1;
   return projectScopedIndex === -1
     ? normalizedPath
-    : normalizedPath.slice(projectScopedIndex + 'core-render-web/'.length);
+    : normalizedPath.slice(projectScopedIndex + scopeRootAnchor.length);
 }
 
 function markBranchLineStatus(branchStats, lineNumber, covered) {

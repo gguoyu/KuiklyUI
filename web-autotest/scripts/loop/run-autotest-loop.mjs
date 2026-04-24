@@ -3,6 +3,7 @@
 import { spawnSync } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { basename, dirname, join, relative } from 'path';
+import { createRequire } from 'module';
 import { repoRoot, reportsDir as baseReportsDir, testsRoot, webTestRoot } from '../lib/paths.mjs';
 import { loopConfig, displayConfig, reportingConfig } from '../lib/config.mjs';
 import { toPosix, unique, walkFiles } from '../lib/fs-utils.mjs';
@@ -29,6 +30,10 @@ import {
 
 const fixtureEntry = join(repoRoot, 'web-autotest', 'fixtures', 'test-base');
 const reportsDir = join(baseReportsDir, 'autotest');
+
+const _require = createRequire(import.meta.url);
+const { resolvePort } = _require(join(repoRoot, 'web-autotest', 'config', 'runtime.cjs'));
+const testServerPort = resolvePort();
 
 const rawArgs = process.argv.slice(2);
 
@@ -1071,13 +1076,13 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await waitForOutput(kuiklyPage.page, 'Get request completed:');
     await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
-    await expect(kuiklyPage.page.getByText('http://localhost:8080/api/network/get?key=value', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('http://localhost:${testServerPort}/api/network/get?key=value', { exact: false })).toBeVisible({ timeout: 15000 });
 
     await clickNetworkAction(kuiklyPage.page, 'requestPost');
     await waitForOutput(kuiklyPage.page, 'Post request completed:');
     await expect(kuiklyPage.page.getByText('success=true', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('statusCode=200', { exact: false })).toBeVisible({ timeout: 15000 });
-    await expect(kuiklyPage.page.getByText('http://localhost:8080/api/network/post', { exact: false })).toBeVisible({ timeout: 15000 });
+    await expect(kuiklyPage.page.getByText('http://localhost:${testServerPort}/api/network/post', { exact: false })).toBeVisible({ timeout: 15000 });
 
     await clickNetworkAction(kuiklyPage.page, 'requestPostBinary');
     await waitForOutput(kuiklyPage.page, 'Post request completed:');
@@ -1746,7 +1751,7 @@ function tryGenerateCarrierPages(scan, context, warnings) {
       suggestedPageName: candidate.suggestedPageName,
       suggestedCategory: candidate.suggestedCategory,
       targetPath: join(
-        'demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test',
+        webTestRoot,
         candidate.suggestedCategory,
         `${candidate.suggestedPageName}.kt`
       ).replace(/\\/g, '/'),
@@ -2104,7 +2109,7 @@ function addCompletenessWarnings(scan, warnings) {
       spec: target.spec,
       pageName: target.pageName,
       matches: target.matches,
-      message: 'Spec targets a page outside demo/pages/web_test. Delete this spec or recreate the page under web_test before continuing.',
+      message: 'Spec targets a page outside the configured webTestRoot. Delete this spec or recreate the page under webTestRoot before continuing.',
     });
   }
 
