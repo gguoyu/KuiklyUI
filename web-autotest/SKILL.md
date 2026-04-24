@@ -38,6 +38,15 @@ Human-readable references:
 - `web-autotest/references/spec-templates.md`
 - `web-autotest/references/page-generation-guide.md`
 
+Accumulated experience (read before writing carrier pages or specs):
+- `web-autotest/experience/carrier-page-pitfalls.md` — Kotlin DSL 坑、shared observable、动态模板字符串、styles category 交互覆盖等
+- `web-autotest/experience/playwright-kuikly-limits.md` — headless 下不可触发的事件、Modal/click 限制、KRListView 滚动、screenshot 更新等
+
+**When you encounter a new problem worth recording:**
+1. Check if it belongs in `carrier-page-pitfalls.md` (Kotlin page authoring) or `playwright-kuikly-limits.md` (runtime/headless behavior).
+2. Add a new numbered section with: problem description, root cause, concrete fix or workaround, and a rule to follow next time.
+3. If it fits neither file, create a new `experience/<topic>.md`.
+
 Machine-readable rules consumed by the loop:
 - `web-autotest/rules/template-profiles.json`
 - `web-autotest/rules/interaction-protocol.json`
