@@ -1,1 +1,1 @@
-@../../AGENTS.md
+@../web-autotest/SKILL.md
