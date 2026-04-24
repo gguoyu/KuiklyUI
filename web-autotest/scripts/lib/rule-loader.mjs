@@ -179,30 +179,7 @@ export function getTemplateProfileRules() {
 }
 
 export function getInteractionProtocolRules() {
-  const base = loadRuleFile('interaction-protocol.json', fallbackInteractionProtocol);
-
-  // Merge project-level page profiles from project-rules/page-profiles.json.
-  // This file is named differently from the framework rule file to make it clear
-  // it only carries pageProfiles — the project-specific interaction scripts.
-  const pageProfilesPath = join(projectRulesRoot, 'page-profiles.json');
-  if (!existsSync(pageProfilesPath)) {
-    return base;
-  }
-
-  const cacheKey = 'interaction-protocol.json+page-profiles.json';
-  if (cache.has(cacheKey)) {
-    return cache.get(cacheKey);
-  }
-
-  try {
-    const projectPageProfiles = JSON.parse(readFileSync(pageProfilesPath, 'utf8'));
-    const merged = deepMerge(base, projectPageProfiles);
-    cache.set(cacheKey, merged);
-    return merged;
-  } catch (error) {
-    console.warn(`[autotest] Failed to load project-rules/page-profiles.json: ${error.message}`);
-    return base;
-  }
+  return loadRuleFile('interaction-protocol.json', fallbackInteractionProtocol);
 }
 
 export function getAnimationStrategyRules() {

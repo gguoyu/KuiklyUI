@@ -2425,6 +2425,16 @@ function executeLoop() {
     const roundContext = createMutationContext(false, loopReport.verification);
     repairManagedSpecFailures(round.failureAnalysis, pageCatalog, managedIndex, roundContext);
 
+    // After the first canonical run (which includes a Gradle build when skipBuild=false),
+    // new Kotlin carrier pages are now compiled into the bundle. Re-scan and add managed
+    // specs for any pages that were missing specs at preflight time but couldn't be
+    // verified then because the page wasn't yet in the bundle.
+    if (roundIndex === 0 && !options.skipBuild) {
+      loopReport.scan = refreshScanIfNeeded(options.skipScan);
+      managedIndex = loadManagedSpecIndex();
+      addManagedSpecsForMissingPages(loopReport.scan, pageCatalog, roundContext);
+    }
+
     const latestScan = refreshScanIfNeeded(options.skipScan);
     const handwrittenRepairContext = applyAndVerifyHandwrittenRepairs(latestScan, pageCatalog, false, loopReport.verification);
     roundContext.mutations.push(...handwrittenRepairContext.mutations);

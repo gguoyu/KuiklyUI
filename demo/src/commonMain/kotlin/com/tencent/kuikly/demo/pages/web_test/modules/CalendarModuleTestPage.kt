@@ -19,6 +19,7 @@ internal class CalendarModuleTestPage : Pager() {
     private var timestampResult by observable("timestamp:pending")
     private var addResult by observable("added:pending")
     private var formatResult by observable("formatted:pending")
+    private var quotedFormatResult by observable("quoted:pending")
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -77,6 +78,17 @@ internal class CalendarModuleTestPage : Pager() {
                     }
                 }
                 Text { attr { text(ctx.formatResult); margin(left = 16f, top = 8f) } }
+                Button {
+                    attr { titleAttr { text("formatWithQuotes") }; size(width = 220f, height = 48f); margin(left = 16f, top = 16f); backgroundColor(0xFF00897B) }
+                    event {
+                        click {
+                            // format with single-quoted literal text — triggers getReplaceReadyFormatString
+                            val quotedPattern = "yyyy'年'MM'月'dd'日'"
+                            ctx.quotedFormatResult = "quoted:${ctx.acquireModule<CalendarModule>(CalendarModule.MODULE_NAME).formatTime(ctx.sampleTimestamp, quotedPattern)}"
+                        }
+                    }
+                }
+                Text { attr { text(ctx.quotedFormatResult); margin(left = 16f, top = 8f) } }
             }
         }
     }
