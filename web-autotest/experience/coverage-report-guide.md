@@ -150,6 +150,26 @@ node web-autotest/scripts/coverage-report.mjs --check
 | `suppressSuspiciousBlockFunctionHeaderLineCounts` | `fun ... {` 头行有覆盖计数但无直接语句计数时，删除 (防止跨行语句误标)；现已由 structural neutral 机制兜底 |
 | `suppressSuspiciousPropertyDeclarationHeadLineCounts` | 无初始化器的属性声明行有覆盖计数但无直接语句时，删除 |
 | `suppressSuspiciousInitializedPropertyHeaderLineCounts` | 多行初始化属性头行有覆盖计数但无直接语句时，删除 |
+| `suppressPromotedLinesInUncoveredCatchBlocks` | 未覆盖 catch 块内被 promote 规则错误推断为覆盖的行，重置为 0 |
+
+#### 4.2.4 未覆盖 Catch 块抑制 (集中式)
+
+**问题**: `return try { ... } catch { ... }` 等结构会产生跨行语句 (spanning statement)，覆盖 try 和 catch 两个代码路径。V8 记录的执行计数反映的是 try 路径，但 spanning statement 的行范围包含了 catch 块行，导致 promote 规则错误地将 catch 块行推断为已覆盖。
+
+**根因**: `isLineInReliablyUncoveredBranchArm` 无法保护 catch 块，因为 V8/SourceMap 不会为 try-catch 生成有意义的 branchMap 条目 (编译后 JS 中的 IfStatement 分支计数通常为 [0,0]，即 `hasNonEmptyCoveredLocation = false`，guard 不触发)。
+
+**解决方案**: 采用两层集中式抑制，而非在各个 promote 函数中逐一添加 guard:
+
+1. **lineCoverage 层** (`suppressPromotedLinesInUncoveredCatchBlocks`): 在 `computeLineCoverageFromStatements` 末尾运行，扫描所有 catch 块，若原始 `fc.l` 中 catch 体所有行均为 0，则将 `lineCoverage` 中被错误 promote 的行 (无 direct statement coverage) 重置为 0。
+
+2. **status 层** (`isLineInUncoveredCatchBlock` guard in `deriveLineStatus`): 在 `lineCount === 0` 和 `lineCount == null` 两个分支中，于所有 promote 函数之前检查当前行是否在未覆盖 catch 块内，若是则直接返回 `'no'`。
+
+**为什么是集中式**: 未来新增 promote 函数时无需逐一添加 guard，两层控制自动修正结果。与现有的 `suppressFalseCoveredLinesInUncoveredBranches` 等函数保持一致的"先 promote 再 suppress"模式。
+
+**判断条件** (`isLineInUncoveredCatchBlock`):
+- 向上扫描找到 `catch(` 行，确定 catch 块范围
+- 检查 catch 体在原始 `fc.l` 中是否有任何行 > 0
+- 全部为 0 → 返回 true (未覆盖)，否则 → false (已执行过的 catch 块不抑制)
 
 ---
 
@@ -178,11 +198,11 @@ node web-autotest/scripts/coverage-report.mjs --check
 1. **structural neutral** → `neutral`
 2. **单行空块函数** → 根据函数计数 `yes` 或 `no`
 3. **有 V8 行计数 > 0** → 检查是否应在未调用函数中 suppress → `yes` 或 `no`
-4. **有 V8 行计数 = 0** → 尝试 promote:
+4. **有 V8 行计数 = 0** → 先检查未覆盖 catch 块 (isLineInUncoveredCatchBlock) → `no`; 否则尝试 promote:
    - when arm 头 → expression-bodied 函数 → expression-bodied accessor → data class 头 → covered 控制头 → 多行控制条件续行 → covered 函数内语句 → 多行初始化属性头 → block 函数头 → 多行控制头 → 控制行
    - promote 成功 → `yes` 或 `partial`
    - 全部失败 → `no`
-5. **无 V8 行计数** → 同样尝试 promote 链
+5. **无 V8 行计数** → 先检查未覆盖 catch 块 → `no`; 否则同样尝试 promote 链
 6. **最终回退** → 检查 branchStats: 部分覆盖 → `partial`, 未覆盖 → `no`, 全覆盖 → `yes`, 否则 → `neutral`
 
 ---
