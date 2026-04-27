@@ -52,3 +52,4 @@ reports
 /web-autotest/.v8_output/
 /web-autotest/test-results/
 /web-autotest/reports/
+.codebuddy/settings.local.json
