@@ -3967,6 +3967,9 @@ function patchKotlinDetailHtmlFiles(lineDataMap) {
     // Patch header metrics: replace Lines fraction and pct from computed statuses
     html = patchDetailHtmlHeaderMetrics(html, computedLineData);
 
+    // Remove Statements metric block from detail page header (JS-level metric, not meaningful for Kotlin)
+    html = html.replace(/<div class='fl pad1y space-right2'>\s*<span class="strong">[\d.]+%\s*<\/span>\s*<span class="quiet">Statements<\/span>\s*<span class='fraction'>\d+\/\d+<\/span>\s*<\/div>\s*/gu, '');
+
     const patchedHtml = html.replace(detailBlockPattern, (match, lineCoverageHtml, codeHtml) => {
       const lineStatuses = resolveLineStatuses(lineCoverageHtml, computedLineStatuses);
       const patchedLineCoverageHtml = patchLineCoverageHtml(lineCoverageHtml, lineStatuses, computedLineCounts);
