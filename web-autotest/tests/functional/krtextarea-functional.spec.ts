@@ -55,4 +55,17 @@ test.describe('KRTextAreaView functional', () => {
     });
     expect(textAlign).toBe('center');
   });
+
+  test('initial text content should trigger SRC prop handler on first render', async ({ kuiklyPage }) => {
+    // The first TextArea has text("initial-content") which exercises KRTextAreaView.SRC handler
+    await expect(kuiklyPage.page.getByText('1. Basic TextArea')).toBeVisible();
+
+    const textarea = kuiklyPage.page.locator('textarea').first();
+    await expect(textarea).toBeVisible();
+
+    // Verify the initial text was set (SRC prop handler exercised)
+    const value = await textarea.inputValue().catch(() => '');
+    // initial-content was set via text() attribute
+    expect(value).toBe('initial-content');
+  });
 });
