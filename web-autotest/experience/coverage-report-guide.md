@@ -70,6 +70,8 @@ node web-autotest/scripts/coverage-report.mjs --check
 
 #### 4.1.1 删除函数映射 (`shouldRemoveFunctionMapping`)
 - **合成 accessor** (`<get-`, `<set-`, `_get_`, `_set_`): 总是删除
+- **`<init>` 函数** (object/class 初始化器): 总是删除 — JVM/JS 类加载器产物，不属于 Kotlin 源码中的可测试函数，无论执行次数是否 > 0
+- **`$default` 方法** (Kotlin 默认参数合成方法): 总是删除 — 编译器生成的合成方法，不是 Kotlin 源码中的函数，无论执行次数是否 > 0
 - **零计数属性 accessor 行** (`get()` / `set()`): 删除
 - **零计数的类签名行、主构造器属性行、非运行时属性声明行** (不含 `fun`): 删除
 
@@ -77,6 +79,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 - **类签名行**: 总是删除 (class/interface/object 声明本身不可执行)
 - **主构造器中的非运行时初始化属性**: 删除 (仅保留有初始化器的运行时属性)
 - **块函数头行** (`fun ... {`): 总是删除 (函数声明本身不是可执行语句，无论函数是否被调用都应视为 neutral)
+- **多行函数头行** (通过 `isForceNeutralLine` 判断): 删除 — 多行函数定义的 `fun` 起始行、参数续行和 `): Type {` 关闭行都不是可执行语句
 - **合成 accessor 行上的非运行时属性声明**: 删除
 
 #### 4.1.3 删除分支映射 (`shouldRemoveBranchMapping`)
@@ -106,6 +109,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 | 非运行时属性声明 | `const val` 或无初始化器的 `val`/`var` |
 | 抽象接口成员函数 | interface 内的抽象 `fun` (无 `{`) |
 | 块函数头行 | `fun ... {` — 函数声明本身不是可执行语句，无论函数是否被调用都视为 neutral |
+| 多行函数头行 | `fun ...(` 起始行及其参数续行、`): Type {` 关闭行 — 使用 `inFunctionHeader` 状态追踪；排除表达式体函数 (`fun ... = expr`) |
 
 #### 4.2.2 Promote 规则 (从已覆盖上下文推断覆盖)
 
@@ -151,6 +155,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 | `suppressSuspiciousPropertyDeclarationHeadLineCounts` | 无初始化器的属性声明行有覆盖计数但无直接语句时，删除 |
 | `suppressSuspiciousInitializedPropertyHeaderLineCounts` | 多行初始化属性头行有覆盖计数但无直接语句时，删除 |
 | `suppressPromotedLinesInUncoveredCatchBlocks` | 未覆盖 catch 块内被中间 promote 规则错误推断为覆盖的行 (无 direct statement coverage)，重置为 0。作为 source 层预防之后的安全网 |
+| `applyFunctionCoverageFallback` | 当 stmtMap 为空 (MCR sourcemap remap 未生成语句映射) 但 fnMap 有已覆盖函数时，从函数 loc 范围推导行覆盖。处理如 object 内表达式体函数仅生成 fnMap 但无 stmtMap 的情况 |
 
 #### 4.2.4 未覆盖 Catch 块处理 (三层防护)
 
@@ -187,6 +192,12 @@ node web-autotest/scripts/coverage-report.mjs --check
 - 使用 `deriveLineStatus()` 计算每行的最终状态 (`yes`/`no`/`neutral`/`partial`)
 - 替换 HTML 中的 `cline-*` 类名和行覆盖文本
 - 将代码区 `<pre>` 中的 Istanbul 注解 span 去除，替换为 `<span class="kotlin-line coverage-{status}">` 简化渲染
+
+### 5.2.1 推断行覆盖计数 (消除假绿色)
+- **问题**: `deriveLineStatus` 通过 promote 规则将某些行标记为 `yes`，但 `fc.l` 中没有对应行的计数，导致 HTML 显示绿色但无执行次数
+- **解决**: 在 `buildKotlinHtmlLineDataMap` 中，对 `status === 'yes'` 但 `count === null` 的行，从函数或分支覆盖数据推断计数:
+  - `inferLineCountFromFunctions`: 找到包含该行的已覆盖函数，返回函数执行计数
+  - `inferLineCountFromBranches`: 找到覆盖该行的已覆盖分支，返回最大分支计数
 
 ### 5.3 SPA 首页默认
 - `index.html` 中设置 `window.metricsToShow = ['lines', 'branches', 'functions']`

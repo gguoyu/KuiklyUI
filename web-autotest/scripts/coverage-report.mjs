@@ -56,6 +56,7 @@ const checkOnly = process.argv.includes('--check');
 const htmlSpaMetricsToShow = ['lines', 'branches', 'functions'];
 const htmlSpaDefaultHash = '#file/desc/true/true/true//';
 const syntheticAccessorNamePattern = /^(?:<get-|<set-|_get_|_set_)/;
+const syntheticDefaultMethodNamePattern = /\$default$/;
 const classSignatureLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|sealed|data|enum|annotation|value|inner|expect|actual|companion)\s+)*(?:class|interface|object)\b/;
 const interfaceSignatureLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|sealed|data|enum|annotation|value|inner|expect|actual|companion)\s+)*interface\b/;
 const abstractFunctionDeclarationLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|override|tailrec|operator|suspend|infix|external|expect|actual|inline|value|context)\s+)*fun\b/;
@@ -316,6 +317,16 @@ function isBlockFunctionHeaderLine(lineText) {
     && !isPropertyAccessorLine(trimmed);
 }
 
+function isMultilineFunctionHeaderStartLine(lineText) {
+  const trimmed = lineText.trim();
+  return /\bfun\b/u.test(trimmed)
+    && !trimmed.includes('{')
+    && !isPropertyAccessorLine(trimmed)
+    // Expression-body functions (`fun foo(): Type = expr`) are NOT multi-line
+    // header starts — the `= expr` part is executable code.
+    && !/\)\s*(?::[^=]+)?\s*=\s*\S/u.test(trimmed);
+}
+
 function isSingleLineEmptyBlockFunctionLine(lineText) {
   const stripped = lineText.split('//')[0].trim();
   return isBlockFunctionHeaderLine(stripped) && /\{\s*\}\s*$/u.test(stripped);
@@ -491,6 +502,7 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
   const neutralLines = new Set();
   let inBlockComment = false;
   let inClassHeader = false;
+  let inFunctionHeader = false;
 
   sourceLines.forEach((lineText, index) => {
     const lineNumber = index + 1;
@@ -530,6 +542,19 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
       return;
     }
 
+    // Multi-line function header continuation lines (parameter declarations,
+    // closing bracket with return type) are not executable — mark as neutral.
+    if (inFunctionHeader) {
+      neutralLines.add(lineNumber);
+      if (trimmed.includes('{') || trimmed.includes('=')) {
+        inFunctionHeader = false;
+      } else if (/^\s*\)\s*;?\s*$/u.test(trimmed)) {
+        // Interface/abstract function declaration ending with ");"
+        inFunctionHeader = false;
+      }
+      return;
+    }
+
     if (inClassHeader) {
       if (!isRuntimeInitializedPrimaryConstructorPropertyLine(trimmed)) {
         neutralLines.add(lineNumber);
@@ -557,6 +582,14 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
     // function was called, the declaration line should display as neutral.
     if (isBlockFunctionHeaderLine(trimmed)) {
       neutralLines.add(lineNumber);
+    }
+
+    // Multi-line function header start (`fun ...` without `{` on the same line):
+    // the fun line and all continuation lines (parameters, return type) are
+    // purely declarative and should be neutral.
+    if (isMultilineFunctionHeaderStartLine(trimmed)) {
+      neutralLines.add(lineNumber);
+      inFunctionHeader = true;
     }
   });
 
@@ -951,7 +984,45 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   suppressSuspiciousPropertyDeclarationHeadLineCounts(fileCoverage, lineCoverage, sourceLines);
   suppressSuspiciousInitializedPropertyHeaderLineCounts(fileCoverage, lineCoverage, sourceLines);
   suppressPromotedLinesInUncoveredCatchBlocks(fileCoverage, lineCoverage, filePath, sourceLines);
+
+  // When statementMap is empty (MCR sourcemap remap produced no statements for this file),
+  // but fnMap has covered functions, derive line coverage from function loc ranges.
+  // This handles cases like expression-body functions in object declarations where
+  // MCR only generates fnMap entries but no statements.
+  applyFunctionCoverageFallback(fileCoverage, lineCoverage, filePath, sourceLines);
+
   return lineCoverage;
+}
+
+function applyFunctionCoverageFallback(fileCoverage, lineCoverage, filePath, sourceLines) {
+  // Only apply when statementMap is empty or has very few entries —
+  // this is a fallback for files where MCR's sourcemap remap produced
+  // function mappings but no statement mappings.
+  const stmtCount = Object.keys(fileCoverage.statementMap || {}).length;
+  if (stmtCount > 0) {
+    return;
+  }
+
+  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+    const count = Number(fileCoverage.f?.[functionId] || 0);
+    if (count <= 0) {
+      continue;
+    }
+
+    // Use the function's loc (actual code range) to derive line coverage.
+    // Skip lines that are structural-neutral (function signatures, etc.).
+    const loc = functionCoverage.loc;
+    if (!loc?.start?.line || !loc?.end?.line) {
+      continue;
+    }
+
+    const executableLines = getExecutableLines(loc, filePath, sourceLines);
+    for (const lineNumber of executableLines) {
+      if (lineCoverage[lineNumber] == null || count > lineCoverage[lineNumber]) {
+        lineCoverage[lineNumber] = count;
+      }
+    }
+  }
 }
 
 function getReportRelativeSourcePath(filePath) {
@@ -3277,6 +3348,45 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
   return 'neutral';
 }
 
+function inferLineCountFromFunctions(fileCoverage, lineNumber) {
+  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+    const count = Number(fileCoverage.f?.[functionId] || 0);
+    if (count <= 0) {
+      continue;
+    }
+    const loc = functionCoverage.loc;
+    if (loc?.start?.line && loc?.end?.line
+      && lineNumber >= loc.start.line && lineNumber <= loc.end.line) {
+      return count;
+    }
+    const decl = functionCoverage.decl;
+    if (decl?.start?.line && decl?.end?.line
+      && lineNumber >= decl.start.line && lineNumber <= decl.end.line) {
+      return count;
+    }
+  }
+  return null;
+}
+
+function inferLineCountFromBranches(fileCoverage, lineNumber) {
+  let maxCount = null;
+  for (const [branchId, branchCoverage] of Object.entries(fileCoverage.branchMap || {})) {
+    const loc = branchCoverage.loc;
+    if (!loc?.start?.line || !loc?.end?.line) {
+      continue;
+    }
+    if (lineNumber < loc.start.line || lineNumber > loc.end.line) {
+      continue;
+    }
+    const counts = fileCoverage.b?.[branchId] || [];
+    const branchMax = Math.max(...counts.map((c) => Number(c || 0)), 0);
+    if (branchMax > 0 && (maxCount == null || branchMax > maxCount)) {
+      maxCount = branchMax;
+    }
+  }
+  return maxCount;
+}
+
 function buildKotlinHtmlLineDataMap(coverageData) {
   const lineDataMap = new Map();
 
@@ -3295,6 +3405,23 @@ function buildKotlinHtmlLineDataMap(coverageData) {
       { length: sourceLines.length },
       (_, index) => getLineCoverageCount(fileCoverage, index + 1),
     );
+
+    // Fill in missing counts for promoted "yes" lines — lines where deriveLineStatus
+    // inferred coverage from function/branch data but fc.l has no entry. Use the
+    // function execution count if the line is within a covered function's range,
+    // otherwise fall back to branch covered count.
+    for (let i = 0; i < lineStatuses.length; i++) {
+      if (lineStatuses[i] !== 'yes' || lineCounts[i] != null) {
+        continue;
+      }
+      const lineNumber = i + 1;
+      const inferredCount = inferLineCountFromFunctions(fileCoverage, lineNumber)
+        ?? inferLineCountFromBranches(fileCoverage, lineNumber);
+      if (inferredCount != null) {
+        lineCounts[i] = inferredCount;
+      }
+    }
+
     lineDataMap.set(getReportRelativeSourcePath(filePath), {
       statuses: lineStatuses,
       counts: lineCounts,
@@ -3310,6 +3437,20 @@ function shouldRemoveFunctionMapping(functionCoverage, count, sourceLines) {
   const declLineText = getLineText(sourceLines, functionCoverage?.decl?.start?.line);
 
   if (syntheticAccessorNamePattern.test(name)) {
+    return true;
+  }
+
+  // Object/class <init> functions are JVM/JS class-loader artifacts, not real
+  // Kotlin functions. They always execute (count > 0) when the class is loaded,
+  // but their execution is not under test control. Remove them regardless of count.
+  if (/<init>/u.test(name)) {
+    return true;
+  }
+
+  // Kotlin $default methods are compiler-generated synthetic methods for
+  // default parameter handling. They are not real Kotlin functions and their
+  // execution is not under test control. Remove them regardless of count.
+  if (syntheticDefaultMethodNamePattern.test(name)) {
     return true;
   }
 
@@ -3333,7 +3474,7 @@ function shouldRemoveFunctionMapping(functionCoverage, count, sourceLines) {
   return !/\bfun\b/u.test(locLineText) && !/\bfun\b/u.test(declLineText);
 }
 
-function shouldRemoveStatementMapping(lineText, startLine, count, syntheticAccessorLines) {
+function shouldRemoveStatementMapping(lineText, startLine, count, syntheticAccessorLines, filePath, sourceLines) {
   if (isClassSignatureLine(lineText)) {
     return true;
   }
@@ -3346,6 +3487,13 @@ function shouldRemoveStatementMapping(lineText, startLine, count, syntheticAcces
   // it is the function's entry-point marker. Regardless of count, treat it as
   // neutral so it does not inflate or deflate coverage metrics.
   if (isBlockFunctionHeaderLine(lineText)) {
+    return true;
+  }
+
+  // Multi-line function header lines (the `fun` start line, parameter
+  // continuation lines, and the closing `): Type {` line) are also not
+  // executable statements. Use isForceNeutralLine which tracks inFunctionHeader.
+  if (filePath && sourceLines && isForceNeutralLine(filePath, sourceLines, startLine)) {
     return true;
   }
 
@@ -3404,7 +3552,7 @@ function postProcessKotlinCoverage(coverageData) {
       const startLine = statementCoverage?.start?.line;
       const lineText = getLineText(sourceLines, startLine);
       const statementCount = Number(fileCoverage.s?.[statementId] || 0);
-      if (!shouldRemoveStatementMapping(lineText, startLine, statementCount, syntheticAccessorLines)) {
+      if (!shouldRemoveStatementMapping(lineText, startLine, statementCount, syntheticAccessorLines, filePath, sourceLines)) {
         continue;
       }
 
