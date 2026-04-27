@@ -3422,6 +3422,45 @@ function patchCoverageCss() {
   );
 }
 
+const customBundleFilterMarker = '/* kuiklyui-filter-patch */';
+
+function patchBundleFilterLogic() {
+  const bundlePath = join(reportDir, 'bundle.js');
+  if (!existsSync(bundlePath)) {
+    return;
+  }
+
+  let bundleContent = readFileSync(bundlePath, 'utf8');
+
+  // The original Monocart filter uses per-metric OR: a file is shown if ANY visible
+  // metric's classForPercent matches the active filter.  This means toggling "medium"
+  // has no visible effect when "low" and "high" are already selected, because files
+  // with medium statements but high lines still pass via the "high" check.
+  //
+  // Replace with file-level classForPercent filtering: compute the worst classForPercent
+  // across visible metrics (same logic Monocart uses for the file row colour), then
+  // check that single value against the active filters.  This makes Low / Medium / High
+  // behave as mutually exclusive tiers.
+  const originalPerMetricFilter = 'n.statements&&r[a.metrics.statements.classForPercent]||n.branches&&r[a.metrics.branches.classForPercent]||n.functions&&r[a.metrics.functions.classForPercent]||n.lines&&r[a.metrics.lines.classForPercent]';
+
+  if (!bundleContent.includes(originalPerMetricFilter)) {
+    return;
+  }
+
+  const fileLevelFilter = [
+    'r[function(){',
+    'var v="none",hasMetric=false;',
+    'if(n.statements){var s=a.metrics.statements.classForPercent;if(s!=="none"&&s!=="empty"){hasMetric=true;if(s==="low"||s==="medium"&&v!=="low"||s==="high"&&v!=="low"&&v!=="medium")v=s}}',
+    'if(n.branches){var b=a.metrics.branches.classForPercent;if(b!=="none"&&b!=="empty"){hasMetric=true;if(b==="low"||b==="medium"&&v!=="low"||b==="high"&&v!=="low"&&v!=="medium")v=b}}',
+    'if(n.functions){var f=a.metrics.functions.classForPercent;if(f!=="none"&&f!=="empty"){hasMetric=true;if(f==="low"||f==="medium"&&v!=="low"||f==="high"&&v!=="low"&&v!=="medium")v=f}}',
+    'if(n.lines){var l=a.metrics.lines.classForPercent;if(l!=="none"&&l!=="empty"){hasMetric=true;if(l==="low"||l==="medium"&&v!=="low"||l==="high"&&v!=="low"&&v!=="medium")v=l}}',
+    'return hasMetric?v:"empty"}()]',
+  ].join('');
+
+  bundleContent = bundleContent.replace(originalPerMetricFilter, fileLevelFilter);
+  writeFileSync(bundlePath, bundleContent);
+}
+
 function patchHtmlSpaIndexDefaults() {
   const htmlSpaIndexPath = join(reportDir, 'index.html');
   if (!existsSync(htmlSpaIndexPath)) {
@@ -3571,6 +3610,7 @@ function postProcessCoverageArtifacts() {
   if (!checkOnly) {
     patchHtmlSpaIndexDefaults();
     patchCoverageCss();
+    patchBundleFilterLogic();
     const patchedHtmlFiles = patchKotlinDetailHtmlFiles(lineDataMap);
     return {
       ...stats,
