@@ -3377,6 +3377,83 @@ function regenerateIstanbulReportsFromCoverageData(coverageData) {
     const report = istanbulReports.create(reportName, reportOptions || {});
     report.execute(context);
   }
+
+  // Istanbul's json-summary reporter computes lines from statementMap rather than
+  // fc.l, which overcounts lines because statementMap entries can span closing
+  // braces, const declarations, and other structural-neutral lines that our
+  // post-processing has already removed from fc.l.  Rewrite the lines totals in
+  // coverage-summary.json using the authoritative fc.l data.
+  patchSummaryLinesFromLineCoverage(coverageData);
+}
+
+function patchSummaryLinesFromLineCoverage(coverageData) {
+  const summaryPath = join(reportDir, 'coverage-summary.json');
+  if (!existsSync(summaryPath)) {
+    return;
+  }
+
+  const summary = readJson(summaryPath);
+
+  for (const [filePath, fc] of Object.entries(coverageData)) {
+    if (!filePath.endsWith('.kt')) {
+      continue;
+    }
+
+    const fileSummary = summary[filePath];
+    if (!fileSummary) {
+      continue;
+    }
+
+    let covered = 0;
+    let total = 0;
+    for (const line of Object.keys(fc.l || {})) {
+      const count = Number(fc.l[line] || 0);
+      total += 1;
+      if (count > 0) {
+        covered += 1;
+      }
+    }
+
+    if (total > 0) {
+      fileSummary.lines = {
+        total,
+        covered,
+        skipped: 0,
+        pct: roundPct(total > 0 ? (covered / total) * 100 : 0),
+      };
+    }
+  }
+
+  // Recompute the global total from patched per-file summaries.
+  // Also round all pct values to 2 decimal places for consistency.
+  const metrics = ['lines', 'statements', 'branches', 'functions'];
+  const globalTotal = {};
+  for (const m of metrics) {
+    globalTotal[m] = { total: 0, covered: 0, skipped: 0 };
+  }
+
+  for (const [filePath, fileSummary] of Object.entries(summary)) {
+    if (filePath === 'total') {
+      continue;
+    }
+    for (const m of metrics) {
+      globalTotal[m].total += fileSummary[m]?.total || 0;
+      globalTotal[m].covered += fileSummary[m]?.covered || 0;
+      globalTotal[m].skipped += fileSummary[m]?.skipped || 0;
+      // Round per-file pct to 2 decimal places
+      if (fileSummary[m]?.pct != null) {
+        fileSummary[m].pct = roundPct(fileSummary[m].pct);
+      }
+    }
+  }
+
+  for (const m of metrics) {
+    const g = globalTotal[m];
+    g.pct = roundPct(g.total > 0 ? (g.covered / g.total) * 100 : 0);
+  }
+
+  summary.total = globalTotal;
+  writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
 }
 
 function appendCssPatch(filePath, marker, patchContent) {
@@ -3467,14 +3544,139 @@ function patchHtmlSpaIndexDefaults() {
     return;
   }
 
-  const indexHtml = readFileSync(htmlSpaIndexPath, 'utf8');
-  const patchedHtml = indexHtml.replace(
+  let indexHtml = readFileSync(htmlSpaIndexPath, 'utf8');
+
+  // Patch metricsToShow and default hash
+  const metricsPatched = indexHtml.replace(
     /window\.metricsToShow = .*?;/,
     `window.metricsToShow = ${JSON.stringify(htmlSpaMetricsToShow)};\n                        if (!window.location.hash) {\n                            window.history.replaceState(null, '', ${JSON.stringify(htmlSpaDefaultHash)});\n                        }`,
   );
+  if (metricsPatched !== indexHtml) {
+    indexHtml = metricsPatched;
+  }
 
-  if (patchedHtml !== indexHtml) {
-    writeFileSync(htmlSpaIndexPath, patchedHtml);
+  // Patch window.data lines metrics from fc.l instead of Istanbul's statementMap-derived values.
+  // Monocart's html-spa reporter computes lines from the statementMap (via Istanbul's
+  // getLineCoverage()), which overcounts by including closing braces, const declarations,
+  // and other structural-neutral lines.  Replace with the authoritative fc.l counts that
+  // our post-processing has already produced.
+  const coverageFinalPath = join(reportDir, 'coverage-final.json');
+  if (existsSync(coverageFinalPath)) {
+    const coverageData = readJson(coverageFinalPath);
+    const dataMatch = indexHtml.match(/window\.data\s*=\s*(\{[\s\S]*?\});/);
+    if (dataMatch) {
+      try {
+        const spaData = JSON.parse(dataMatch[1]);
+        patchSpaDataLinesFromCoverage(spaData, coverageData);
+        const patchedDataStr = `window.data = ${JSON.stringify(spaData)};`;
+        indexHtml = indexHtml.replace(dataMatch[0], patchedDataStr);
+      } catch {
+        // Non-fatal: if JSON parsing fails, leave the SPA data as-is
+      }
+    }
+  }
+
+  writeFileSync(htmlSpaIndexPath, indexHtml);
+}
+
+function patchSpaDataLinesFromCoverage(spaData, coverageData) {
+  // Build a lookup: path relative to scopeRoot parent → coverageData entry.
+  // SPA paths are like "base/src/jsMain/.../Foo.kt" (without the "core-render-web/" prefix),
+  // so we strip the scopeRootAnchor from the coverage data key to match.
+  const coverageLookup = new Map();
+  for (const [filePath, fc] of Object.entries(coverageData)) {
+    if (!filePath.endsWith('.kt')) {
+      continue;
+    }
+    const normalized = filePath.replace(/\\/g, '/');
+    for (const scopeRoot of coverageConfig.scopeRoots) {
+      const anchor = scopeRoot.replace(/\\/g, '/');
+      const idx = normalized.indexOf('/' + anchor);
+      if (idx !== -1) {
+        // Remove the scopeRootAnchor prefix (e.g. "core-render-web/")
+        // to get a path like "base/src/jsMain/.../Foo.kt" that matches SPA tree paths
+        const scopeRootAnchorPrefix = scopeRootAnchor.replace(/\\/g, '/');
+        const afterAnchor = normalized.slice(idx + 1); // e.g. "core-render-web/base/src/..."
+        const relPath = afterAnchor.startsWith(scopeRootAnchorPrefix)
+          ? afterAnchor.slice(scopeRootAnchorPrefix.length)
+          : afterAnchor;
+        coverageLookup.set(relPath, fc);
+        break;
+      }
+    }
+  }
+
+  const patchNode = (node, parentPath) => {
+    const currentPath = parentPath ? `${parentPath}/${node.file}` : node.file;
+    if (node.metrics && node.file && !node.children) {
+      const fc = coverageLookup.get(currentPath);
+      if (fc) {
+        let covered = 0;
+        let total = 0;
+        for (const line of Object.keys(fc.l || {})) {
+          total += 1;
+          if (Number(fc.l[line]) > 0) {
+            covered += 1;
+          }
+        }
+        if (total > 0) {
+          const missed = total - covered;
+          const pct = roundPct((covered / total) * 100);
+          node.metrics.lines = {
+            total,
+            covered,
+            skipped: 0,
+            missed,
+            pct,
+            classForPercent: getClassForPercent(pct, 'lines'),
+          };
+        }
+      }
+    }
+    if (node.children) {
+      node.children.forEach((child) => patchNode(child, currentPath));
+      if (node.metrics && node.children) {
+        reaggregateMetricsFromChildren(node);
+      }
+    }
+  };
+
+  patchNode(spaData, '');
+}
+
+function roundPct(pct) {
+  return Math.round(pct * 100) / 100;
+}
+
+function getClassForPercent(pct, metricName) {
+  const watermarks = coverageConfig.watermarks[metricName] || [50, 80];
+  if (pct < watermarks[0]) return 'low';
+  if (pct < watermarks[1]) return 'medium';
+  return 'high';
+}
+
+function reaggregateMetricsFromChildren(node) {
+  const metrics = ['statements', 'branches', 'functions', 'lines'];
+  for (const m of metrics) {
+    let total = 0;
+    let covered = 0;
+    for (const child of node.children) {
+      if (child.metrics?.[m]) {
+        total += child.metrics[m].total || 0;
+        covered += child.metrics[m].covered || 0;
+      }
+    }
+    if (total > 0) {
+      const pct = roundPct((covered / total) * 100);
+      node.metrics[m] = {
+        total,
+        covered,
+        skipped: 0,
+        missed: total - covered,
+        pct,
+        classForPercent: getClassForPercent(pct, m),
+      };
+    }
   }
 }
 
