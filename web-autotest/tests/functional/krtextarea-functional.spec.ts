@@ -9,7 +9,7 @@ test.describe('KRTextAreaView functional', () => {
   test('page renders all sections', async ({ kuiklyPage }) => {
     await expect(kuiklyPage.page.getByText('1. Basic TextArea')).toBeVisible();
     await expect(kuiklyPage.page.getByText('3. Read-only Toggle')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('5. Clear Action')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('5. Clear Counter')).toBeVisible();
   });
 
   test('textarea-set-text button should call setText via ViewRef', async ({ kuiklyPage }) => {
