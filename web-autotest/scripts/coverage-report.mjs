@@ -551,6 +551,13 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
     if (isNonRuntimePropertyDeclaration(trimmed)) {
       neutralLines.add(lineNumber);
     }
+
+    // Block function header lines (`fun ... {`) are not executable statements
+    // themselves — they are entry-point markers. Regardless of whether the
+    // function was called, the declaration line should display as neutral.
+    if (isBlockFunctionHeaderLine(trimmed)) {
+      neutralLines.add(lineNumber);
+    }
   });
 
   markAbstractInterfaceMemberLinesNeutral(sourceLines, neutralLines);
@@ -2293,6 +2300,11 @@ function promoteCoveredBlockFunctionHeaderLines(fileCoverage, lineCoverage, file
       continue;
     }
 
+    // Block function headers are structural neutral — skip promotion.
+    if (isForceNeutralLine(filePath, sourceLines, lineNumber)) {
+      continue;
+    }
+
     if (Number(lineCoverage[lineNumber]) > 0) {
       continue;
     }
@@ -3085,10 +3097,9 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
       return promotedInitializedPropertyHeaderStatus;
     }
 
-    const promotedBlockFunctionHeaderStatus = getPromotedBlockFunctionHeaderStatus(fileCoverage, filePath, sourceLines, lineNumber);
-    if (promotedBlockFunctionHeaderStatus) {
-      return promotedBlockFunctionHeaderStatus;
-    }
+    // Block function header lines are structural neutral (handled by
+    // isForceNeutralLine at the top of deriveLineStatus), so their
+    // promote logic is never reached here.
 
     const promotedMultilineControlHeaderStatus = getPromotedMultilineControlHeaderStatus(fileCoverage, filePath, sourceLines, lineNumber);
     if (promotedMultilineControlHeaderStatus) {
@@ -3126,11 +3137,6 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
   const promotedInitializedPropertyHeaderStatus = getPromotedInitializedPropertyHeaderStatus(fileCoverage, filePath, sourceLines, lineNumber);
   if (promotedInitializedPropertyHeaderStatus) {
     return promotedInitializedPropertyHeaderStatus;
-  }
-
-  const promotedBlockFunctionHeaderStatus = getPromotedBlockFunctionHeaderStatus(fileCoverage, filePath, sourceLines, lineNumber);
-  if (promotedBlockFunctionHeaderStatus) {
-    return promotedBlockFunctionHeaderStatus;
   }
 
   const lineText = getLineText(sourceLines, lineNumber);
@@ -3210,13 +3216,20 @@ function shouldRemoveFunctionMapping(functionCoverage, count, sourceLines) {
   return !/\bfun\b/u.test(locLineText) && !/\bfun\b/u.test(declLineText);
 }
 
-function shouldRemoveStatementMapping(lineText, startLine, syntheticAccessorLines) {
+function shouldRemoveStatementMapping(lineText, startLine, count, syntheticAccessorLines) {
   if (isClassSignatureLine(lineText)) {
     return true;
   }
 
   if (isPrimaryConstructorPropertyLine(lineText)) {
     return !isRuntimeInitializedPrimaryConstructorPropertyLine(lineText);
+  }
+
+  // A block-function header line (`fun ... {`) is not an executable statement —
+  // it is the function's entry-point marker. Regardless of count, treat it as
+  // neutral so it does not inflate or deflate coverage metrics.
+  if (isBlockFunctionHeaderLine(lineText)) {
+    return true;
   }
 
   return syntheticAccessorLines.has(startLine) && isNonRuntimePropertyDeclaration(lineText);
@@ -3273,7 +3286,8 @@ function postProcessKotlinCoverage(coverageData) {
     for (const [statementId, statementCoverage] of Object.entries(fileCoverage.statementMap || {})) {
       const startLine = statementCoverage?.start?.line;
       const lineText = getLineText(sourceLines, startLine);
-      if (!shouldRemoveStatementMapping(lineText, startLine, syntheticAccessorLines)) {
+      const statementCount = Number(fileCoverage.s?.[statementId] || 0);
+      if (!shouldRemoveStatementMapping(lineText, startLine, statementCount, syntheticAccessorLines)) {
         continue;
       }
 

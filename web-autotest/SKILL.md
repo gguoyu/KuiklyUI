@@ -41,6 +41,7 @@ Human-readable references:
 Accumulated experience (read before writing carrier pages or specs):
 - `web-autotest/experience/carrier-page-pitfalls.md` — Kotlin DSL 坑、shared observable、动态模板字符串、styles category 交互覆盖等
 - `web-autotest/experience/playwright-kuikly-limits.md` — headless 下不可触发的事件、Modal/click 限制、KRListView 滚动、screenshot 更新等
+- `web-autotest/experience/coverage-report-guide.md` — 代码覆盖率全流程、Kotlin 后处理规则、promote/suppress 规则、行状态判定、HTML 报告补丁
 
 **When you encounter a new problem worth recording:**
 1. Check if it belongs in `carrier-page-pitfalls.md` (Kotlin page authoring) or `playwright-kuikly-limits.md` (runtime/headless behavior).
