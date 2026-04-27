@@ -106,4 +106,25 @@ test.describe('KRViewTouchTestPage touch event functional', () => {
 
     await expect(kuiklyPage.page.getByText('dblclick-count: 1', { exact: true })).toBeVisible();
   });
+
+  test('screenFrame event should increment frame counter, screenFramePause should stop it', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTouchTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('5. Screen Frame')).toBeVisible();
+
+    // Wait for frame count to advance (screenFrame fires repeatedly)
+    await kuiklyPage.page.waitForTimeout(200);
+
+    // frame-count should be > 0 and <= 5 (gets auto-paused at 5)
+    const frameText = await kuiklyPage.page.evaluate(() => {
+      const els = Array.from(document.querySelectorAll('p'));
+      const el = els.find(e => (e.textContent || '').startsWith('frame-count:'));
+      return el?.textContent || '';
+    });
+    expect(frameText).toMatch(/^frame-count: [1-5]$/);
+  });
 });

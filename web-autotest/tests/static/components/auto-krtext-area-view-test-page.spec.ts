@@ -25,6 +25,11 @@ const INTERACTION_HINTS = {
       "kind": "click",
       "targetLabel": "textarea-clear-idle",
       "expectLabel": "textarea-cleared: 1"
+    },
+    {
+      "kind": "click",
+      "targetLabel": "textarea-set-text-idle",
+      "expectLabel": "textarea-set-text: 1"
     }
   ],
   "maxActionLabels": 4,

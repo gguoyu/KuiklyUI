@@ -20,4 +20,22 @@ test.describe('KRRichTextView static 验证', () => {
     await expect(kuiklyPage.page.getByText('文本前嵌入图片', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('图片后文本', { exact: true })).toBeVisible();
   });
+
+  test('应该渲染截断、间距和字体样式 sections', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRRichTextViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+    await kuiklyPage.page.waitForTimeout(300);
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 800, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('8. 行截断与文本属性')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('9. 间距与字体')).toBeVisible();
+
+    await kuiklyPage.scrollInContainer(list, { deltaY: 400, smooth: false });
+    await expect(kuiklyPage.page.getByText('letter-spacing-text', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('italic-style-text', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('fontFamily-text', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('center-aligned-text', { exact: true })).toBeVisible();
+  });
 });

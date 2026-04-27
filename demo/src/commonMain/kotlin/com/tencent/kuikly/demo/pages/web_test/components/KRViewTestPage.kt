@@ -22,7 +22,9 @@ import com.tencent.kuikly.core.base.BorderStyle
 import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ColorStop
 import com.tencent.kuikly.core.base.Direction
+import com.tencent.kuikly.core.base.BoxShadow
 import com.tencent.kuikly.core.base.ViewBuilder
+import com.tencent.kuikly.core.base.attr.AccessibilityRole
 import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.views.List
 import com.tencent.kuikly.core.views.Text
@@ -467,6 +469,132 @@ internal class KRViewTestPage : Pager() {
                         height(50f)
                     }
                 }
+
+                // === Section 8: Visibility ===
+                Text {
+                    attr {
+                        text("8. Visibility")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        flexDirectionRow()
+                        padding(all = 16f)
+                        alignItemsCenter()
+                    }
+                    // Visible view
+                    View {
+                        attr {
+                            size(60f, 60f)
+                            backgroundColor(0xFF2196F3)
+                            visibility(true) // visible
+                            borderRadius(8f)
+                            allCenter()
+                        }
+                        Text {
+                            attr { text("show"); fontSize(11f); color(Color.WHITE) }
+                        }
+                    }
+                    // Hidden view (still takes space but invisible)
+                    View {
+                        attr {
+                            size(60f, 60f)
+                            backgroundColor(0xFFE53935)
+                            visibility(false) // hidden
+                            borderRadius(8f)
+                            marginLeft(12f)
+                        }
+                    }
+                    View {
+                        attr {
+                            size(60f, 60f)
+                            backgroundColor(0xFF4CAF50)
+                            borderRadius(8f)
+                            marginLeft(12f)
+                            allCenter()
+                        }
+                        Text {
+                            attr { text("after-hidden"); fontSize(10f); color(Color.WHITE) }
+                        }
+                    }
+                }
+
+                // === Section 9: Box Shadow ===
+                Text {
+                    attr {
+                        text("9. Box Shadow")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        flexDirectionRow()
+                        padding(all = 16f)
+                        alignItemsCenter()
+                    }
+                    View {
+                        attr {
+                            size(80f, 60f)
+                            backgroundColor(Color.WHITE)
+                            boxShadow(BoxShadow(2f, 2f, 8f, Color(0x661565C0)))
+                            borderRadius(8f)
+                            allCenter()
+                        }
+                        Text {
+                            attr { text("shadow"); fontSize(12f); color(Color.BLACK) }
+                        }
+                    }
+                    View {
+                        attr {
+                            size(80f, 60f)
+                            backgroundColor(Color.WHITE)
+                            boxShadow(BoxShadow(0f, 4f, 12f, Color(0x88000000)))
+                            borderRadius(8f)
+                            marginLeft(16f)
+                            allCenter()
+                        }
+                        Text {
+                            attr { text("deep-shadow"); fontSize(11f); color(Color.BLACK) }
+                        }
+                    }
+                }
+
+                // === Section 10: Accessibility Role ===
+                Text {
+                    attr {
+                        text("10. Accessibility Role")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        margin(all = 16f)
+                        height(50f)
+                        backgroundColor(0xFF8E24AA)
+                        borderRadius(8f)
+                        allCenter()
+                        accessibility("aria-label-view")
+                        accessibilityRole(AccessibilityRole.BUTTON)
+                    }
+                    Text {
+                        attr { text("accessibility-role-button"); fontSize(13f); color(Color.WHITE) }
+                    }
+                }
+
+                View { attr { height(50f) } }
             }
         }
     }

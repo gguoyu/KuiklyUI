@@ -18,11 +18,13 @@ package com.tencent.kuikly.demo.pages.web_test.components
 import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ViewBuilder
+import com.tencent.kuikly.core.base.ViewRef
 import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.reactive.handler.observable
 import com.tencent.kuikly.core.views.List
 import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.TextArea
+import com.tencent.kuikly.core.views.TextAreaView
 import com.tencent.kuikly.core.views.View
 
 /**
@@ -41,6 +43,8 @@ internal class KRTextAreaViewTestPage : Pager() {
     private var areaValue by observable("")
     private var clearedCount by observable(0)
     private var readOnly by observable(false)
+    private var setTextCount by observable(0)
+    private var textAreaRef: ViewRef<TextAreaView>? = null
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -73,6 +77,9 @@ internal class KRTextAreaViewTestPage : Pager() {
                         padding(all = 12f)
                     }
                     TextArea {
+                        ref {
+                            ctx.textAreaRef = it
+                        }
                         attr {
                             flex(1f)
                             fontSize(15f)
@@ -95,6 +102,31 @@ internal class KRTextAreaViewTestPage : Pager() {
                         marginTop(6f)
                         marginLeft(16f)
                         color(0xFF666666)
+                    }
+                }
+
+                // Button that uses ViewRef setText — exercises KRTextAreaView.call(SET_TEXT)
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(40f)
+                        backgroundColor(Color(0xFF43A047))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.setTextCount += 1
+                            ctx.textAreaRef?.view?.setText("preset-text-${ctx.setTextCount}")
+                        }
+                    }
+                    Text {
+                        attr {
+                            text(if (ctx.setTextCount == 0) "textarea-set-text-idle" else "textarea-set-text: ${ctx.setTextCount}")
+                            fontSize(13f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
                     }
                 }
 

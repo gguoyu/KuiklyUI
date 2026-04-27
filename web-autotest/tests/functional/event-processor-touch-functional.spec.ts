@@ -260,4 +260,53 @@ test.describe('EventProcessor touch branches functional', () => {
     expect(Math.abs(finalLeft - initialLeft)).toBeLessThan(5);
   });
 
+  test('touch pan 拖拽应更新 GestureTestPage 的 pan 状态', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('GestureTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const panArea = kuiklyPage.page.getByText('pan-idle', { exact: true });
+    await panArea.scrollIntoViewIfNeeded();
+    const box = await panArea.boundingBox();
+    expect(box).toBeTruthy();
+
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+
+    // Use synthetic touch events to trigger pan via touch path
+    await touchStartMoveEnd(
+      kuiklyPage.page,
+      { x: cx, y: cy },
+      { x: cx + 60, y: cy },
+      { steps: 6 }
+    );
+    await kuiklyPage.page.waitForTimeout(300);
+
+    const log = kuiklyPage.page.getByText(/gesture-log: pan:/);
+    await expect(log).toBeVisible();
+  });
+
+  test('touch double-tap 应触发 GestureTestPage 的 doubleClick 计数', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('GestureTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const dblArea = kuiklyPage.page.getByText('double-click-area', { exact: true });
+    await dblArea.scrollIntoViewIfNeeded();
+    const box = await dblArea.boundingBox();
+    expect(box).toBeTruthy();
+
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+
+    // Two rapid touchStart events to trigger DoubleTapHandler mobile path
+    await dispatchSyntheticTouch(kuiklyPage.page, 'touchstart', { x: cx, y: cy }, { x: cx, y: cy });
+    await dispatchSyntheticTouch(kuiklyPage.page, 'touchend', null, { x: cx, y: cy });
+    await kuiklyPage.page.waitForTimeout(120);
+    await dispatchSyntheticTouch(kuiklyPage.page, 'touchstart', { x: cx, y: cy }, { x: cx, y: cy });
+    await dispatchSyntheticTouch(kuiklyPage.page, 'touchend', null, { x: cx, y: cy });
+    await kuiklyPage.page.waitForTimeout(400);
+
+    // Should have triggered double-click
+    await expect(kuiklyPage.page.getByText(/double-clicked: [1-9]/)).toBeVisible();
+  });
+
 });

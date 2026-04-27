@@ -44,6 +44,8 @@ internal class KRViewTouchTestPage : Pager() {
     private var panState by observable("pan-idle")
     private var longPressCount by observable(0)
     private var doubleClickCount by observable(0)
+    private var frameCount by observable(0)
+    private var framePaused by observable(false)
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -230,6 +232,57 @@ internal class KRViewTouchTestPage : Pager() {
                         attr {
                             text(if (ctx.doubleClickCount == 0) "dblclick-idle" else "dblclick-count: ${ctx.doubleClickCount}")
                             fontSize(16f)
+                            fontWeightBold()
+                            color(Color.WHITE)
+                        }
+                    }
+                }
+
+                View {
+                    attr { height(50f) }
+                }
+
+                // === Section 5: Screen Frame Event ===
+                Text {
+                    attr {
+                        text("5. Screen Frame")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                // A view that uses screenFrame event — increments frameCount on each vsync tick
+                // Also exercises screenFramePause when toggled
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(Color(0xFF00695C))
+                        borderRadius(8f)
+                        allCenter()
+                        // Pause the screen frame after a short time to avoid infinite counting
+                        screenFramePause(ctx.framePaused)
+                    }
+                    event {
+                        screenFrame {
+                            if (ctx.frameCount < 5) {
+                                ctx.frameCount = ctx.frameCount + 1
+                            } else {
+                                ctx.framePaused = true
+                            }
+                        }
+                        click {
+                            ctx.framePaused = false
+                            ctx.frameCount = 0
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("frame-count: ${ctx.frameCount}")
+                            fontSize(14f)
                             fontWeightBold()
                             color(Color.WHITE)
                         }

@@ -392,6 +392,147 @@ internal class KRRichTextViewTestPage : Pager() {
                         height(50f)
                     }
                 }
+
+                // === Section 8: 行截断与 lineBreakMode ===
+                Text {
+                    attr {
+                        text("8. 行截断与文本属性")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(16f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                // numberOfLines=1 with textOverFlowTail
+                Text {
+                    attr {
+                        text("单行截断（tail）: 这是一段超长文本用于测试单行截断效果，文本会被截断并显示省略号。")
+                        fontSize(14f)
+                        color(Color.BLACK)
+                        lines(1)
+                        marginTop(8f)
+                        marginLeft(16f)
+                        marginRight(16f)
+                        textOverFlowTail()
+                    }
+                }
+
+                // numberOfLines=2
+                Text {
+                    attr {
+                        text("多行截断（2行）: 这是一段超长文本用于测试多行截断效果，文本会显示最多两行然后被截断，超出部分不可见。继续添加更多内容。")
+                        fontSize(14f)
+                        color(Color.BLACK)
+                        lines(2)
+                        marginTop(8f)
+                        marginLeft(16f)
+                        marginRight(16f)
+                    }
+                }
+
+                // wordWrapping lineBreakMode
+                Text {
+                    attr {
+                        text("wordWrapping: word-wrap-mode-text")
+                        fontSize(14f)
+                        color(Color.BLACK)
+                        textOverFlowWordWrapping()
+                        marginTop(8f)
+                        marginLeft(16f)
+                        marginRight(16f)
+                    }
+                }
+
+                // firstLineHeadIndent
+                Text {
+                    attr {
+                        text("首行缩进: 这是一段带有首行缩进的文本，第一行开头有额外的缩进距离，后续行不缩进。")
+                        fontSize(14f)
+                        color(Color.BLACK)
+                        firstLineHeadIndent(24f)
+                        marginTop(8f)
+                        marginLeft(16f)
+                        marginRight(16f)
+                    }
+                }
+
+                // === Section 9: 间距与字体家族 ===
+                Text {
+                    attr {
+                        text("9. 间距与字体")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(16f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                // letterSpacing
+                Text {
+                    attr {
+                        text("letter-spacing-text")
+                        fontSize(16f)
+                        color(Color(0xFF1565C0))
+                        letterSpacing(2f)
+                        marginTop(8f)
+                        marginLeft(16f)
+                    }
+                }
+
+                // lineSpacing
+                Text {
+                    attr {
+                        text("lineSpacing: 行间距文本\n第二行文本\n第三行文本")
+                        fontSize(14f)
+                        color(Color.BLACK)
+                        lineSpacing(2.0f)
+                        marginTop(8f)
+                        marginLeft(16f)
+                        marginRight(16f)
+                    }
+                }
+
+                // fontStyleItalic
+                Text {
+                    attr {
+                        text("italic-style-text")
+                        fontSize(16f)
+                        color(Color(0xFF1976D2))
+                        fontStyleItalic()
+                        marginTop(8f)
+                        marginLeft(16f)
+                    }
+                }
+
+                // fontFamily
+                Text {
+                    attr {
+                        text("fontFamily-text")
+                        fontSize(16f)
+                        color(Color(0xFF4CAF50))
+                        fontFamily("monospace")
+                        marginTop(8f)
+                        marginLeft(16f)
+                    }
+                }
+
+                // textAlignCenter
+                Text {
+                    attr {
+                        text("center-aligned-text")
+                        fontSize(16f)
+                        color(Color(0xFFE53935))
+                        textAlignCenter()
+                        marginTop(8f)
+                        marginLeft(16f)
+                        marginRight(16f)
+                    }
+                }
+
+                View { attr { height(50f) } }
             }
         }
     }

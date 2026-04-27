@@ -79,6 +79,28 @@ Why this matters: `--skip-build` reuses the last compiled JS bundle. A new Kotli
 
 When coverage is still below threshold, continue the closed loop automatically as long as the next move stays inside the safe mutation scope below.
 
+## Batch coverage improvement workflow
+
+**Rule: Do NOT run full validation after every small change. Batch all improvements first, then validate once.**
+
+When coverage is below threshold and improvements are needed:
+
+1. **Read the coverage targets first** — run `suggest-test-targets.mjs` once to see the full ranked list of low-coverage files.
+2. **Plan the full batch** — for every reachable file in the list, decide upfront: extend existing carrier page, add new spec, or skip (known headless limit).
+3. **Write all Kotlin carrier page changes** — extend multiple `.kt` files before touching any spec. Read the source file to understand what props/events to expose.
+4. **Write all spec changes** — after all Kotlin changes are done, write the corresponding specs.
+5. **Validate once** — only after all batch changes are complete, run the full build + loop.
+6. **Repeat if needed** — if coverage is still short, do another batch round. Do not run validation between individual file changes.
+
+Do NOT:
+- Run `kuikly-test.mjs` or `run-autotest-loop.mjs` after editing a single page or spec.
+- Write one spec, run tests, write the next spec, run tests. This wastes time and tokens.
+
+Do:
+- Write all carrier page extensions (5–10 files) in one pass.
+- Write all spec extensions in one pass.
+- Then run one build + loop to validate everything at once.
+
 When coverage cannot be pushed further by extending or repairing existing specs, inspect `suggest-test-targets.mjs` and the low-coverage files to decide whether the blocker is one of these two cases:
 
 - there is already a usable `web_test` page carrier, but the current spec set does not cover enough reachable behavior

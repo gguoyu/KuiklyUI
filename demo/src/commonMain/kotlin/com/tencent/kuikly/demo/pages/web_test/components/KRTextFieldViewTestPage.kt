@@ -85,6 +85,9 @@ internal class KRTextFieldViewTestPage : Pager() {
                             textDidChange { params ->
                                 ctx.inputValue = params.text
                             }
+                            inputFocus { }
+                            inputBlur { }
+                            inputReturn { }
                         }
                     }
                 }

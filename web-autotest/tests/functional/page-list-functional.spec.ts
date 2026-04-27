@@ -337,4 +337,68 @@ test.describe('PageList functional 验证', () => {
     await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
     expect(await getLeft(page0Item)).toBe(boundaryLeft);
   });
+
+  test('touch swipe left should advance to the next page', async ({ kuiklyPage }) => {
+    const pageList = kuiklyPage.component('KRListView').first();
+    const box = await pageList.boundingBox();
+    expect(box).toBeTruthy();
+
+    const startX = box!.x + box!.width * 0.75;
+    const endX = startX - box!.width * 0.6;
+    const y = box!.y + box!.height / 2;
+
+    const client = await kuiklyPage.page.context().newCDPSession(kuiklyPage.page);
+    await client.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: startX, y, id: 1, radiusX: 5, radiusY: 5, force: 1 }],
+    });
+    for (let i = 1; i <= 8; i++) {
+      const cx = startX + (endX - startX) * (i / 8);
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: cx, y, id: 1, radiusX: 5, radiusY: 5, force: 1 }],
+      });
+      await kuiklyPage.page.waitForTimeout(16);
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await kuiklyPage.page.waitForTimeout(600);
+
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+  });
+
+  test('touch swipe right from page 1 should go back to page 0', async ({ kuiklyPage }) => {
+    await kuiklyPage.page.getByText('tab1', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(400);
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+
+    const pageList = kuiklyPage.component('KRListView').first();
+    const box = await pageList.boundingBox();
+    expect(box).toBeTruthy();
+
+    const startX = box!.x + box!.width * 0.25;
+    const endX = startX + box!.width * 0.6;
+    const y = box!.y + box!.height / 2;
+
+    const client = await kuiklyPage.page.context().newCDPSession(kuiklyPage.page);
+    await client.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: startX, y, id: 1, radiusX: 5, radiusY: 5, force: 1 }],
+    });
+    for (let i = 1; i <= 8; i++) {
+      const cx = startX + (endX - startX) * (i / 8);
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: cx, y, id: 1, radiusX: 5, radiusY: 5, force: 1 }],
+      });
+      await kuiklyPage.page.waitForTimeout(16);
+    }
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await kuiklyPage.page.waitForTimeout(600);
+
+    await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+  });
 });

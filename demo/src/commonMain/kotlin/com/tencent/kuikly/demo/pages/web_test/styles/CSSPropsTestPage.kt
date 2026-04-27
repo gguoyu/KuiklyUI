@@ -368,6 +368,63 @@ internal class CSSPropsTestPage : Pager() {
                 }
 
                 View { attr { height(50f) } }
+
+                // === Section 8: Visibility Toggle ===
+                Text {
+                    attr {
+                        text("8. Visibility Toggle")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                // Toggle visibility button
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(Color(0xFF1976D2))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.touchEnabled = !ctx.touchEnabled // reuse touchEnabled for visibility toggle
+                        }
+                    }
+                    Text {
+                        attr {
+                            text(if (ctx.touchEnabled) "visibility-visible" else "visibility-hidden")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // Target view whose visibility is toggled
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(50f)
+                        backgroundColor(Color(0xFFFF9800))
+                        borderRadius(8f)
+                        allCenter()
+                        visibility(ctx.touchEnabled)
+                    }
+                    Text {
+                        attr {
+                            text("visibility-target")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                        }
+                    }
+                }
+
+                View { attr { height(50f) } }
             }
         }
     }

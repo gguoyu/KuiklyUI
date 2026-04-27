@@ -18,6 +18,8 @@ package com.tencent.kuikly.demo.pages.web_test.components
 import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.base.BoxShadow
 import com.tencent.kuikly.core.base.Color
+import com.tencent.kuikly.core.base.ColorStop
+import com.tencent.kuikly.core.base.Direction
 import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.views.Image
@@ -245,6 +247,37 @@ internal class KRImageViewTestPage : Pager() {
                             resizeCover()
                             borderRadius(12f)
                             boxShadow(BoxShadow(4f, 4f, 16f, Color(0x66000000)))
+                        }
+                    }
+                }
+
+                // === Section 7: Mask Linear Gradient ===
+                Text {
+                    attr {
+                        text("7. Mask Gradient")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        allCenter()
+                        padding(all = 24f)
+                    }
+                    Image {
+                        attr {
+                            size(200f, 150f)
+                            src(TEST_IMAGE_URL)
+                            resizeCover()
+                            borderRadius(12f)
+                            maskLinearGradient(
+                                Direction.TO_BOTTOM,
+                                ColorStop(Color(0xFFFFFFFF), 0f),
+                                ColorStop(Color(0x00FFFFFF), 1f)
+                            )
                         }
                     }
                 }

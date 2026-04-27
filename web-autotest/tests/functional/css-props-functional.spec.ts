@@ -55,4 +55,24 @@ test.describe('CSSPropsTestPage functional', () => {
     await expect(kuiklyPage.page.getByText('7. Accessibility')).toBeVisible();
     await expect(kuiklyPage.page.getByText('accessibility-label-button')).toBeVisible();
   });
+
+  test('visibility toggle should change visibility prop on the target view', async ({ kuiklyPage }) => {
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 900, smooth: false });
+    await expect(kuiklyPage.page.getByText('8. Visibility Toggle')).toBeVisible();
+
+    // Initial state: visibility-visible
+    const toggle = kuiklyPage.page.getByText('visibility-visible', { exact: true });
+    await expect(toggle).toBeVisible();
+
+    // Toggle to hidden
+    await toggle.click();
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.getByText('visibility-hidden', { exact: true })).toBeVisible();
+
+    // Toggle back to visible
+    await kuiklyPage.page.getByText('visibility-hidden', { exact: true }).click();
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.getByText('visibility-visible', { exact: true })).toBeVisible();
+  });
 });
