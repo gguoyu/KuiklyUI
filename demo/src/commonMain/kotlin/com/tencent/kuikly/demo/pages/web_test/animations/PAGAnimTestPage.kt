@@ -20,6 +20,10 @@ internal class PAGAnimTestPage : Pager() {
     private var pagRef: ViewRef<PAGView>? = null
     private var playbackState by observable("running")
     private var progressMode by observable("auto")
+    private var cancelCount by observable(0)
+    private var repeatCount2 by observable(0)
+    private var loadFailState by observable("load-fail: none")
+    private var scaleModeLabel by observable("scale: letter_box")
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -100,6 +104,18 @@ internal class PAGAnimTestPage : Pager() {
                                 ctx.progressMode = "manual-20%"
                                 ctx.pagRef?.view?.setProgress(0.2f)
                             }
+
+                            animationCancel {
+                                ctx.cancelCount = ctx.cancelCount + 1
+                            }
+
+                            animationRepeat {
+                                ctx.repeatCount2 = ctx.repeatCount2 + 1
+                            }
+
+                            loadFailure {
+                                ctx.loadFailState = "load-fail: failed"
+                            }
                         }
                     }
                 }
@@ -165,6 +181,140 @@ internal class PAGAnimTestPage : Pager() {
                         fontSize(12f)
                         color(Color(0xFF666666))
                         margin(top = 16f, left = 16f, right = 16f)
+                    }
+                }
+
+                // Status displays for new event callbacks
+                Text {
+                    attr {
+                        text("cancel-count: ${ctx.cancelCount}")
+                        fontSize(13f)
+                        color(0xFF666666)
+                        marginTop(8f)
+                        marginLeft(16f)
+                    }
+                }
+                Text {
+                    attr {
+                        text("repeat-count: ${ctx.repeatCount2}")
+                        fontSize(13f)
+                        color(0xFF666666)
+                        marginTop(4f)
+                        marginLeft(16f)
+                    }
+                }
+                Text {
+                    attr {
+                        text(ctx.loadFailState)
+                        fontSize(13f)
+                        color(0xFF666666)
+                        marginTop(4f)
+                        marginLeft(16f)
+                    }
+                }
+
+                // === Scale Mode Variants (scaleModeNone, scaleModeStretch, scaleModeZoom) ===
+                Text {
+                    attr {
+                        text("Scale Modes")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(20f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                // scaleModeNone — exercises SCALE_MODE prop with NONE value
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(100f)
+                        backgroundColor(Color(0xFFF5F5F5))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    PAG {
+                        attr {
+                            size(120f, 80f)
+                            src(ImageUri.pageAssets("../PAGExamplePage/user_avatar.pag"))
+                            autoPlay(true)
+                            repeatCount(-1)
+                            scaleModeNone()
+                        }
+                    }
+                }
+
+                // scaleModeStretch — exercises SCALE_MODE prop with STRETCH value
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(100f)
+                        backgroundColor(Color(0xFFF5F5F5))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    PAG {
+                        attr {
+                            size(200f, 80f)
+                            src(ImageUri.pageAssets("../PAGExamplePage/user_avatar.pag"))
+                            autoPlay(true)
+                            repeatCount(-1)
+                            scaleModeStretch()
+                        }
+                    }
+                }
+
+                // scaleModeZoom — exercises SCALE_MODE prop with ZOOM value
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(100f)
+                        backgroundColor(Color(0xFFF5F5F5))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    PAG {
+                        attr {
+                            size(200f, 80f)
+                            src(ImageUri.pageAssets("../PAGExamplePage/user_avatar.pag"))
+                            autoPlay(true)
+                            repeatCount(-1)
+                            scaleModeZoom()
+                        }
+                    }
+                }
+
+                // Load failure test — exercises loadFailure event with a bad URL
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(Color(0xFFF5F5F5))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    PAG {
+                        attr {
+                            size(100f, 50f)
+                            src("assets://nonexistent_pag_file_that_will_fail.pag")
+                            autoPlay(true)
+                        }
+                        event {
+                            loadFailure {
+                                ctx.loadFailState = "load-fail: failed"
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    attr {
+                        text(ctx.scaleModeLabel)
+                        fontSize(13f)
+                        color(0xFF333333)
+                        marginTop(8f)
+                        marginLeft(16f)
                     }
                 }
 

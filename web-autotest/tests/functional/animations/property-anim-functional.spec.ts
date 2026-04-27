@@ -36,4 +36,23 @@ test.describe('属性动画 functional 验证', () => {
     await kuiklyPage.page.getByText(COMBO_ACTION, { exact: true }).click();
     await waitForText(kuiklyPage.page, RESTORE_ACTION);
   });
+
+  test('timing function 按钮渲染且可点击 — 覆盖 easeIn/easeOut/easeInOut 分支', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PropertyAnimTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 600, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('5. Timing Functions')).toBeVisible();
+
+    await kuiklyPage.page.getByText('ease-in-trigger', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(600);
+    await kuiklyPage.page.getByText('ease-out-trigger', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(600);
+    await kuiklyPage.page.getByText('ease-in-out-delay-trigger', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(700);
+
+    await expect(kuiklyPage.page.getByText('5. Timing Functions')).toBeVisible();
+  });
 });

@@ -18,9 +18,11 @@ package com.tencent.kuikly.demo.pages.web_test.interactions
 import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ViewBuilder
+import com.tencent.kuikly.core.base.ViewRef
 import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.reactive.handler.observable
 import com.tencent.kuikly.core.views.List
+import com.tencent.kuikly.core.views.ListView
 import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
 
@@ -56,6 +58,8 @@ internal class ListScrollTestPage : Pager() {
     private var dragBeginCount by observable(0)
     private var dragEndCount by observable(0)
     private var scrollEndCount by observable(0)
+    private var scrollToCount by observable(0)
+    private var listRef: ViewRef<ListView<*, *>>? = null
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -126,13 +130,40 @@ internal class ListScrollTestPage : Pager() {
                             marginTop(1f)
                         }
                     }
+                    // Programmatic scroll button — exercises H5ListView.setContentOffset
+                    View {
+                        attr {
+                            height(22f)
+                            backgroundColor(Color(0x44FFFFFF))
+                            borderRadius(4f)
+                            allCenter()
+                            marginTop(2f)
+                        }
+                        event {
+                            click {
+                                ctx.scrollToCount += 1
+                                ctx.listRef?.view?.setContentOffset(0f, 0f, animated = false)
+                            }
+                        }
+                        Text {
+                            attr {
+                                text(if (ctx.scrollToCount == 0) "scroll-to-top-idle" else "scroll-to-top: ${ctx.scrollToCount}")
+                                fontSize(9f)
+                                color(Color.WHITE)
+                            }
+                        }
+                    }
                 }
             }
 
             // === 滚动列表 ===
             List {
+                ref {
+                    ctx.listRef = it
+                }
                 attr {
                     flex(1f)
+                    showScrollerIndicator(true)
                 }
                 event {
                     click {

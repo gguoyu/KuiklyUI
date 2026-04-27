@@ -120,6 +120,22 @@ internal class CalendarModuleTestPage : Pager() {
                     }
                 }
                 Text { attr { text(ctx.fieldsResult); margin(left = 16f, top = 8f) } }
+                Button {
+                    attr { titleAttr { text("addMoreFields") }; size(width = 220f, height = 48f); margin(left = 16f, top = 16f); backgroundColor(0xFF6D4C41) }
+                    event {
+                        click {
+                            // Exercises add() for DAY_OF_MONTH, HOUR_OF_DAY, SECOND, MILLISECOND
+                            val m = ctx.acquireModule<CalendarModule>(CalendarModule.MODULE_NAME)
+                            val cal = m.newCalendarInstance(ctx.sampleTimestamp)
+                            cal.add(ICalendar.Field.DAY_OF_MONTH, 2)
+                            cal.add(ICalendar.Field.HOUR_OF_DAY, 1)
+                            cal.add(ICalendar.Field.SECOND, 30)
+                            cal.add(ICalendar.Field.MILLISECOND, 500)
+                            val day = cal.get(ICalendar.Field.DAY_OF_WEEK)
+                            ctx.fieldsResult = "fields-add:${day}-${cal.get(ICalendar.Field.DAY_OF_MONTH)}"
+                        }
+                    }
+                }
             }
         }
     }

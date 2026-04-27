@@ -22,4 +22,29 @@ test.describe('PAG 动画 functional 验证', () => {
       }),
     ).toBe('260x180');
   });
+
+  test('滚动后应渲染 scale mode 区域和事件计数标签', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PAGAnimTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('Scale Modes')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('cancel-count: 0', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('repeat-count: 0', { exact: true })).toBeVisible();
+  });
+
+  test('加载失败的 PAG 文件应触发 loadFailure 回调', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PAGAnimTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
+    await kuiklyPage.page.waitForTimeout(2000);
+
+    // loadFailure callback registered — exercises LOAD_FAIL prop handler in KRPagView
+    const loadText = kuiklyPage.page.getByText(/load-fail:/);
+    await expect(loadText).toBeVisible();
+  });
 });

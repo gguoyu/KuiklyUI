@@ -3013,6 +3013,14 @@ function getPromotedBlockFunctionHeaderStatus(fileCoverage, filePath, sourceLine
     return null;
   }
 
+  // Only promote to 'yes' if the function itself was actually called (has a non-zero
+  // execution count in fnMap). If no matching fnMap entry has count > 0, the header
+  // line was never executed — fall back to neutral rather than falsely showing green.
+  const coveredFunctionCounts = getCoveredFunctionCountsStartingOnLine(fileCoverage, lineNumber);
+  if (!coveredFunctionCounts.length) {
+    return null;
+  }
+
   return hasCoveredExecutableLineInRange(fileCoverage, filePath, sourceLines, lineNumber + 1, endLine - 1)
     ? 'yes'
     : null;
@@ -3278,7 +3286,44 @@ function postProcessKotlinCoverage(coverageData) {
       const lineNumber = branchCoverage?.line || branchCoverage?.locations?.[0]?.start?.line;
       const lineText = getLineText(sourceLines, lineNumber);
       const branchCounts = Array.isArray(fileCoverage.b?.[branchId]) ? fileCoverage.b[branchId] : [];
-      if (!shouldRemoveBranchMapping(lineText, lineNumber, branchCounts, syntheticAccessorLines)) {
+
+      let shouldRemove = shouldRemoveBranchMapping(lineText, lineNumber, branchCounts, syntheticAccessorLines);
+
+      if (!shouldRemove) {
+        // Also remove branches whose primary line is structural/neutral — these are source-map
+        // artefacts (e.g. lateinit initialization checks, class-header null-safety guards) that
+        // map back to property or class declaration lines. Keeping them inflates the "not covered"
+        // branch count with arms that are invisible in the HTML report.
+        if (isForceNeutralLine(filePath, sourceLines, lineNumber)) {
+          shouldRemove = true;
+        }
+      }
+
+      if (!shouldRemove) {
+        // Remove all-zero-count branches on lines that ARE executed. These are source-map remap
+        // artefacts where the JS-level branch (e.g. compiled try/catch, safe-call null-guard) does
+        // not round-trip cleanly through the source map — the line has execution count > 0 but no
+        // branch arm was ever recorded as taken. Such phantom branches inflate the "uncovered"
+        // branch count without corresponding visible indicators in the HTML report.
+        const isAllZero = branchCounts.every((count) => Number(count || 0) === 0);
+        if (isAllZero) {
+          const rawLineCount = fileCoverage.l?.[lineNumber] ?? fileCoverage.l?.[String(lineNumber)];
+          if (Number(rawLineCount || 0) > 0) {
+            shouldRemove = true;
+          } else {
+            // Also check statement coverage on the same line
+            const hasExecutedStatement = Object.entries(fileCoverage.statementMap || {}).some(
+              ([statementId, loc]) => loc?.start?.line === lineNumber
+                && Number(fileCoverage.s?.[statementId] || 0) > 0,
+            );
+            if (hasExecutedStatement) {
+              shouldRemove = true;
+            }
+          }
+        }
+      }
+
+      if (!shouldRemove) {
         continue;
       }
 

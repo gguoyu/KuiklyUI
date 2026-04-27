@@ -88,4 +88,22 @@ test.describe('KRCalendarModule functional precise assertions', () => {
     });
     expect(fieldsText).toMatch(/^fields:\d+-\d+-\d+-\d+-\d+$/);
   });
+
+  test('addMoreFields 应对 DAY_OF_MONTH/HOUR_OF_DAY/SECOND/MILLISECOND 执行加法并获取 DAY_OF_WEEK', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CalendarModuleTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 400, smooth: false });
+    await kuiklyPage.page.getByText('addMoreFields', { exact: true }).click();
+    await kuiklyPage.waitForRenderComplete();
+
+    // Result should match "fields-add:<day_of_week>-<day_of_month>"
+    const fieldsText = await kuiklyPage.page.evaluate(() => {
+      const els = Array.from(document.querySelectorAll('p'));
+      const el = els.find(e => (e.textContent || '').startsWith('fields-add:'));
+      return el?.textContent || '';
+    });
+    expect(fieldsText).toMatch(/^fields-add:\d+-\d+$/);
+  });
 });

@@ -369,6 +369,108 @@ internal class PropertyAnimTestPage : Pager() {
                         height(50f)
                     }
                 }
+
+                // === Section 5: EaseIn / EaseOut / EaseInOut timing functions ===
+                Text {
+                    attr {
+                        text("5. Timing Functions")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(16f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                // easeIn — exercises TIMING_FUNC_TYPE_ACCELERATE branch
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(Color(0xFF43A047))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.translateRef?.view?.animateToAttr(
+                                Animation.easeIn(durationS = 0.5f),
+                                completion = {}
+                            ) {
+                                backgroundColor(if (ctx.translatePlayed) Color(0xFF43A047) else Color(0xFF1565C0))
+                            }
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("ease-in-trigger")
+                            fontSize(13f)
+                            color(Color.WHITE)
+                        }
+                    }
+                }
+
+                // easeOut — exercises TIMING_FUNC_TYPE_DECELERATE branch
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(Color(0xFF00897B))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.springRef?.view?.animateToAttr(
+                                Animation.easeOut(durationS = 0.5f),
+                                completion = {}
+                            ) {
+                                backgroundColor(if (ctx.springPlayed) Color(0xFF00897B) else Color(0xFF7B1FA2))
+                            }
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("ease-out-trigger")
+                            fontSize(13f)
+                            color(Color.WHITE)
+                        }
+                    }
+                }
+
+                // easeInOut + delay — exercises TIMING_FUNC_TYPE_ACCELERATE_DECELERATE + delay branch
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(Color(0xFFE65100))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.colorRef?.view?.animateToAttr(
+                                Animation.easeInOut(durationS = 0.5f).delay(0.1f),
+                                completion = {}
+                            ) {
+                                backgroundColor(if (ctx.colorPlayed) Color(0xFFE65100) else Color(0xFF37474F))
+                            }
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("ease-in-out-delay-trigger")
+                            fontSize(13f)
+                            color(Color.WHITE)
+                        }
+                    }
+                }
+
+                View {
+                    attr {
+                        height(50f)
+                    }
+                }
             }
         }
     }
