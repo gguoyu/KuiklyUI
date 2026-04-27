@@ -68,4 +68,23 @@ test.describe('KRTextAreaView functional', () => {
     // initial-content was set via text() attribute
     expect(value).toBe('initial-content');
   });
+
+  test('clicking in textarea and pressing Enter exercises focus and keydown event lambdas', async ({ kuiklyPage }) => {
+    await expect(kuiklyPage.page.getByText('1. Basic TextArea')).toBeVisible();
+
+    const textarea = kuiklyPage.page.locator('textarea').first();
+    await textarea.click();
+    await kuiklyPage.page.waitForTimeout(100);
+
+    // Pressing Enter in textarea exercises INPUT_RETURN keydown lambda
+    await kuiklyPage.page.keyboard.press('Enter');
+    await kuiklyPage.page.waitForTimeout(100);
+
+    // Tab to another element to trigger blur event
+    await kuiklyPage.page.keyboard.press('Tab');
+    await kuiklyPage.page.waitForTimeout(100);
+
+    // Just verify no crash occurred
+    await expect(kuiklyPage.page.getByText('1. Basic TextArea')).toBeVisible();
+  });
 });

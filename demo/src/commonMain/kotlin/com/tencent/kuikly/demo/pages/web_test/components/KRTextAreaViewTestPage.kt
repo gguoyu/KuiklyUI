@@ -92,6 +92,9 @@ internal class KRTextAreaViewTestPage : Pager() {
                             textDidChange { params ->
                                 ctx.areaValue = params.text
                             }
+                            inputFocus { }
+                            inputBlur { }
+                            inputReturn { }
                         }
                     }
                 }
