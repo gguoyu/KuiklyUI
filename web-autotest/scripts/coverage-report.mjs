@@ -937,6 +937,7 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   suppressSuspiciousBlockFunctionHeaderLineCounts(fileCoverage, lineCoverage, sourceLines);
   suppressSuspiciousPropertyDeclarationHeadLineCounts(fileCoverage, lineCoverage, sourceLines);
   suppressSuspiciousInitializedPropertyHeaderLineCounts(fileCoverage, lineCoverage, sourceLines);
+  suppressPromotedLinesInUncoveredCatchBlocks(fileCoverage, lineCoverage, sourceLines);
   return lineCoverage;
 }
 
@@ -1051,6 +1052,62 @@ function findBlockEndLine(sourceLines, startLine) {
 
 function findCatchBlockEndLine(sourceLines, catchLine) {
   return findBlockEndLine(sourceLines, catchLine);
+}
+
+function isLineInUncoveredCatchBlock(fileCoverage, sourceLines, lineNumber) {
+  // Check if the line itself is a catch header line
+  const currentText = getLineText(sourceLines, lineNumber).trim();
+  if (/\bcatch\s*\(/u.test(currentText) && currentText.includes('{')) {
+    const catchEndLine = findCatchBlockEndLine(sourceLines, lineNumber);
+    const bodyLines = getExecutableLinesInRange('', sourceLines, lineNumber + 1, catchEndLine - 1);
+    const hasCoveredBody = bodyLines.some((line) => Number(fileCoverage.l?.[line] ?? 0) > 0);
+    return !hasCoveredBody;
+  }
+
+  for (let cursor = lineNumber - 1; cursor >= 1; cursor -= 1) {
+    const text = getLineText(sourceLines, cursor).trim();
+    if (!text || /^(?:\/\/|\/\*|\*|\*\/)/u.test(text)) {
+      continue;
+    }
+    if (/\bcatch\s*\(/u.test(text) && text.includes('{')) {
+      const catchEndLine = findCatchBlockEndLine(sourceLines, cursor);
+      if (cursor <= lineNumber && lineNumber <= catchEndLine) {
+        const bodyLines = getExecutableLinesInRange('', sourceLines, cursor + 1, catchEndLine - 1);
+        const hasCoveredBody = bodyLines.some((line) => Number(fileCoverage.l?.[line] ?? 0) > 0);
+        return !hasCoveredBody;
+      }
+      return false;
+    }
+    if (/\bfun\b/u.test(text) || /\bclass\b/u.test(text)) {
+      break;
+    }
+  }
+  return false;
+}
+
+function suppressPromotedLinesInUncoveredCatchBlocks(fileCoverage, lineCoverage, sourceLines) {
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    const lineText = getLineText(sourceLines, lineNumber).trim();
+    if (!/\bcatch\s*\(/u.test(lineText) || !lineText.includes('{')) {
+      continue;
+    }
+
+    const catchEndLine = findCatchBlockEndLine(sourceLines, lineNumber);
+    const bodyLines = getExecutableLinesInRange('', sourceLines, lineNumber + 1, catchEndLine - 1);
+    const hasCoveredBody = bodyLines.some((line) => Number(fileCoverage.l?.[line] ?? 0) > 0);
+    if (hasCoveredBody) {
+      continue;
+    }
+
+    // Catch block never executed — reset all promoted coverage back to 0
+    // for lines that have no direct statement coverage of their own.
+    const catchLines = [lineNumber, ...bodyLines];
+    catchLines.forEach((line) => {
+      if (Number(lineCoverage[line]) > 0 && getDirectStatementCountOnLine(fileCoverage, line) === 0) {
+        lineCoverage[line] = 0;
+      }
+    });
+  }
 }
 
 function getExecutableLinesInRange(filePath, sourceLines, startLine, endLine) {
@@ -3057,6 +3114,13 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
       return 'yes';
     }
 
+    // Lines inside an uncovered catch block should never be promoted —
+    // the catch path was never executed, so any positive count in lineCoverage
+    // is an artifact of promote rules that inferred coverage from the try path.
+    if (isLineInUncoveredCatchBlock(fileCoverage, sourceLines, lineNumber)) {
+      return 'no';
+    }
+
     const promotedWhenArmStatus = getPromotedWhenArmHeaderStatus(fileCoverage, sourceLines, lineNumber);
     if (promotedWhenArmStatus) {
       return promotedWhenArmStatus;
@@ -3111,6 +3175,12 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
       return promotedControlStatus;
     }
 
+    return 'no';
+  }
+
+  // Lines inside an uncovered catch block should never be promoted —
+  // the catch path was never executed.
+  if (isLineInUncoveredCatchBlock(fileCoverage, sourceLines, lineNumber)) {
     return 'no';
   }
 
