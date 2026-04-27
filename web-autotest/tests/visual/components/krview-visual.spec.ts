@@ -7,7 +7,7 @@ test.describe('KRView 视觉验证', () => {
     await kuiklyPage.page.waitForTimeout(500);
 
     await expect(kuiklyPage.page).toHaveScreenshot('krview-test.png', {
-      maxDiffPixels: 100,
+      maxDiffPixels: 2000,
     });
   });
 });

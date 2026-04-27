@@ -324,6 +324,72 @@ internal class KRViewTestPage : Pager() {
                         }
                     }
                 }
+                View {
+                    attr {
+                        flexDirectionRow()
+                        padding(all = 16f)
+                        alignItemsCenter()
+                    }
+                    // TO_TOP direction
+                    View {
+                        attr {
+                            size(60f, 50f)
+                            backgroundLinearGradient(
+                                Direction.TO_TOP,
+                                ColorStop(Color(0xFF42A5F5), 0f),
+                                ColorStop(Color(0xFF1565C0), 1f)
+                            )
+                        }
+                    }
+                    // TO_LEFT direction
+                    View {
+                        attr {
+                            size(60f, 50f)
+                            backgroundLinearGradient(
+                                Direction.TO_LEFT,
+                                ColorStop(Color(0xFF66BB6A), 0f),
+                                ColorStop(Color(0xFF2E7D32), 1f)
+                            )
+                            marginLeft(8f)
+                        }
+                    }
+                    // TO_TOP_LEFT direction
+                    View {
+                        attr {
+                            size(60f, 50f)
+                            backgroundLinearGradient(
+                                Direction.TO_TOP_LEFT,
+                                ColorStop(Color(0xFFEF9A9A), 0f),
+                                ColorStop(Color(0xFFB71C1C), 1f)
+                            )
+                            marginLeft(8f)
+                        }
+                    }
+                    // TO_TOP_RIGHT direction
+                    View {
+                        attr {
+                            size(60f, 50f)
+                            backgroundLinearGradient(
+                                Direction.TO_TOP_RIGHT,
+                                ColorStop(Color(0xFFCE93D8), 0f),
+                                ColorStop(Color(0xFF6A1B9A), 1f)
+                            )
+                            marginLeft(8f)
+                        }
+                    }
+                    // TO_BOTTOM_LEFT direction
+                    View {
+                        attr {
+                            size(60f, 50f)
+                            backgroundLinearGradient(
+                                Direction.TO_BOTTOM_LEFT,
+                                ColorStop(Color(0xFFFFCC80), 0f),
+                                ColorStop(Color(0xFFE65100), 1f)
+                            )
+                            marginLeft(8f)
+                        }
+                    }
+                }
 
                 // === Section 6: 嵌套布局 ===
                 Text {

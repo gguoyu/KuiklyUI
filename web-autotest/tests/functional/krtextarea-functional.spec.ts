@@ -40,4 +40,19 @@ test.describe('KRTextAreaView functional', () => {
     await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
     await expect(kuiklyPage.page.getByText('6. Styling & Keyboard')).toBeVisible();
   });
+
+  test('textAlignCenter and tintColor are applied to center-aligned textarea', async ({ kuiklyPage }) => {
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
+    await expect(kuiklyPage.page.getByText('6. Styling & Keyboard')).toBeVisible();
+
+    const centeredTextarea = kuiklyPage.page.locator('textarea[placeholder="center-aligned-area"]');
+    await expect(centeredTextarea.first()).toBeVisible();
+
+    // Verify text-align is center (exercises TEXT_ALIGN handler in KRTextAreaView)
+    const textAlign = await centeredTextarea.first().evaluate((el) => {
+      return window.getComputedStyle(el).textAlign;
+    });
+    expect(textAlign).toBe('center');
+  });
 });

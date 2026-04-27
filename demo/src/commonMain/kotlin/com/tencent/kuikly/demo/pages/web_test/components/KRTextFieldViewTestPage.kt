@@ -348,6 +348,40 @@ internal class KRTextFieldViewTestPage : Pager() {
                     }
                 }
 
+                // === Section 7: Text Align & Tint Color ===
+                Text {
+                    attr {
+                        text("7. Text Align & Tint Color")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(0xFFF5F5F5)
+                        borderRadius(8f)
+                        padding(left = 12f, right = 12f)
+                        justifyContentCenter()
+                    }
+                    Input {
+                        attr {
+                            flex(1f)
+                            height(42f)
+                            fontSize(15f)
+                            color(Color.BLACK)
+                            placeholder("center-aligned-input")
+                            textAlignCenter()
+                            tintColor(Color(0xFF1976D2))
+                        }
+                    }
+                }
+
                 View { attr { height(50f) } }
             }
         }

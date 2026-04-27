@@ -282,6 +282,42 @@ internal class KRImageViewTestPage : Pager() {
                     }
                 }
 
+                // === Section 8: Blur Radius ===
+                Text {
+                    attr {
+                        text("8. Blur Radius")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        flexDirectionRow()
+                        alignItemsCenter()
+                        justifyContentSpaceAround()
+                        padding(all = 16f)
+                    }
+                    Image {
+                        attr {
+                            size(80f, 80f)
+                            src(TEST_IMAGE_URL)
+                            resizeCover()
+                            blurRadius(4f)
+                        }
+                    }
+                    Image {
+                        attr {
+                            size(80f, 80f)
+                            src(TEST_IMAGE_URL)
+                            resizeCover()
+                            blurRadius(10f)
+                        }
+                    }
+                }
+
             }
         }
     }
