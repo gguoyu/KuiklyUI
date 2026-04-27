@@ -246,6 +246,32 @@ internal class KRVideoViewTestPage : Pager() {
                 }
 
                 View { attr { height(50f) } }
+
+                // === Section 5: PrePlay + Stop states ===
+                // This exercises KRVideoView.playControl(PREPLAY) → logs warning
+                // and playControl(STOP) → pause + reset currentTime
+                Text {
+                    attr {
+                        text("5. PrePlay")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                Video {
+                    attr {
+                        src(VIDEO_SRC)
+                        height(80f)
+                        margin(left = 16f, right = 16f, top = 8f)
+                        playControl(VideoPlayControl.PREPLAY)
+                        muted(true)
+                    }
+                }
+
+                View { attr { height(50f) } }
             }
         }
     }

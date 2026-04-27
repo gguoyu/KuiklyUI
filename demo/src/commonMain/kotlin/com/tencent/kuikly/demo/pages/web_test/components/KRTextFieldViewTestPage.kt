@@ -78,6 +78,7 @@ internal class KRTextFieldViewTestPage : Pager() {
                             height(42f)
                             fontSize(15f)
                             color(Color.BLACK)
+                            text("initial-input-text")
                             placeholder("enter text here")
                             placeholderColor(Color(0xFF999999))
                         }

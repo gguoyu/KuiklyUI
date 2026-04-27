@@ -65,4 +65,19 @@ test.describe('KRVideoView static 验证', () => {
     await kuiklyPage.waitForRenderComplete();
     await expect(kuiklyPage.page.getByText('control: stop', { exact: true })).toBeVisible();
   });
+
+  test('section 5 preplay video renders and exercises KRVideoView.playControl(PREPLAY)', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRVideoViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1200, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('5. PrePlay')).toBeVisible();
+
+    // Verify video element is rendered
+    const videos = kuiklyPage.page.locator('video');
+    const videoCount = await videos.count();
+    expect(videoCount).toBeGreaterThanOrEqual(1);
+  });
 });

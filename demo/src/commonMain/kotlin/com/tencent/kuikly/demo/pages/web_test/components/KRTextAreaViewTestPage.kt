@@ -84,6 +84,7 @@ internal class KRTextAreaViewTestPage : Pager() {
                             flex(1f)
                             fontSize(15f)
                             color(Color.BLACK)
+                            text("initial-content")
                             placeholder("enter multiline text here")
                             placeholderColor(Color(0xFF999999))
                         }

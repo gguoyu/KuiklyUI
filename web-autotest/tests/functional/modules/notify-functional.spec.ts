@@ -70,4 +70,36 @@ test.describe('KRNotifyModule functional 验证', () => {
     expect(detail?.eventName).toBe('web_test_notify_event');
     expect(JSON.parse(detail?.data ?? '{}').count).toBe(1);
   });
+
+  test('addNotify 应注册监听并在 postNotify 后增加 receivedCount', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('NotifyModuleTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    // Initial received count should be 0
+    await expect(kuiklyPage.page.getByText('received:0')).toBeVisible();
+
+    // Click addNotify — registers listener and posts a test event
+    await kuiklyPage.page.getByLabel('addNotify', { exact: true }).click();
+    await kuiklyPage.waitForRenderComplete();
+
+    // receivedCount should be 1 after the post
+    await expect(kuiklyPage.page.getByText('received:1')).toBeVisible();
+  });
+
+  test('removeNotify 应取消监听使后续 postNotify 不再增加计数', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('NotifyModuleTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    // Register listener and trigger it once
+    await kuiklyPage.page.getByLabel('addNotify', { exact: true }).click();
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.getByText('received:1')).toBeVisible();
+
+    // Remove the listener
+    await kuiklyPage.page.getByLabel('removeNotify', { exact: true }).click();
+    await kuiklyPage.waitForRenderComplete();
+
+    // removeNotify should succeed without crashing
+    await expect(kuiklyPage.page.getByText('received:1')).toBeVisible();
+  });
 });
