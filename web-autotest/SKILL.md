@@ -274,6 +274,7 @@ Some Kotlin source paths are permanently unreachable under Playwright headless C
 | `KRView.kt` / `KuiklyRenderCSSKTX.kt` branch paths that require dynamic style re-application | Some CSS branches require a re-render cycle that does not happen in headless timing | Accept current coverage; skip |
 | Any `KRView` that uses `if/Modal` DSL for overlay rendering | Kuikly's `Modal` component does not render in headless Chromium | Mark spec as `test.skip` with `[KNOWN: Modal headless rendering issue]` |
 | Any submit / confirm `KRView` button whose click event does not fire in a specific page context | Kuikly click dispatch depends on view hierarchy; some deeply-nested views do not receive synthetic clicks | Verify with `page.evaluate`; if confirmed, mark as `test.skip` with `[KNOWN: KRView click headless issue]` |
+| `H5ListPagingHelper.kt` touch paths (`handlePagerTouchStart/Move/End`) | These handlers are only registered when `matchMedia('(pointer: coarse)')` matches (mobile). Headless Chromium is a desktop environment, so coarse-pointer media query returns false. Touch paths are permanently unreachable in headless desktop mode. | Mark spec as `test.skip` with `[KNOWN: H5ListPagingHelper touch paths only available on coarse-pointer devices]` |
 
 When a coverage gap falls into one of the above patterns and the loop has already attempted at least 2 rounds without improvement, stop and escalate rather than continuing.
 

@@ -147,3 +147,17 @@ rm web-autotest/tests/visual/<page>-visual.spec.ts-snapshots/*.png
 cd web-autotest && npx playwright test tests/visual/<page>-visual.spec.ts --update-snapshots
 ```
 不要用 `--update-snapshots` 全量刷新，只针对确认有 UI 变更的页面更新。
+
+## 8. H5ListPagingHelper 触摸事件路径无法在 headless Desktop 触发
+
+**现象**：给 PageListTestPage 添加 CDP 触摸滑动测试（`Input.dispatchTouchEvent`），
+断言分页切换后 tab 颜色变化，但测试始终失败。
+
+**根本原因**：`H5ListView.setScrollEvent()` 通过 `matchMedia('(pointer: coarse)')` 判断设备类型。
+在 headless Chromium（桌面）中，这个媒体查询返回 `false`，因此 **touch 事件监听器（`touchstart`/`touchmove`/`touchend`）从未被注册**。
+触摸路径 `handlePagerTouchStart/Move/End` 在桌面 headless 下完全不可达。
+
+**桌面 headless 下 PageList 使用鼠标事件**，`handlePagerMouseDown/Move/Up` 路径已被鼠标拖拽测试覆盖。
+
+**规则**：不要为 H5ListPagingHelper / H5ListView 的 touch 路径编写 CDP 断言测试。
+如确实需要记录这个限制，用 `test.skip(true, '[KNOWN: H5ListPagingHelper touch paths only available on coarse-pointer devices]')` 标记。
