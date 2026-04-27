@@ -38,8 +38,8 @@ node web-autotest/scripts/coverage-report.mjs --check
 
 | 配置项 | 值 | 说明 |
 |--------|----|------|
-| `thresholds` | lines:70, functions:70, branches:55 | 阈值门禁 |
-| `watermarks` | lines:[70,80], functions:[70,80], branches:[55,75] | HTML 报告颜色区间 (红/黄/绿) |
+| `thresholds` | lines:80, functions:80, branches:70 | 阈值门禁 |
+| `watermarks` | lines:[80,90], functions:[80,90], branches:[70,85] | HTML 报告颜色区间 (红/黄/绿) |
 | `scopeRoots` | `core-render-web/base/src/jsMain/kotlin`, `core-render-web/h5/src/jsMain/kotlin` | 仅统计这两个目录下的 .kt 文件 |
 | `generatedKotlinOutputDir` | `h5App/build/compileSync/js/main/developmentExecutable/kotlin` | 编译产物目录，用于定位 .js + .js.map |
 | `targetModules` | `KuiklyCore-render-web-base.js`, `KuiklyCore-render-web-h5.js`, `KuiklyUI-h5App.js` | 仅处理这三个 V8 脚本条目 |
@@ -215,7 +215,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 ```
 
 - 读取 `reports/coverage/coverage-summary.json` 的 `total` 字段
-- 对比 `thresholds` 配置 (lines ≥ 70, functions ≥ 70, branches ≥ 55)
+- 对比 `thresholds` 配置 (lines ≥ 80, functions ≥ 80, branches ≥ 70)
 - 任一指标不达标则抛出错误并退出
 
 ---

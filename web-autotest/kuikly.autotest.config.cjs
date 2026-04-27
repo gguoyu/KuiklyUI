@@ -44,14 +44,14 @@ module.exports = {
 
   coverage: {
     thresholds: {
-      lines: 70,
-      functions: 70,
-      branches: 55,
+      lines: 80,
+      functions: 80,
+      branches: 70,
     },
     watermarks: {
-      lines: [70, 80],
-      functions: [70, 80],
-      branches: [55, 75],
+      lines: [80, 90],
+      functions: [80, 90],
+      branches: [70, 85],
     },
     scopeRoots: [
       'core-render-web/base/src/jsMain/kotlin',

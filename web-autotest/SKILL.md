@@ -202,7 +202,7 @@ node web-autotest/scripts/loop/suggest-test-targets.mjs
 ```
 
 Use the results to find:
-- whether `lines/functions >= 70` and `branches >= 55`
+- whether `lines/functions >= 80` and `branches >= 70`
 - which Kotlin files are furthest below target
 - which `web_test` pages and existing specs are the best candidates to extend
 

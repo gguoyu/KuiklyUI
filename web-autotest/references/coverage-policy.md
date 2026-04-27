@@ -2,9 +2,9 @@
 
 ## Thresholds
 
-- lines >= 70
-- functions >= 70
-- branches >= 55
+- lines >= 80
+- functions >= 80
+- branches >= 70
 
 These values come from `web-autotest/config/coverage.cjs`. HTML/LCOV/JSON coverage artifacts are generated through `web-autotest/scripts/coverage-report.mjs` from `.v8_output`, and the thresholds are enforced through `web-autotest/scripts/coverage-report.mjs --check`.
 
