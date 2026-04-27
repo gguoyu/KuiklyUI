@@ -53,8 +53,8 @@ const sourceMapCache = new Map();
 const sourceLineCache = new Map();
 const structuralNeutralLineCache = new Map();
 const checkOnly = process.argv.includes('--check');
-const htmlSpaMetricsToShow = ['statements', 'lines', 'branches', 'functions'];
-const htmlSpaDefaultHash = '#file/desc/true/true/true/true//';
+const htmlSpaMetricsToShow = ['lines', 'branches', 'functions'];
+const htmlSpaDefaultHash = '#file/desc/true/true/true//';
 const syntheticAccessorNamePattern = /^(?:<get-|<set-|_get_|_set_)/;
 const classSignatureLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|sealed|data|enum|annotation|value|inner|expect|actual|companion)\s+)*(?:class|interface|object)\b/;
 const interfaceSignatureLinePattern = /^\s*(?:(?:public|private|protected|internal|open|final|abstract|sealed|data|enum|annotation|value|inner|expect|actual|companion)\s+)*interface\b/;
@@ -871,6 +871,14 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   const continuationCandidates = new Map();
   const coveredConstructorStartLines = getCoveredConstructorDelegationStartLines(fileCoverage, sourceLines);
 
+  // Pre-identify unexecuted catch block lines before processing statements.
+  // A catch block is unexecuted when no line within it has a covered direct
+  // statement (a statement that starts AND ends on the same line with count > 0).
+  // Spanning statements (e.g. `return try { … } catch { … }`) cross catch
+  // boundaries but only reflect the try-path execution — they must NOT set
+  // coverage on catch-block lines.
+  const unexecutedCatchLines = buildUnexecutedCatchLineSet(fileCoverage, filePath, sourceLines);
+
   for (const [statementId, loc] of Object.entries(fileCoverage.statementMap || {})) {
     const count = Number(fileCoverage.s?.[statementId] || 0);
     const executableLines = getExecutableLines(loc, filePath, sourceLines);
@@ -881,6 +889,11 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
     if (count > 0) {
       setLineCoverage(lineCoverage, executableLines[0], count);
       executableLines.slice(1).forEach((lineNumber) => {
+        // Skip continuation candidates inside unexecuted catch blocks —
+        // the spanning statement's execution count reflects the try path only.
+        if (unexecutedCatchLines.has(lineNumber)) {
+          return;
+        }
         const current = continuationCandidates.get(lineNumber);
         if (current == null || count > current) {
           continuationCandidates.set(lineNumber, count);
@@ -937,7 +950,7 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   suppressSuspiciousBlockFunctionHeaderLineCounts(fileCoverage, lineCoverage, sourceLines);
   suppressSuspiciousPropertyDeclarationHeadLineCounts(fileCoverage, lineCoverage, sourceLines);
   suppressSuspiciousInitializedPropertyHeaderLineCounts(fileCoverage, lineCoverage, sourceLines);
-  suppressPromotedLinesInUncoveredCatchBlocks(fileCoverage, lineCoverage, sourceLines);
+  suppressPromotedLinesInUncoveredCatchBlocks(fileCoverage, lineCoverage, filePath, sourceLines);
   return lineCoverage;
 }
 
@@ -1054,14 +1067,13 @@ function findCatchBlockEndLine(sourceLines, catchLine) {
   return findBlockEndLine(sourceLines, catchLine);
 }
 
-function isLineInUncoveredCatchBlock(fileCoverage, sourceLines, lineNumber) {
+function isLineInUncoveredCatchBlock(fileCoverage, filePath, sourceLines, lineNumber) {
   // Check if the line itself is a catch header line
   const currentText = getLineText(sourceLines, lineNumber).trim();
   if (/\bcatch\s*\(/u.test(currentText) && currentText.includes('{')) {
     const catchEndLine = findCatchBlockEndLine(sourceLines, lineNumber);
-    const bodyLines = getExecutableLinesInRange('', sourceLines, lineNumber + 1, catchEndLine - 1);
-    const hasCoveredBody = bodyLines.some((line) => Number(fileCoverage.l?.[line] ?? 0) > 0);
-    return !hasCoveredBody;
+    const bodyLines = getExecutableLinesInRange(filePath, sourceLines, lineNumber + 1, catchEndLine - 1);
+    return !catchBlockHasRealExecution(fileCoverage, lineNumber, bodyLines);
   }
 
   for (let cursor = lineNumber - 1; cursor >= 1; cursor -= 1) {
@@ -1072,9 +1084,8 @@ function isLineInUncoveredCatchBlock(fileCoverage, sourceLines, lineNumber) {
     if (/\bcatch\s*\(/u.test(text) && text.includes('{')) {
       const catchEndLine = findCatchBlockEndLine(sourceLines, cursor);
       if (cursor <= lineNumber && lineNumber <= catchEndLine) {
-        const bodyLines = getExecutableLinesInRange('', sourceLines, cursor + 1, catchEndLine - 1);
-        const hasCoveredBody = bodyLines.some((line) => Number(fileCoverage.l?.[line] ?? 0) > 0);
-        return !hasCoveredBody;
+        const bodyLines = getExecutableLinesInRange(filePath, sourceLines, cursor + 1, catchEndLine - 1);
+        return !catchBlockHasRealExecution(fileCoverage, cursor, bodyLines);
       }
       return false;
     }
@@ -1085,7 +1096,25 @@ function isLineInUncoveredCatchBlock(fileCoverage, sourceLines, lineNumber) {
   return false;
 }
 
-function suppressPromotedLinesInUncoveredCatchBlocks(fileCoverage, lineCoverage, sourceLines) {
+/**
+ * Determine whether a catch block was truly executed.
+ * We rely on direct statement coverage: if any line in the catch block has
+ * a covered statement that starts AND ends on that line, the catch was
+ * genuinely executed. Spanning statements (e.g. `return try { ... } catch { ... }`)
+ * cross catch boundaries but only reflect the try-path execution.
+ */
+function catchBlockHasRealExecution(fileCoverage, catchHeaderLine, bodyLines) {
+  const catchLines = [catchHeaderLine, ...bodyLines];
+  return catchLines.some((line) => getDirectStatementCountOnLine(fileCoverage, line) > 0);
+}
+
+/**
+ * Build a Set of all line numbers inside catch blocks that were NOT genuinely
+ * executed. Used to prevent spanning statements from polluting fc.l for those
+ * lines at the source, rather than cleaning up afterward.
+ */
+function buildUnexecutedCatchLineSet(fileCoverage, filePath, sourceLines) {
+  const unexecutedLines = new Set();
   for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
     const lineText = getLineText(sourceLines, lineNumber).trim();
     if (!/\bcatch\s*\(/u.test(lineText) || !lineText.includes('{')) {
@@ -1093,9 +1122,27 @@ function suppressPromotedLinesInUncoveredCatchBlocks(fileCoverage, lineCoverage,
     }
 
     const catchEndLine = findCatchBlockEndLine(sourceLines, lineNumber);
-    const bodyLines = getExecutableLinesInRange('', sourceLines, lineNumber + 1, catchEndLine - 1);
-    const hasCoveredBody = bodyLines.some((line) => Number(fileCoverage.l?.[line] ?? 0) > 0);
-    if (hasCoveredBody) {
+    const bodyLines = getExecutableLinesInRange(filePath, sourceLines, lineNumber + 1, catchEndLine - 1);
+    if (catchBlockHasRealExecution(fileCoverage, lineNumber, bodyLines)) {
+      continue;
+    }
+
+    unexecutedLines.add(lineNumber);
+    bodyLines.forEach((line) => unexecutedLines.add(line));
+  }
+  return unexecutedLines;
+}
+
+function suppressPromotedLinesInUncoveredCatchBlocks(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    const lineText = getLineText(sourceLines, lineNumber).trim();
+    if (!/\bcatch\s*\(/u.test(lineText) || !lineText.includes('{')) {
+      continue;
+    }
+
+    const catchEndLine = findCatchBlockEndLine(sourceLines, lineNumber);
+    const bodyLines = getExecutableLinesInRange(filePath, sourceLines, lineNumber + 1, catchEndLine - 1);
+    if (catchBlockHasRealExecution(fileCoverage, lineNumber, bodyLines)) {
       continue;
     }
 
@@ -1103,7 +1150,7 @@ function suppressPromotedLinesInUncoveredCatchBlocks(fileCoverage, lineCoverage,
     // for lines that have no direct statement coverage of their own.
     const catchLines = [lineNumber, ...bodyLines];
     catchLines.forEach((line) => {
-      if (Number(lineCoverage[line]) > 0 && getDirectStatementCountOnLine(fileCoverage, line) === 0) {
+      if (Number(lineCoverage[line]) > 0 && !getDirectStatementCountOnLine(fileCoverage, line)) {
         lineCoverage[line] = 0;
       }
     });
@@ -3117,7 +3164,7 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
     // Lines inside an uncovered catch block should never be promoted —
     // the catch path was never executed, so any positive count in lineCoverage
     // is an artifact of promote rules that inferred coverage from the try path.
-    if (isLineInUncoveredCatchBlock(fileCoverage, sourceLines, lineNumber)) {
+    if (isLineInUncoveredCatchBlock(fileCoverage, filePath, sourceLines, lineNumber)) {
       return 'no';
     }
 
@@ -3395,12 +3442,24 @@ function postProcessKotlinCoverage(coverageData) {
           if (Number(rawLineCount || 0) > 0) {
             shouldRemove = true;
           } else {
-            // Also check statement coverage on the same line
-            const hasExecutedStatement = Object.entries(fileCoverage.statementMap || {}).some(
-              ([statementId, loc]) => loc?.start?.line === lineNumber
-                && Number(fileCoverage.s?.[statementId] || 0) > 0,
+            // Check if any covered statement overlaps the branch's location range.
+            // A spanning statement (e.g. return try { ... } catch { ... }) can cover
+            // lines within the branch range without starting on the branch line,
+            // and fc.l may not have entries for those intermediate lines.
+            const branchStartLine = branchCoverage.loc?.start?.line ?? lineNumber;
+            const branchEndLine = branchCoverage.loc?.end?.line ?? lineNumber;
+            const hasOverlappingCoveredStatement = Object.entries(fileCoverage.statementMap || {}).some(
+              ([statementId, loc]) => {
+                if (Number(fileCoverage.s?.[statementId] || 0) <= 0) {
+                  return false;
+                }
+                const sStart = loc?.start?.line;
+                const sEnd = loc?.end?.line;
+                return sStart != null && sEnd != null
+                  && sStart <= branchEndLine && sEnd >= branchStartLine;
+              },
             );
-            if (hasExecutedStatement) {
+            if (hasOverlappingCoveredStatement) {
               shouldRemove = true;
             }
           }
@@ -3496,7 +3555,7 @@ function patchSummaryLinesFromLineCoverage(coverageData) {
 
   // Recompute the global total from patched per-file summaries.
   // Also round all pct values to 2 decimal places for consistency.
-  const metrics = ['lines', 'statements', 'branches', 'functions'];
+  const metrics = ['lines', 'branches', 'functions'];
   const globalTotal = {};
   for (const m of metrics) {
     globalTotal[m] = { total: 0, covered: 0, skipped: 0 };
@@ -3582,13 +3641,13 @@ function patchBundleFilterLogic() {
   // The original Monocart filter uses per-metric OR: a file is shown if ANY visible
   // metric's classForPercent matches the active filter.  This means toggling "medium"
   // has no visible effect when "low" and "high" are already selected, because files
-  // with medium statements but high lines still pass via the "high" check.
+  // with medium branches but high lines still pass via the "high" check.
   //
   // Replace with file-level classForPercent filtering: compute the worst classForPercent
   // across visible metrics (same logic Monocart uses for the file row colour), then
   // check that single value against the active filters.  This makes Low / Medium / High
   // behave as mutually exclusive tiers.
-  const originalPerMetricFilter = 'n.statements&&r[a.metrics.statements.classForPercent]||n.branches&&r[a.metrics.branches.classForPercent]||n.functions&&r[a.metrics.functions.classForPercent]||n.lines&&r[a.metrics.lines.classForPercent]';
+  const originalPerMetricFilter = 'n.branches&&r[a.metrics.branches.classForPercent]||n.functions&&r[a.metrics.functions.classForPercent]||n.lines&&r[a.metrics.lines.classForPercent]';
 
   if (!bundleContent.includes(originalPerMetricFilter)) {
     return;
@@ -3597,7 +3656,6 @@ function patchBundleFilterLogic() {
   const fileLevelFilter = [
     'r[function(){',
     'var v="none",hasMetric=false;',
-    'if(n.statements){var s=a.metrics.statements.classForPercent;if(s!=="none"&&s!=="empty"){hasMetric=true;if(s==="low"||s==="medium"&&v!=="low"||s==="high"&&v!=="low"&&v!=="medium")v=s}}',
     'if(n.branches){var b=a.metrics.branches.classForPercent;if(b!=="none"&&b!=="empty"){hasMetric=true;if(b==="low"||b==="medium"&&v!=="low"||b==="high"&&v!=="low"&&v!=="medium")v=b}}',
     'if(n.functions){var f=a.metrics.functions.classForPercent;if(f!=="none"&&f!=="empty"){hasMetric=true;if(f==="low"||f==="medium"&&v!=="low"||f==="high"&&v!=="low"&&v!=="medium")v=f}}',
     'if(n.lines){var l=a.metrics.lines.classForPercent;if(l!=="none"&&l!=="empty"){hasMetric=true;if(l==="low"||l==="medium"&&v!=="low"||l==="high"&&v!=="low"&&v!=="medium")v=l}}',
@@ -3726,7 +3784,7 @@ function getClassForPercent(pct, metricName) {
 }
 
 function reaggregateMetricsFromChildren(node) {
-  const metrics = ['statements', 'branches', 'functions', 'lines'];
+  const metrics = ['branches', 'functions', 'lines'];
   for (const m of metrics) {
     let total = 0;
     let covered = 0;

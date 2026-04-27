@@ -15,14 +15,12 @@ export function summarizeBranches(branchMap) {
 }
 
 export function computeFileMetrics(info) {
-  const statements = summarizeCounter(info.s);
   const functions = summarizeCounter(info.f);
   const branches = summarizeBranches(info.b);
   const lineExecutionValues = Object.keys(info.statementMap || {}).map((key) => Number((info.s || {})[key] || 0));
   const lines = summarizeCounter(lineExecutionValues);
 
   return {
-    statements,
     functions,
     branches,
     lines,

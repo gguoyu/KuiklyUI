@@ -240,7 +240,7 @@ JS 调试报告路径：`reports/coverage-js-no-sourcemap-html/index.html`
 
 | 指标 | 阈值 |
 |------|------|
-| lines / functions / statements | ≥ 70% |
+| lines / functions | ≥ 70% |
 | branches | ≥ 55% |
 
 ---

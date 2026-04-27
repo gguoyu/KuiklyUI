@@ -72,8 +72,7 @@ const suggestions = Object.entries(coverage)
       metrics,
       uncoveredWeight:
         (metrics.branches.total - metrics.branches.covered) * 3 +
-        (metrics.lines.total - metrics.lines.covered) * 2 +
-        (metrics.statements.total - metrics.statements.covered),
+        (metrics.lines.total - metrics.lines.covered) * 2,
       suggestedPages,
       existingSpecs: scan.specTargets
         .filter((spec) => spec.targets.some((target) => suggestedPages.includes(target)))

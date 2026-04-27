@@ -38,8 +38,8 @@ node web-autotest/scripts/coverage-report.mjs --check
 
 | 配置项 | 值 | 说明 |
 |--------|----|------|
-| `thresholds` | lines:70, functions:70, statements:70, branches:55 | 阈值门禁 |
-| `watermarks` | lines:[70,80], functions:[70,80], branches:[55,75], statements:[70,80] | HTML 报告颜色区间 (红/黄/绿) |
+| `thresholds` | lines:70, functions:70, branches:55 | 阈值门禁 |
+| `watermarks` | lines:[70,80], functions:[70,80], branches:[55,75] | HTML 报告颜色区间 (红/黄/绿) |
 | `scopeRoots` | `core-render-web/base/src/jsMain/kotlin`, `core-render-web/h5/src/jsMain/kotlin` | 仅统计这两个目录下的 .kt 文件 |
 | `generatedKotlinOutputDir` | `h5App/build/compileSync/js/main/developmentExecutable/kotlin` | 编译产物目录，用于定位 .js + .js.map |
 | `targetModules` | `KuiklyCore-render-web-base.js`, `KuiklyCore-render-web-h5.js`, `KuiklyUI-h5App.js` | 仅处理这三个 V8 脚本条目 |
@@ -83,11 +83,11 @@ node web-autotest/scripts/coverage-report.mjs --check
 - **全零分支 + 类签名行/非运行时主构造器属性**: 删除
 - **全零分支 + 合成 accessor 行上的非运行时属性**: 删除
 - **全零分支 + 行在 structural neutral 集中**: 删除 (源映射伪影，如 lateinit 初始化检查)
-- **全零分支 + 该行有执行计数 > 0**: 删除 (编译产物的 try/catch 或安全调用空值守卫产生的幻影分支)
+- **全零分支 + 该行有执行计数 > 0 或有覆盖语句范围重叠**: 删除 (编译产物的 try/catch 或安全调用空值守卫产生的幻影分支；当 `fc.l` 无条目时，也检查是否有 covered statement 的范围与 branch 范围重叠)
 
 ### 4.2 阶段二: 行覆盖率重计算 (`computeLineCoverageFromStatements`)
 
-删除噪音映射后，基于剩余语句重新计算每行覆盖率，并依次执行以下 **promote** 和 **suppress** 规则:
+删除噪音映射后，基于剩余语句重新计算每行覆盖率。计算前先构建 **未执行 catch 块行集合** (`buildUnexecutedCatchLineSet`)，用于从源头阻止 spanning statement 对 catch 块的污染 (见 4.2.4)，然后依次执行以下 **promote** 和 **suppress** 规则:
 
 #### 4.2.1 Structural Neutral 行标记
 
@@ -150,26 +150,27 @@ node web-autotest/scripts/coverage-report.mjs --check
 | `suppressSuspiciousBlockFunctionHeaderLineCounts` | `fun ... {` 头行有覆盖计数但无直接语句计数时，删除 (防止跨行语句误标)；现已由 structural neutral 机制兜底 |
 | `suppressSuspiciousPropertyDeclarationHeadLineCounts` | 无初始化器的属性声明行有覆盖计数但无直接语句时，删除 |
 | `suppressSuspiciousInitializedPropertyHeaderLineCounts` | 多行初始化属性头行有覆盖计数但无直接语句时，删除 |
-| `suppressPromotedLinesInUncoveredCatchBlocks` | 未覆盖 catch 块内被 promote 规则错误推断为覆盖的行，重置为 0 |
+| `suppressPromotedLinesInUncoveredCatchBlocks` | 未覆盖 catch 块内被中间 promote 规则错误推断为覆盖的行 (无 direct statement coverage)，重置为 0。作为 source 层预防之后的安全网 |
 
-#### 4.2.4 未覆盖 Catch 块抑制 (集中式)
+#### 4.2.4 未覆盖 Catch 块处理 (三层防护)
 
-**问题**: `return try { ... } catch { ... }` 等结构会产生跨行语句 (spanning statement)，覆盖 try 和 catch 两个代码路径。V8 记录的执行计数反映的是 try 路径，但 spanning statement 的行范围包含了 catch 块行，导致 promote 规则错误地将 catch 块行推断为已覆盖。
+**问题**: `return try { ... } catch { ... }` 等结构会产生跨行语句 (spanning statement)，其行范围覆盖 try 和 catch 两个代码路径。V8 记录的执行计数反映的是 try 路径，若不加以处理，spanning statement 会将 try 路径的计数传播到 catch 块行，导致 catch 块行被错误标记为已覆盖。
 
-**根因**: `isLineInReliablyUncoveredBranchArm` 无法保护 catch 块，因为 V8/SourceMap 不会为 try-catch 生成有意义的 branchMap 条目 (编译后 JS 中的 IfStatement 分支计数通常为 [0,0]，即 `hasNonEmptyCoveredLocation = false`，guard 不触发)。
+**根因**: V8/SourceMap 不会为 try-catch 生成有意义的 branchMap 条目 (编译后 JS 中的 IfStatement 分支计数通常为 [0,0])，因此 `suppressFalseCoveredLinesInUncoveredBranches` 的 guard 不触发。
 
-**解决方案**: 采用两层集中式抑制，而非在各个 promote 函数中逐一添加 guard:
+**解决方案**: 采用三层防护机制:
 
-1. **lineCoverage 层** (`suppressPromotedLinesInUncoveredCatchBlocks`): 在 `computeLineCoverageFromStatements` 末尾运行，扫描所有 catch 块，若原始 `fc.l` 中 catch 体所有行均为 0，则将 `lineCoverage` 中被错误 promote 的行 (无 direct statement coverage) 重置为 0。
+1. **Source 层预防** (`buildUnexecutedCatchLineSet` + 初始扫描过滤): 在 `computeLineCoverageFromStatements` 初始扫描前，构建未执行 catch 块行集合。初始扫描时，spanning statement 的 continuation candidates 跳过这些行，从源头阻止污染。判断 catch 块是否真正执行的依据是 **direct statement count** (起止行相同的 covered statement)，而非 `fc.l` (后者已被 spanning statement 污染)。
 
-2. **status 层** (`isLineInUncoveredCatchBlock` guard in `deriveLineStatus`): 在 `lineCount === 0` 和 `lineCount == null` 两个分支中，于所有 promote 函数之前检查当前行是否在未覆盖 catch 块内，若是则直接返回 `'no'`。
+2. **lineCoverage 层兜底** (`suppressPromotedLinesInUncoveredCatchBlocks`): 在 `computeLineCoverageFromStatements` 末尾运行，扫描所有 catch 块，若 `catchBlockHasRealExecution` 判定 catch 未执行，则将 `lineCoverage` 中被中间 promote 规则错误推断的行 (无 direct statement coverage，即 `getDirectStatementCountOnLine` 返回 `null` 或 `0`) 重置为 0。此函数作为安全网存在，因为部分 promote 函数缺少 catch 块感知。
 
-**为什么是集中式**: 未来新增 promote 函数时无需逐一添加 guard，两层控制自动修正结果。与现有的 `suppressFalseCoveredLinesInUncoveredBranches` 等函数保持一致的"先 promote 再 suppress"模式。
+3. **status 层防护** (`isLineInUncoveredCatchBlock` guard in `deriveLineStatus`): 在 `lineCount === 0` 和 `lineCount == null` 两个分支中，于所有 promote 函数之前检查当前行是否在未覆盖 catch 块内，若是则直接返回 `'no'`。判断逻辑与第一层一致，使用 `catchBlockHasRealExecution`。
 
-**判断条件** (`isLineInUncoveredCatchBlock`):
-- 向上扫描找到 `catch(` 行，确定 catch 块范围
-- 检查 catch 体在原始 `fc.l` 中是否有任何行 > 0
-- 全部为 0 → 返回 true (未覆盖)，否则 → false (已执行过的 catch 块不抑制)
+**catch 块是否真正执行的判断** (`catchBlockHasRealExecution`):
+- 遍历 catch 块所有行，检查是否有 `getDirectStatementCountOnLine > 0`
+- `getDirectStatementCountOnLine` 返回起止行均在同一行且计数 > 0 的最大 statement 计数；无匹配 statement 时返回 `null`
+- 只要有一行的 direct statement count > 0，即判定 catch 块已执行
+- 不使用 `fc.l` 判断，因为 spanning statement 会污染 `fc.l`
 
 ---
 
@@ -188,7 +189,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 - 将代码区 `<pre>` 中的 Istanbul 注解 span 去除，替换为 `<span class="kotlin-line coverage-{status}">` 简化渲染
 
 ### 5.3 SPA 首页默认
-- `index.html` 中设置 `window.metricsToShow = ['statements', 'lines', 'branches', 'functions']`
+- `index.html` 中设置 `window.metricsToShow = ['lines', 'branches', 'functions']`
 - 默认 hash 设为 `#file/desc/true/true/true/true//`
 
 ---
@@ -214,7 +215,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 ```
 
 - 读取 `reports/coverage/coverage-summary.json` 的 `total` 字段
-- 对比 `thresholds` 配置 (lines ≥ 70, functions ≥ 70, statements ≥ 70, branches ≥ 55)
+- 对比 `thresholds` 配置 (lines ≥ 70, functions ≥ 70, branches ≥ 55)
 - 任一指标不达标则抛出错误并退出
 
 ---

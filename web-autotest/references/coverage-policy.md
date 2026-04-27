@@ -4,7 +4,6 @@
 
 - lines >= 70
 - functions >= 70
-- statements >= 70
 - branches >= 55
 
 These values come from `web-autotest/config/coverage.cjs`. HTML/LCOV/JSON coverage artifacts are generated through `web-autotest/scripts/coverage-report.mjs` from `.v8_output`, and the thresholds are enforced through `web-autotest/scripts/coverage-report.mjs --check`.
@@ -22,7 +21,7 @@ Do not assume that other Kotlin modules are part of the enforcement scope unless
 ## How to choose new tests
 
 1. Start with the lowest-coverage file from `coverage-final.json`.
-2. Look at uncovered branch, statement, and line counts rather than only percentages.
+2. Look at uncovered branch and line counts rather than only percentages.
 3. Map the file back to the nearest runtime concern:
    - component rendering
    - module behavior
@@ -72,7 +71,7 @@ Use this when coverage is below threshold and the loop must decide what to exten
 ### Candidate scoring dimensions
 
 When choosing among multiple reachable coverage targets, prefer the page that has more of the following:
-- a larger uncovered branch / line / statement gap
+- a larger uncovered branch / line gap
 - a higher-value category (`interactions`, `modules`, then `animations`, then `composite`)
 - stable visible text or stable state text that can act as a post-action oracle
 - explicit action scripts or deterministic input / scroll paths

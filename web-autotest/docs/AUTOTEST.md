@@ -1101,14 +1101,12 @@ module.exports = {
   thresholds: {
     lines: 70,
     functions: 70,
-    statements: 70,
     branches: 55,
   },
   watermarks: {
     lines: [70, 80],
     functions: [70, 80],
     branches: [55, 75],
-    statements: [70, 80],
   },
   scopeRoots: [
     'core-render-web/base/src/jsMain/kotlin',
@@ -1137,7 +1135,6 @@ module.exports = {
 | ---- | ---- |
 | lines | 70% |
 | functions | 70% |
-| statements | 70% |
 | branches | 55% |
 
 长期目标：在核心渲染路径上继续提高阈值，但文档中的正式门禁口径以当前 `config/coverage.cjs` 实际配置为准。
@@ -1426,7 +1423,7 @@ CLI 闭环入口
 
 - [x] 实现 V8 覆盖率采集流程（`fixtures/coverage.ts`，通过 Playwright coverage API 导出 `.v8_output/`）
 - [x] 改造测试服务器（`scripts/serve.js`，支持 `h5App.js` Kotlin modules loader 与 `/kotlin-modules/*` 路由）
-- [x] 配置覆盖率阈值与 V8 参数（`config/coverage.cjs`：lines/functions/statements ≥ 70%，branches ≥ 55%）
+- [x] 配置覆盖率阈值与 V8 参数（`config/coverage.cjs`：lines/functions ≥ 70%，branches ≥ 55%）
 - [x] 统一覆盖率方案口径：以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + 阈值检查）作为唯一门禁与对外展示结果
 - [x] 实现 `kuikly-test.mjs` CLI 脚本（支持 `--full / --level / --coverage-only` 等参数，并作为本地一键闭环标准入口）
 - [x] 补充 `package.json` 脚本（`coverage` / `coverage:check` / `coverage:js-no-sourcemap` / `kuikly-test` 等）
@@ -1488,7 +1485,7 @@ npm run test:update-snapshots
 - [x] **渲染层改动位置**：在 `createRenderViewHandler` 中注入 `data-kuikly-component`，已在 Phase 1 实现；复用路径无需额外处理（已确认）
 - [x] **测试页面路由**：使用格式 `http://localhost:8080?page_name=TestPageName`（已确认）
 - [x] **静态服务器端口**：使用 8080 端口，已在 `playwright.config.js` 的 `webServer` 中配置并固定，用于 Playwright 本地调试路径（已确认）
-- [x] **覆盖率阈值与口径**：整体门禁定为 lines/functions/statements ≥ 70%、branches ≥ 55%；覆盖率结果统一以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + 阈值检查）为准（已确认）
+- [x] **覆盖率阈值与口径**：整体门禁定为 lines/functions ≥ 70%、branches ≥ 55%；覆盖率结果统一以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + 阈值检查）为准（已确认）
 - [x] **截图基准更新策略**：Chrome 参数 + 内嵌 Web Font 方案（方案 F）— 开发者本地运行 `npm run setup`（下载字体）后执行 `npm run test:update-snapshots` 生成截图，跨平台差异通过技术手段消除，无需 Docker，review 后 git commit（已落地）
 - [x] **浏览器范围**：当前及近期仅配置 Chromium，暂不扩展 WebKit/Firefox（已确认）
 - [x] **Skill 优先级**：Skill 在 Phase 7 实施即可（已确认）

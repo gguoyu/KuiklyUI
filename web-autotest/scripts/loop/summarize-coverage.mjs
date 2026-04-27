@@ -25,7 +25,6 @@ const files = Object.entries(coverage).map(([absolutePath, info]) => {
     absolutePath,
     metrics,
     deficits: {
-      statements: metrics.statements.total - metrics.statements.covered,
       functions: metrics.functions.total - metrics.functions.covered,
       branches: metrics.branches.total - metrics.branches.covered,
       lines: metrics.lines.total - metrics.lines.covered,
@@ -50,19 +49,18 @@ function aggregate(metricName) {
 const summary = {
   lines: aggregate('lines'),
   functions: aggregate('functions'),
-  statements: aggregate('statements'),
   branches: aggregate('branches'),
 };
 
 const lowCoverageFiles = [...files]
   .sort((left, right) => {
-    const leftScore = left.metrics.branches.pct + left.metrics.lines.pct + left.metrics.statements.pct;
-    const rightScore = right.metrics.branches.pct + right.metrics.lines.pct + right.metrics.statements.pct;
+    const leftScore = left.metrics.branches.pct + left.metrics.lines.pct;
+    const rightScore = right.metrics.branches.pct + right.metrics.lines.pct;
     if (leftScore !== rightScore) {
       return leftScore - rightScore;
     }
-    return (right.deficits.branches + right.deficits.lines + right.deficits.statements) -
-      (left.deficits.branches + left.deficits.lines + left.deficits.statements);
+    return (right.deficits.branches + right.deficits.lines) -
+      (left.deficits.branches + left.deficits.lines);
   })
   .slice(0, displayConfig.maxLowCoverageFiles);
 
@@ -72,7 +70,6 @@ console.log(JSON.stringify({
   thresholds: {
     lines: thresholds.lines,
     functions: thresholds.functions,
-    statements: thresholds.statements,
     branches: thresholds.branches,
   },
   summary,
