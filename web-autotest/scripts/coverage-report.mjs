@@ -3763,6 +3763,64 @@ function simplifyAnnotatedKotlinCode(codeHtml, lineStatuses) {
   }).join('');
 }
 
+function patchDetailHtmlHeaderMetrics(html, computedLineData) {
+  if (!computedLineData) {
+    return html;
+  }
+
+  // Use fc.l counts (same as coverage-summary.json) rather than
+  // deriveLineStatus counts, so the header metrics stay consistent
+  // with the summary data.
+  const counts = computedLineData.counts;
+  const statuses = computedLineData.statuses;
+  if (!counts || !statuses) {
+    return html;
+  }
+
+  let covered = 0;
+  let total = 0;
+  for (let i = 0; i < counts.length; i++) {
+    const count = counts[i];
+    const status = statuses[i];
+    // Only count lines that have a lineCoverage entry in fc.l
+    // (count != null) — neutral lines without an entry are excluded.
+    if (count != null) {
+      total++;
+      if (Number(count) > 0) {
+        covered++;
+      }
+    }
+  }
+
+  if (total === 0) {
+    return html;
+  }
+
+  const pct = roundPct((covered / total) * 100);
+
+  // Replace Lines fraction: <span class='fraction'>44/53</span>
+  html = html.replace(
+    /(<span class="quiet">Lines<\/span>[\s\S]*?<span class='fraction'>)\d+\/\d+(<\/span>)/,
+    `$1${covered}/${total}$2`,
+  );
+
+  // Replace Lines percentage
+  html = html.replace(
+    /(<span class="strong">)\s*[\d.]+%\s*(<\/span>\s*<span class="quiet">Lines<\/span>)/,
+    `$1${pct}% $2`,
+  );
+
+  // Update status-line class
+  const watermarks = coverageConfig.watermarks.lines || [70, 80];
+  const statusClass = pct < watermarks[0] ? 'low' : pct < watermarks[1] ? 'medium' : 'high';
+  html = html.replace(
+    /(<div class='status-line\s+)(?:low|medium|high)('><\/div>)/,
+    `$1${statusClass}$2`,
+  );
+
+  return html;
+}
+
 function patchKotlinDetailHtmlFiles(lineDataMap) {
   if (!existsSync(reportDir)) {
     return 0;
@@ -3773,10 +3831,14 @@ function patchKotlinDetailHtmlFiles(lineDataMap) {
   const detailBlockPattern = /<td class="line-coverage quiet">([\s\S]*?)<\/td><td class="text"><pre class="prettyprint(?:\s+lang-js)?">([\s\S]*?)<\/pre><\/td><\/tr>/u;
 
   for (const htmlPath of htmlFiles) {
-    const html = readFileSync(htmlPath, 'utf8');
+    let html = readFileSync(htmlPath, 'utf8');
     const computedLineData = lineDataMap?.get(getHtmlReportRelativeSourcePath(htmlPath));
     const computedLineStatuses = computedLineData?.statuses;
     const computedLineCounts = computedLineData?.counts;
+
+    // Patch header metrics: replace Lines fraction and pct from computed statuses
+    html = patchDetailHtmlHeaderMetrics(html, computedLineData);
+
     const patchedHtml = html.replace(detailBlockPattern, (match, lineCoverageHtml, codeHtml) => {
       const lineStatuses = resolveLineStatuses(lineCoverageHtml, computedLineStatuses);
       const patchedLineCoverageHtml = patchLineCoverageHtml(lineCoverageHtml, lineStatuses, computedLineCounts);
