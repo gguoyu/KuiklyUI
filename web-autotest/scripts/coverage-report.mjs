@@ -1533,19 +1533,21 @@ function hasCoveredNestedFunctionContainedInRange(fileCoverage, startLine, endLi
     if (Number(fileCoverage.f?.[functionId] || 0) <= 0) {
       return false;
     }
-    // Skip sibling functions that share the same loc range as the excluded
+    // Skip sibling functions that share the same loc start as the excluded
     // function — Kotlin/JS often generates multiple fnMap entries for the same
-    // lambda (e.g. `lambda` and `lambda_1`). A covered sibling does not prove
-    // the excluded function was independently called.
+    // lambda (e.g. `lambda` and `lambda_1`, `lambda_0`). A covered sibling
+    // does not prove the excluded function was independently called.
+    // Only compare start (line+column) and end line — end column may differ
+    // across sourcemap entries for the same lambda.
     if (excludedLoc
       && functionCoverage?.loc?.start?.line === excludedLoc.start?.line
-      && functionCoverage?.loc?.end?.line === excludedLoc.end?.line
       && functionCoverage?.loc?.start?.column === excludedLoc.start?.column
-      && functionCoverage?.loc?.end?.column === excludedLoc.end?.column) {
+      && functionCoverage?.loc?.end?.line === excludedLoc.end?.line) {
       return false;
     }
     return functionCoverage?.loc?.start?.line >= startLine
-      && functionCoverage?.loc?.end?.line <= endLine;
+      && functionCoverage?.loc?.end?.line <= endLine
+      && functionCoverage?.loc?.start?.line <= functionCoverage?.loc?.end?.line;
   });
 }
 
@@ -1617,9 +1619,11 @@ function suppressFalseCoveredLinesInUncoveredFunctions(fileCoverage, lineCoverag
       functionEndLine = locEndLine;
     } else {
       headerStartLine = findFunctionHeaderStartLine(sourceLines, locStartLine) || locStartLine;
-      functionEndLine = getLineText(sourceLines, headerStartLine).includes('{')
-        ? findBlockEndLine(sourceLines, headerStartLine)
-        : locEndLine;
+      // Use locEndLine instead of findBlockEndLine: the loc range from
+      // Istanbul/V8 covers the full function including nested lambdas and
+      // classes, whereas findBlockEndLine may stop at the first matching
+      // closing brace (the direct method body), missing nested scopes.
+      functionEndLine = locEndLine;
     }
 
     if (functionEndLine < headerStartLine) {
@@ -1641,10 +1645,18 @@ function suppressFalseCoveredLinesInUncoveredFunctions(fileCoverage, lineCoverag
 
     const executableLines = getExecutableLinesInRange(filePath, sourceLines, headerStartLine, functionEndLine);
     executableLines.forEach((lineNumber) => {
-      const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
       if (!(Number(lineCoverage[lineNumber]) > 0)) {
         return;
       }
+      // When hasLocalCoveredExecution is false, no covered nested function exists
+      // within the range — the function was never called. All line coverage inside
+      // is from spanning statements originating outside the function, so suppress
+      // unconditionally without checking directStatementCount or owned execution.
+      if (!hasLocalCoveredExecution) {
+        lineCoverage[lineNumber] = 0;
+        return;
+      }
+      const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
       if (directStatementCount != null && directStatementCount > 0) {
         return;
       }
