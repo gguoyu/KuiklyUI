@@ -60,6 +60,22 @@ node web-autotest/scripts/coverage-report.mjs --check
 4. **源码路径解析**: 使用 `scopeRootAnchor` (scopeRoots 的最长公共前缀 `core-render-web/`) 将 sourceMap 中的路径锚定到项目根目录
 5. **作用域过滤**: 仅保留 `isInCoverageScope(filePath)` 为 true 的文件 (路径以某个 scopeRoot 开头且以 `.kt` 结尾)
 
+### 3.1 SourceMap sourcesContent 完整性
+
+**问题**: Kotlin/JS IR 编译器的链接阶段 (`compileDevelopmentExecutableKotlinJs`) 生成的 sourcemap 中，依赖模块（如 base）的 `sourcesContent` 字段可能全部为 null。这导致 MCR (monocart-coverage-reports) 无法完整 remap，丢失函数和语句映射。
+
+**根因**: Gradle build cache 缓存了旧版本的链接任务输出（`sourcesContent` 不完整）。当增量构建时，Gradle 从 cache 恢复这些旧结果 (`FROM-CACHE`)，即使当前编译配置已设置 `sourceMapEmbedSources.set(JsSourceMapEmbedMode.SOURCE_MAP_SOURCE_CONTENT_ALWAYS)`。
+
+**表现**: 例如 Log.kt 有 5 个 `fun`，但 sourcemap 不完整时 MCR 只能 remap 出 3 个函数；完整 sourcemap 下可正确映射全部 5 个函数。
+
+**修复**: `gradleBuildArgs` 配置为 `:h5App:clean :h5App:jsDevelopmentExecutableCompileSync ... --no-build-cache`：
+- `:h5App:clean` 删除 `h5App/build/` 目录（含 compileSync 产物），确保 Gradle 不会因输出已存在而跳过重新执行 (UP-TO-DATE)
+- `--no-build-cache` 禁止 Gradle 从 build cache 恢复旧的链接结果，强制重新编译和链接
+
+**sourcesContent 磁盘回填**: `readSourceMapForDistFile` 函数在读取 sourcemap 后，对 `sourcesContent` 为 null 的条目尝试从磁盘读取源文件 (`resolveSourceMapSourceFilePath`)。使用 `scopeRootAnchor` 将 sourcemap 中的相对路径（如 `../../../../../../../core-render-web/base/.../Log.kt`）解析为项目中的实际路径。
+
+**短名源问题**: Kotlin/JS IR 编译器为同一源文件生成两个 source 条目 — 长相对路径（如 `../../../../../../../core-render-web/.../Log.kt`）和短名（如 `Log.kt`）。短名无法被 `resolveSourceMapSourceFilePath` 解析到磁盘文件，`sourcesContent` 保持 null，MCR 会丢弃映射到短名源的代码行。此问题在完整 sourcemap 下通过磁盘回填解决 — 长路径条目被成功回填后，MCR 可正确 remap 大部分映射。
+
 ---
 
 ## 4. Kotlin 覆盖率后处理规则 (核心)
