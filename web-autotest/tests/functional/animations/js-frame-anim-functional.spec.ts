@@ -19,12 +19,16 @@ test.describe('JS 帧动画 functional 验证', () => {
     await kuiklyPage.goto('JSFrameAnimTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await kuiklyPage.page.getByText(START_PROGRESS, { exact: true }).click();
+    const startProgressBtn = kuiklyPage.page.getByText(START_PROGRESS, { exact: true }).first();
+    await expect(startProgressBtn).toBeVisible({ timeout: 10000 });
+    await startProgressBtn.click();
     await expect(kuiklyPage.page.getByText(RUNNING_PROGRESS, { exact: true }).first()).toBeVisible({ timeout: 1500 });
     await waitForIdleLabel(kuiklyPage.page, START_PROGRESS);
     await expect(kuiklyPage.page.getByText(PROGRESS_DONE, { exact: true })).toBeVisible();
 
-    await kuiklyPage.page.getByText(START_COLOR, { exact: true }).click();
+    const startColorBtn = kuiklyPage.page.getByText(START_COLOR, { exact: true }).first();
+    await expect(startColorBtn).toBeVisible({ timeout: 10000 });
+    await startColorBtn.click();
     await expect(kuiklyPage.page.getByText(RUNNING_COLOR, { exact: true }).first()).toBeVisible({ timeout: 1500 });
     await waitForIdleLabel(kuiklyPage.page, START_COLOR);
     await expect(kuiklyPage.page.getByText(COLOR_DONE, { exact: true })).toBeVisible();
@@ -34,11 +38,15 @@ test.describe('JS 帧动画 functional 验证', () => {
     await kuiklyPage.goto('JSFrameAnimTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await kuiklyPage.page.getByText(START_MARQUEE, { exact: true }).click();
+    const startMarqueeBtn = kuiklyPage.page.getByText(START_MARQUEE, { exact: true }).first();
+    await expect(startMarqueeBtn).toBeVisible({ timeout: 10000 });
+    await startMarqueeBtn.click();
     await expect(kuiklyPage.page.getByText(RUNNING_PROGRESS, { exact: true }).first()).toBeVisible({ timeout: 1500 });
     await waitForIdleLabel(kuiklyPage.page, START_MARQUEE, 6000);
 
-    await kuiklyPage.page.getByText(START_COUNT, { exact: true }).click();
+    const startCountBtn = kuiklyPage.page.getByText(START_COUNT, { exact: true }).first();
+    await expect(startCountBtn).toBeVisible({ timeout: 10000 });
+    await startCountBtn.click();
     await expect(kuiklyPage.page.getByText(RUNNING_COUNT, { exact: true }).first()).toBeVisible({ timeout: 1500 });
     await waitForIdleLabel(kuiklyPage.page, START_COUNT);
     await expect(kuiklyPage.page.getByText('100', { exact: true })).toBeVisible();
