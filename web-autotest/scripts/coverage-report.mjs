@@ -1525,10 +1525,28 @@ function isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber) {
 }
 
 function hasCoveredNestedFunctionContainedInRange(fileCoverage, startLine, endLine, excludedFunctionId) {
-  return Object.entries(fileCoverage.fnMap || {}).some(([functionId, functionCoverage]) => functionId !== excludedFunctionId
-    && Number(fileCoverage.f?.[functionId] || 0) > 0
-    && functionCoverage?.loc?.start?.line >= startLine
-    && functionCoverage?.loc?.end?.line <= endLine);
+  const excludedLoc = fileCoverage.fnMap?.[excludedFunctionId]?.loc;
+  return Object.entries(fileCoverage.fnMap || {}).some(([functionId, functionCoverage]) => {
+    if (functionId === excludedFunctionId) {
+      return false;
+    }
+    if (Number(fileCoverage.f?.[functionId] || 0) <= 0) {
+      return false;
+    }
+    // Skip sibling functions that share the same loc range as the excluded
+    // function — Kotlin/JS often generates multiple fnMap entries for the same
+    // lambda (e.g. `lambda` and `lambda_1`). A covered sibling does not prove
+    // the excluded function was independently called.
+    if (excludedLoc
+      && functionCoverage?.loc?.start?.line === excludedLoc.start?.line
+      && functionCoverage?.loc?.end?.line === excludedLoc.end?.line
+      && functionCoverage?.loc?.start?.column === excludedLoc.start?.column
+      && functionCoverage?.loc?.end?.column === excludedLoc.end?.column) {
+      return false;
+    }
+    return functionCoverage?.loc?.start?.line >= startLine
+      && functionCoverage?.loc?.end?.line <= endLine;
+  });
 }
 
 function hasReliableCoveredExecutionContainedInRange(fileCoverage, startLine, endLine, excludedFunctionId) {
@@ -1604,17 +1622,19 @@ function suppressFalseCoveredLinesInUncoveredFunctions(fileCoverage, lineCoverag
         : locEndLine;
     }
 
-    if (functionEndLine <= headerStartLine) {
+    if (functionEndLine < headerStartLine) {
       continue;
     }
 
     const headerText = getLineText(sourceLines, headerStartLine);
     const isTopLevelZeroCountLambda = isLambdaLikeFunction && !findEnclosingBlockFunctionRange(sourceLines, headerStartLine - 1);
-    const hasLocalCoveredExecution = hasCoveredStatementContainedInRange(fileCoverage, headerStartLine, functionEndLine)
-      || hasCoveredNestedFunctionContainedInRange(fileCoverage, headerStartLine, functionEndLine, functionId)
-      || (isTopLevelZeroCountLambda
-        ? hasCoveredSpanningStatementStartingOnLineWithinRange(fileCoverage, headerStartLine, functionEndLine)
-        : hasCoveredSpanningStatementStartingOnLine(fileCoverage, headerStartLine));
+    // Determine hasLocalCoveredExecution:
+    // Covered statements within an uncovered function's range are unreliable
+    // evidence of local execution — they often come from a spanning statement
+    // originating outside the function (e.g. Kotlin/JS object initializers).
+    // Only a nested covered function (not a sibling with the same loc) reliably
+    // proves the function was called.
+    const hasLocalCoveredExecution = hasCoveredNestedFunctionContainedInRange(fileCoverage, headerStartLine, functionEndLine, functionId);
     if (hasLocalCoveredExecution) {
       continue;
     }
@@ -3640,6 +3660,9 @@ function postProcessKotlinCoverage(coverageData) {
     }
 
     fileCoverage.l = computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines);
+
+    if (filePath.includes('FastMutableList.kt')) {
+    }
   }
 
   return {
