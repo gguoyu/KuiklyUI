@@ -145,7 +145,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 | 规则 | 逻辑 |
 |------|------|
 | `suppressFalseCoveredLinesInUncoveredBranches` | 未覆盖分支臂内的行，若无直接语句计数且无可靠执行证据，则设为 0 |
-| `suppressFalseCoveredLinesInUncoveredFunctions` | 未调用函数体内的行，若无局部执行证据，则设为 0 |
+| `suppressFalseCoveredLinesInUncoveredFunctions` | 未调用函数体内的行，若无局部执行证据，则设为 0。关键细节: (1) Lambda/匿名函数使用自身 loc 范围做 suppress，不向上扩展到外层函数 — 扩展会错误包含兄弟 lambda 的覆盖语句; (2) 使用 `locEndLine` 代替 `findBlockEndLine` 确定 suppress 范围 — 后者在包含嵌套 lambda/class 的方法中可能过早结束; (3) 当 `hasLocalCoveredExecution=false` 时无条件 suppress 所有覆盖行 — 函数从未被调用时，范围内的 statement 覆盖都来自外层 spanning statement |
 | `suppressFalseCoveredWhenElseTailLines` | `when` 中 `else ->` 行，若仅有一个已覆盖的非 else 分支且计数相同，则 else 设为 0 (源映射伪影) |
 | `suppressFalseCoveredLinesInUncoveredWhenArms` | 未覆盖 when 臂体内的行，若无局部执行证据则设为 0 |
 | `suppressTerminalCatchNullCoverageNoise` | catch 块末尾的 `null` 行，若前面行都未覆盖则设为 0 |
@@ -156,6 +156,31 @@ node web-autotest/scripts/coverage-report.mjs --check
 | `suppressSuspiciousInitializedPropertyHeaderLineCounts` | 多行初始化属性头行有覆盖计数但无直接语句时，删除 |
 | `suppressPromotedLinesInUncoveredCatchBlocks` | 未覆盖 catch 块内被中间 promote 规则错误推断为覆盖的行 (无 direct statement coverage)，重置为 0。作为 source 层预防之后的安全网 |
 | `applyFunctionCoverageFallback` | 当 stmtMap 为空 (MCR sourcemap remap 未生成语句映射) 但 fnMap 有已覆盖函数时，从函数 loc 范围推导行覆盖。处理如 object 内表达式体函数仅生成 fnMap 但无 stmtMap 的情况 |
+
+#### 4.2.5 未调用函数体内假覆盖 Suppress 细节
+
+**问题**: Kotlin/JS 编译器生成的 object/class 初始化器会产生巨大的 spanning statement (如 L74-L513)，其执行计数来自类加载而非函数调用。这些 spanning statement 的 continuation candidates 会将覆盖计数传播到未调用函数体内的行，导致逻辑不一致 (函数 count=0 但体内行显示覆盖)。
+
+**`hasLocalCoveredExecution` 判定逻辑**:
+
+统一使用 `hasCoveredNestedFunctionContainedInRange` 判断 — 只有当函数范围内存在**已覆盖的嵌套函数**时，才认为函数有局部执行证据。不使用 `hasCoveredStatementContainedInRange` 或 `hasCoveredSpanningStatementStartingOnLine`，因为:
+- 覆盖的 statement 可能来自外层 spanning statement，不代表函数被调用
+- 从函数起始行开始的 spanning statement (如 object 初始化器) 也不代表函数入口被执行
+
+**`hasCoveredNestedFunctionContainedInRange` Sibling 排除**:
+
+Kotlin/JS 编译器为同一 lambda 生成多个 fnMap 条目 (如 `lambda` 和 `lambda_0`、`lambda_1`)。同 loc 的 sibling 有覆盖不代表目标函数有覆盖。匹配条件: start (line + column) 相同且 end line 相同 — end column 可能因 sourcemap 生成差异而不同，不作为匹配条件。同时排除 sourcemap 异常 (end line < start line) 的函数。
+
+**Lambda 函数范围确定**:
+
+- Lambda/匿名函数 (loc 起始行不含 `fun` 关键字): 使用自身 loc 范围 (locStartLine ~ locEndLine)
+- 命名 `fun` 函数: 使用 `locEndLine` 作为 suppress 范围结束行 (代替 `findBlockEndLine`)
+  - `findBlockEndLine` 从 `{` 计算大括号平衡，在包含嵌套 lambda/class 的方法中可能过早结束 (如 `override fun addAll()` 包含内部匿名类时，`findBlockEndLine` 可能在第一个 `}` 就停止)
+  - `locEndLine` 是 V8/Istanbul 认为的完整函数范围
+
+**无条件 Suppress**:
+
+当 `hasLocalCoveredExecution=false` 时，函数确实从未被调用，范围内所有覆盖行都来自外层 spanning statement。此时跳过 `directStatementCount` 和 `hasCoveredExecutionOwnedByFunctionOnLine` 检查，直接将覆盖行设为 0。这两个检查会错误地保护来自 spanning statement 的假覆盖。
 
 #### 4.2.4 未覆盖 Catch 块处理 (三层防护)
 
@@ -193,7 +218,23 @@ node web-autotest/scripts/coverage-report.mjs --check
 - 替换 HTML 中的 `cline-*` 类名和行覆盖文本
 - 将代码区 `<pre>` 中的 Istanbul 注解 span 去除，替换为 `<span class="kotlin-line coverage-{status}">` 简化渲染
 
-### 5.2.1 推断行覆盖计数 (消除假绿色)
+#### 5.2.1 未覆盖分支臂内行的假 Yes 防护 (`isLineInReliablyUncoveredBranchArm`)
+
+**问题**: `if (condition) { stmt }` 结构中，若 condition 始终为 false，则 `stmt` 行从未执行 (`fc.l=0`)，但 promote 规则 (`getPromotedCoveredFunctionStatementStatus`) 可能因为 `stmt` 行在已覆盖函数内且有 spanning statement 覆盖，将其推断为 `yes`。
+
+**根因**: `isLineInReliablyUncoveredBranchArm` 用于在 promote 前检查行是否在未覆盖分支臂内。旧实现要求 covered branch arm 的 location 有有效的 `start.line` 和 `end.line`，但 Kotlin/JS 编译器生成的 sourcemap 中，if-else 的 else 分支 location 经常是 undefined (仅有 count > 0，无坐标)。
+
+**示例** (Log.kt L15-L16):
+```
+if (KuiklyProcessor.isDev) {   // L15: count=31354
+    log(msg)                    // L16: count=0, 应为 no
+}
+```
+Branch 数据: loc[0] L15-L17 count=0 (true 分支), loc[1] undefined count=31354 (false 分支)。
+旧代码: `hasNonEmptyCoveredLocation=false` (loc[1] 无有效坐标) → 函数返回 false → L16 被 promote 为 yes。
+修复后: `hasCoveredArm=true` (count[1]=31354 > 0) → L16 在 uncovered arm loc[0] (L15-L17) 内 → 返回 true → L16 不被 promote，正确显示为 no。
+
+### 5.2.2 推断行覆盖计数 (消除假绿色)
 - **问题**: `deriveLineStatus` 通过 promote 规则将某些行标记为 `yes`，但 `fc.l` 中没有对应行的计数，导致 HTML 显示绿色但无执行次数
 - **解决**: 在 `buildKotlinHtmlLineDataMap` 中，对 `status === 'yes'` 但 `count === null` 的行，从函数或分支覆盖数据推断计数:
   - `inferLineCountFromFunctions`: 找到包含该行的已覆盖函数，返回函数执行计数
