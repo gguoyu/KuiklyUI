@@ -1491,7 +1491,8 @@ function hasDirectCoveredStatementContainedInRange(fileCoverage, startLine, endL
 function hasCoveredStatementContainedInRange(fileCoverage, startLine, endLine) {
   return Object.entries(fileCoverage.statementMap || {}).some(([statementId, loc]) => Number(fileCoverage.s?.[statementId] || 0) > 0
     && loc?.start?.line >= startLine
-    && loc?.end?.line <= endLine);
+    && loc?.end?.line <= endLine
+    && loc.start.line <= loc.end.line);
 }
 
 function hasCoveredBranchContainedInRange(fileCoverage, startLine, endLine) {
@@ -1583,16 +1584,31 @@ function suppressFalseCoveredLinesInUncoveredFunctions(fileCoverage, lineCoverag
       continue;
     }
 
-    const headerStartLine = findFunctionHeaderStartLine(sourceLines, locStartLine) || locStartLine;
-    const functionEndLine = getLineText(sourceLines, headerStartLine).includes('{')
-      ? findBlockEndLine(sourceLines, headerStartLine)
-      : locEndLine;
+    // Determine the function's header start line.
+    // For lambda/anonymous functions (no 'fun' keyword on their loc start line),
+    // use the lambda's own loc range — expanding to the enclosing function would
+    // incorrectly include sibling lambdas' covered statements in the range check.
+    const locHeaderText = getLineText(sourceLines, locStartLine);
+    const isLambdaLikeFunction = !/\bfun\b/u.test(locHeaderText);
+
+    let headerStartLine;
+    let functionEndLine;
+
+    if (isLambdaLikeFunction) {
+      headerStartLine = locStartLine;
+      functionEndLine = locEndLine;
+    } else {
+      headerStartLine = findFunctionHeaderStartLine(sourceLines, locStartLine) || locStartLine;
+      functionEndLine = getLineText(sourceLines, headerStartLine).includes('{')
+        ? findBlockEndLine(sourceLines, headerStartLine)
+        : locEndLine;
+    }
+
     if (functionEndLine <= headerStartLine) {
       continue;
     }
 
     const headerText = getLineText(sourceLines, headerStartLine);
-    const isLambdaLikeFunction = !/\bfun\b/u.test(headerText);
     const isTopLevelZeroCountLambda = isLambdaLikeFunction && !findEnclosingBlockFunctionRange(sourceLines, headerStartLine - 1);
     const hasLocalCoveredExecution = hasCoveredStatementContainedInRange(fileCoverage, headerStartLine, functionEndLine)
       || hasCoveredNestedFunctionContainedInRange(fileCoverage, headerStartLine, functionEndLine, functionId)
