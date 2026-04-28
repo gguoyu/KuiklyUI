@@ -1509,10 +1509,11 @@ function isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber) {
   return Object.entries(fileCoverage.branchMap || {}).some(([branchId, branchCoverage]) => {
     const branchCounts = Array.isArray(fileCoverage.b?.[branchId]) ? fileCoverage.b[branchId] : [];
     const locations = Array.isArray(branchCoverage?.locations) ? branchCoverage.locations : [];
-    const hasNonEmptyCoveredLocation = locations.some((location, index) => Number(branchCounts[index] || 0) > 0
-      && location?.start?.line != null
-      && location?.end?.line != null);
-    if (!hasNonEmptyCoveredLocation) {
+    // A branch has a covered arm if any count > 0 — the arm's location may be
+    // undefined in sourcemap data (e.g. Kotlin/JS if-else where the else arm
+    // has no explicit source location), but a positive count proves execution.
+    const hasCoveredArm = branchCounts.some((count) => Number(count || 0) > 0);
+    if (!hasCoveredArm) {
       return false;
     }
 
