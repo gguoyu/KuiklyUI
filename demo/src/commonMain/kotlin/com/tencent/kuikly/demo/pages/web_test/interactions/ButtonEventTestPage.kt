@@ -7,6 +7,7 @@ import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.reactive.handler.observable
 import com.tencent.kuikly.core.views.List
 import com.tencent.kuikly.core.views.Text
+import com.tencent.kuikly.core.views.View
 import com.tencent.kuikly.core.views.compose.Button
 
 @Page("ButtonEventTestPage")
@@ -14,6 +15,7 @@ internal class ButtonEventTestPage : Pager() {
     private var clickCount by observable(0)
     private var doubleClickCount by observable(0)
     private var longPressCount by observable(0)
+    private var panState by observable("none")
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -63,6 +65,29 @@ internal class ButtonEventTestPage : Pager() {
                         backgroundColor(0xFF8E24AA)
                     }
                     event { longPress { ctx.longPressCount = minOf(ctx.longPressCount + 1, 2) } }
+                }
+                View {
+                    attr {
+                        margin(left = 16f, top = 16f)
+                        height(80f)
+                        width(180f)
+                        backgroundColor(0xFFFF6F00)
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        pan {
+                            ctx.panState = it.state
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("pan: ${ctx.panState}")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
                 }
             }
         }

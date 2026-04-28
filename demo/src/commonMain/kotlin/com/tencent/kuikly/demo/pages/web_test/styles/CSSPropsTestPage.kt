@@ -23,6 +23,7 @@ import com.tencent.kuikly.core.reactive.handler.observable
 import com.tencent.kuikly.core.views.List
 import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
+import com.tencent.kuikly.core.views.compose.Button
 
 /**
  * CSS properties test page — covers KuiklyRenderCSSKTX prop handlers
@@ -40,6 +41,9 @@ internal class CSSPropsTestPage : Pager() {
 
     private var touchEnabled by observable(true)
     private var clickCount by observable(0)
+    private var doubleClickCount by observable(0)
+    private var longPressCount by observable(0)
+    private var clickWithDoubleCount by observable(0)
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -420,6 +424,119 @@ internal class CSSPropsTestPage : Pager() {
                             text("visibility-target")
                             fontSize(14f)
                             color(Color.WHITE)
+                        }
+                    }
+                }
+
+                View { attr { height(50f) } }
+
+                // === Section 9: Double Click ===
+                Text {
+                    attr {
+                        text("9. Double Click")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(Color(0xFF00897B))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        doubleClick {
+                            ctx.doubleClickCount += 1
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("double-click-count: ${ctx.doubleClickCount}")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // === Section 10: Long Press ===
+                Text {
+                    attr {
+                        text("10. Long Press")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(Color(0xFF6A1B9A))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        longPress {
+                            if (it.state == "start") {
+                                ctx.longPressCount += 1
+                            }
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("long-press-count: ${ctx.longPressCount}")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // === Section 11: Click + DoubleClick (timer branch) ===
+                Text {
+                    attr {
+                        text("11. Click + DoubleClick")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(Color(0xFFD84315))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.clickWithDoubleCount += 1
+                        }
+                        doubleClick {
+                            // Binding doubleClick alongside click exercises
+                            // the hasBindDoubleClick timer branch in CLICK handler
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("click-with-double: ${ctx.clickWithDoubleCount}")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
                         }
                     }
                 }

@@ -29,4 +29,32 @@ test.describe('Auto KRViewTestPage static 验证', () => {
     await expect(kuiklyPage.page.getByText('10. Accessibility Role')).toBeVisible();
     await expect(kuiklyPage.page.getByText('accessibility-role-button', { exact: true })).toBeVisible();
   });
+
+  test('should render screen frame and screen frame pause sections', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1200, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('11. Screen Frame Event')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('frame-count:', { exact: false }).first()).toBeVisible();
+
+    await kuiklyPage.scrollInContainer(list, { deltaY: 200, smooth: false });
+    await expect(kuiklyPage.page.getByText('12. Screen Frame Pause')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('pause-frames', { exact: true })).toBeVisible();
+  });
+
+  test('screen frame pause toggle should switch between pause and resume', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1400, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('pause-frames', { exact: true })).toBeVisible();
+    await kuiklyPage.page.getByText('pause-frames', { exact: true }).click();
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.getByText('resume-frames', { exact: true })).toBeVisible();
+  });
 });

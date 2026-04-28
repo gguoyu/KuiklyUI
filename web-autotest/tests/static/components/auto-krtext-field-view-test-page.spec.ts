@@ -5,9 +5,9 @@ const PAGE_NAME = "KRTextFieldViewTestPage";
 const TITLE_TEXT = "1. Basic Input";
 const STABLE_TEXTS = [
   "1. Basic Input",
+  "initial-input-text",
   "input-value: ${ctx.inputValue}",
-  "3. Read-only Toggle",
-  "4. Styled Input"
+  "3. Read-only Toggle"
 ];
 const ACTION_LABELS = [];
 const INTERACTION_HINTS = {

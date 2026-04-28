@@ -8,7 +8,8 @@ const STABLE_TEXTS = [
   "page-1"
 ];
 const ACTION_LABELS = [
-  "reset"
+  "reset",
+  "long-press: ${ctx.longPressState}"
 ];
 const INTERACTION_HINTS = {
   "actions": [

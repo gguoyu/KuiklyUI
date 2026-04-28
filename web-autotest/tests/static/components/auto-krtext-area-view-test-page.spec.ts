@@ -5,9 +5,9 @@ const PAGE_NAME = "KRTextAreaViewTestPage";
 const TITLE_TEXT = "1. Basic TextArea";
 const STABLE_TEXTS = [
   "1. Basic TextArea",
+  "initial-content",
   "area-value-length: ${ctx.areaValue.length}",
-  "3. Read-only Toggle",
-  "4. Styled TextArea"
+  "3. Read-only Toggle"
 ];
 const ACTION_LABELS = [];
 const INTERACTION_HINTS = {

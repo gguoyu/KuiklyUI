@@ -1,25 +1,26 @@
-// @kuikly-autogen {"pageName":"KRVideoViewTestPage","category":"components","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/components/KRVideoViewTestPage.kt","managedBy":"web-autotest","templateProfile":"default","targetClassification":"static","specLocation":"web-autotest/tests/static/components/auto-krvideo-view-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-refresh","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
+// @kuikly-autogen {"pageName":"PropertyAnimTestPage","category":"animations","sourceFile":"demo/src/commonMain/kotlin/com/tencent/kuikly/demo/pages/web_test/animations/PropertyAnimTestPage.kt","managedBy":"web-autotest","templateProfile":"animation-property","targetClassification":"functional","specLocation":"web-autotest/tests/functional/animations/auto-property-anim-test-page.spec.ts","migrationPhase":"semantic-closure","repairReason":"coverage-refresh","repairStrategy":null,"repairStep":0,"repairLadderStep":null}
 import { test, expect } from '../../../fixtures/test-base';
 
-const PAGE_NAME = "KRVideoViewTestPage";
-const TITLE_TEXT = "3. Rate 1.5x + contain";
+const PAGE_NAME = "PropertyAnimTestPage";
+const TITLE_TEXT = "1. Linear 平移动画";
 const STABLE_TEXTS = [
-  "3. Rate 1.5x + contain",
-  "4. Stretch + Rate 2x",
-  "5. PrePlay"
+  "1. Linear 平移动画",
+  "2. Spring 弹性动画",
+  "3. 背景色属性动画",
+  "颜色渐变"
 ];
 const ACTION_LABELS = [
-  "preplay",
-  "pause",
-  "stop"
+  "ease-in-trigger",
+  "ease-out-trigger",
+  "ease-in-out-delay-trigger"
 ];
 const INTERACTION_HINTS = {
   "actions": [
     "click-visible-labels"
   ],
   "actionScripts": [],
-  "maxActionLabels": 4,
-  "postActionWaitMs": 250,
+  "maxActionLabels": 2,
+  "postActionWaitMs": 600,
   "recheckPageReadyAfterAction": true,
   "scrollDeltaY": 520,
   "inputText": "Hello Kuikly",
@@ -28,9 +29,9 @@ const INTERACTION_HINTS = {
 const ANIMATION_HINTS = {
   "preferredWait": "waitForAnimationEnd",
   "fallbackWaitMs": 900,
-  "ciFallbackWaitMs": 1200,
+  "ciFallbackWaitMs": 1400,
   "preferStateAssertions": true,
-  "repairTemplateProfile": "animation-generic-repair",
+  "repairTemplateProfile": "animation-property-toggle-only",
   "genericTemplateProfile": "default"
 };
 
@@ -275,22 +276,54 @@ function hasUsableInteractionHints() {
     || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
 }
 
+const SECTION_TITLE = "1. Linear 平移动画";
+const PLAY_TRANSLATE = "播放平移";
+const RESTORE_POSITION = "还原位置";
+const SPRING_ACTION = "弹性运动";
+const COLOR_ACTION = "变换颜色";
+const RESTORE_COLOR = "还原颜色";
+const COMBO_ACTION = "平移+旋转";
+const RESTORE_ACTION = "还原";
+
+async function waitForText(page, text, timeout = ANIMATION_HINTS.ciFallbackWaitMs || 5000) {
+  await expect(page.getByText(text, { exact: true }).first()).toBeVisible({ timeout });
+}
+
 test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    await kuiklyPage.goto("KRVideoViewTestPage");
+    await kuiklyPage.goto("PropertyAnimTestPage");
     await kuiklyPage.waitForRenderComplete();
-    await expectPageReady(kuiklyPage);
-    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
+
+    await expect(kuiklyPage.page.getByText(SECTION_TITLE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(PLAY_TRANSLATE, { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(COMBO_ACTION, { exact: true })).toBeVisible();
   });
 
-  test('executes rule-driven interactions on ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    test.skip(!hasUsableInteractionHints(), 'No usable interaction hints were resolved for this page.');
-
-    await kuiklyPage.goto("KRVideoViewTestPage");
+  test('toggles translate and spring animations on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto("PropertyAnimTestPage");
     await kuiklyPage.waitForRenderComplete();
-    await expectPageReady(kuiklyPage);
 
-    const actionCount = await runRuleDrivenInteractions(kuiklyPage);
-    expect(actionCount).toBeGreaterThan(0);
+    await kuiklyPage.page.getByText(PLAY_TRANSLATE, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
+    await waitForText(kuiklyPage.page, RESTORE_POSITION);
+    await kuiklyPage.page.getByText(RESTORE_POSITION, { exact: true }).first().click();
+    await waitForText(kuiklyPage.page, PLAY_TRANSLATE);
+
+    await kuiklyPage.page.getByText(SPRING_ACTION, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
+    await waitForText(kuiklyPage.page, RESTORE_POSITION);
+  });
+
+  test('toggles color and combo animations on ' + PAGE_NAME, async ({ kuiklyPage }) => {
+    await kuiklyPage.goto("PropertyAnimTestPage");
+    await kuiklyPage.waitForRenderComplete();
+
+    await kuiklyPage.page.getByText(COLOR_ACTION, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
+    await waitForText(kuiklyPage.page, RESTORE_COLOR);
+
+    await kuiklyPage.page.getByText(COMBO_ACTION, { exact: true }).click();
+    await waitForAnimationStrategy(kuiklyPage);
+    await waitForText(kuiklyPage.page, RESTORE_ACTION);
   });
 });

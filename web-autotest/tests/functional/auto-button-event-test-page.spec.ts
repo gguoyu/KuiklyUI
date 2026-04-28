@@ -15,7 +15,8 @@ const ACTION_LABELS = [
   "double-twice",
   "long-button",
   "long-once",
-  "long-twice"
+  "long-twice",
+  "pan: ${ctx.panState}"
 ];
 const INTERACTION_HINTS = {
   "actions": [

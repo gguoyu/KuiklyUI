@@ -26,6 +26,7 @@ import com.tencent.kuikly.core.base.BoxShadow
 import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.base.attr.AccessibilityRole
 import com.tencent.kuikly.core.pager.Pager
+import com.tencent.kuikly.core.reactive.handler.observable
 import com.tencent.kuikly.core.views.List
 import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
@@ -44,7 +45,11 @@ import com.tencent.kuikly.core.views.View
  */
 @Page("KRViewTestPage")
 internal class KRViewTestPage : Pager() {
+    private var screenFrameCount by observable(0)
+    private var screenFramePaused by observable(false)
+
     override fun body(): ViewBuilder {
+        val ctx = this
         return {
             attr {
                 backgroundColor(Color.WHITE)
@@ -657,6 +662,77 @@ internal class KRViewTestPage : Pager() {
                     }
                     Text {
                         attr { text("accessibility-role-button"); fontSize(13f); color(Color.WHITE) }
+                    }
+                }
+
+                View { attr { height(50f) } }
+
+                // === Section 11: Screen Frame Event ===
+                Text {
+                    attr {
+                        text("11. Screen Frame Event")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(Color(0xFF00695C))
+                        borderRadius(8f)
+                        allCenter()
+                        screenFramePause(ctx.screenFramePaused)
+                    }
+                    event {
+                        screenFrame {
+                            ctx.screenFrameCount += 1
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("frame-count: ${ctx.screenFrameCount}")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // === Section 12: Screen Frame Pause Toggle ===
+                Text {
+                    attr {
+                        text("12. Screen Frame Pause")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(Color(0xFF4527A0))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.screenFramePaused = !ctx.screenFramePaused
+                        }
+                    }
+                    Text {
+                        attr {
+                            text(if (ctx.screenFramePaused) "resume-frames" else "pause-frames")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
                     }
                 }
 

@@ -61,4 +61,25 @@ test.describe('Button 事件 functional 验证', () => {
     await longPressTarget(kuiklyPage.page.getByText('long-once', { exact: true }));
     await expect(kuiklyPage.page.getByText('long-twice', { exact: true })).toBeVisible();
   });
+
+  test('pan 事件应更新 pan 状态文本', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ButtonEventTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const panTarget = kuiklyPage.page.getByText('pan: none', { exact: true });
+    await expect(panTarget).toBeVisible();
+
+    const box = await panTarget.boundingBox();
+    expect(box).toBeTruthy();
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+
+    await kuiklyPage.page.mouse.move(x, y);
+    await kuiklyPage.page.mouse.down();
+    await kuiklyPage.page.mouse.move(x + 50, y, { steps: 8 });
+    await kuiklyPage.page.mouse.up();
+    await kuiklyPage.waitForRenderComplete();
+
+    await expect(kuiklyPage.page.getByText('pan: end', { exact: true })).toBeVisible();
+  });
 });

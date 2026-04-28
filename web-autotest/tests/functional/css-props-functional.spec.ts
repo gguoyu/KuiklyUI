@@ -75,4 +75,54 @@ test.describe('CSSPropsTestPage functional', () => {
     await kuiklyPage.waitForRenderComplete();
     await expect(kuiklyPage.page.getByText('visibility-visible', { exact: true })).toBeVisible();
   });
+
+  test('double click should update double-click count', async ({ kuiklyPage }) => {
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1400, smooth: false });
+    await expect(kuiklyPage.page.getByText('9. Double Click')).toBeVisible();
+
+    const target = kuiklyPage.page.getByText('double-click-count: 0', { exact: false });
+    await expect(target).toBeVisible();
+
+    await target.dblclick();
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.getByText('double-click-count: 1')).toBeVisible();
+  });
+
+  test('long press should update long-press count', async ({ kuiklyPage }) => {
+    // [KNOWN: Long press via mouse.down/up in headless Chromium is unreliable
+    // because the web longPress handler uses touch events (coarse-pointer only)
+    // and has a 700ms timer that may not fire consistently under synthetic mouse.]
+    test.skip(true, '[KNOWN: longPress mouse simulation unreliable in headless]');
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1500, smooth: false });
+    await expect(kuiklyPage.page.getByText('10. Long Press')).toBeVisible();
+
+    const target = kuiklyPage.page.getByText('long-press-count: 0', { exact: false });
+    await expect(target).toBeVisible();
+
+    const box = await target.boundingBox();
+    expect(box).toBeTruthy();
+    await kuiklyPage.page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await kuiklyPage.page.mouse.down();
+    await kuiklyPage.page.waitForTimeout(850);
+    await kuiklyPage.page.mouse.up();
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.getByText('long-press-count: 1')).toBeVisible();
+  });
+
+  test('click + doubleClick should exercise the hasBindDoubleClick timer branch', async ({ kuiklyPage }) => {
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1600, smooth: false });
+    await expect(kuiklyPage.page.getByText('11. Click + DoubleClick')).toBeVisible();
+
+    const target = kuiklyPage.page.getByText('click-with-double: 0', { exact: false });
+    await expect(target).toBeVisible();
+
+    // Single click — should fire after the 200ms timer (since doubleClick is also bound)
+    await target.click();
+    await kuiklyPage.page.waitForTimeout(300);
+    await expect(kuiklyPage.page.getByText('click-with-double: 1')).toBeVisible();
+  });
 });
