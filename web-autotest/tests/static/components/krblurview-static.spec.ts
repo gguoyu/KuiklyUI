@@ -5,7 +5,7 @@ test.describe('KRBlurView static 验证', () => {
     await kuiklyPage.goto('KRBlurViewTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('KRBlurViewTestPage')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('KRBlurViewTestPage', { exact: false })).toBeVisible();
   });
 
   test('KRBlurView 页面应渲染组件节点', async ({ kuiklyPage }) => {

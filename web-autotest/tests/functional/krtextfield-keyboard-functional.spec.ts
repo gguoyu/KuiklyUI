@@ -7,16 +7,16 @@ test.describe('KRTextFieldView keyboard type functional', () => {
   });
 
   test('page renders all sections including keyboard types section', async ({ kuiklyPage }) => {
-    await expect(kuiklyPage.page.getByText('1. Basic Input')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('3. Read-only Toggle')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('5. Clear Action')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. Basic Input', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('3. Read-only Toggle', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('5. Clear Action', { exact: false })).toBeVisible();
   });
 
   test('keyboard types section renders password, number, email and done input fields', async ({ kuiklyPage }) => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('6. Keyboard Types')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('6. Keyboard Types', { exact: false })).toBeVisible();
 
     // Verify input elements have correct type attributes
     const inputs = kuiklyPage.page.locator('input');
@@ -47,7 +47,7 @@ test.describe('KRTextFieldView keyboard type functional', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 700, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('7. Text Align & Tint Color')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('7. Text Align & Tint Color', { exact: false })).toBeVisible();
 
     // Verify the center-aligned input is rendered with a placeholder
     const centeredInput = kuiklyPage.page.locator('input[placeholder="center-aligned-input"]');
@@ -63,26 +63,26 @@ test.describe('KRTextFieldView keyboard type functional', () => {
 
   test('pressing Enter in an input field should trigger the inputReturn event handler', async ({ kuiklyPage }) => {
     // Scroll to Basic Input section to find an input with inputReturn handler
-    await expect(kuiklyPage.page.getByText('1. Basic Input')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. Basic Input', { exact: false })).toBeVisible();
 
-    // Focus the first input (which has inputReturn handler registered)
-    const firstInput = kuiklyPage.page.locator('input').first();
+    // Focus the first input with inputReturn handler registered (Section 1)
+    const firstInput = kuiklyPage.page.locator('input[placeholder="enter text here"]').first();
     await firstInput.click();
-    await firstInput.fill('test-enter-press');
+    await kuiklyPage.fillInput(firstInput, 'test-enter-press');
 
     // Press Enter — this fires the keydown event which exercises KRTextFieldView INPUT_RETURN lambda
     await kuiklyPage.page.keyboard.press('Enter');
     await kuiklyPage.page.waitForTimeout(100);
 
     // Just verify no crash occurred — the inputReturn lambda was invoked
-    await expect(kuiklyPage.page.getByText('1. Basic Input')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. Basic Input', { exact: false })).toBeVisible();
   });
 
   test('initial text content should be set via SRC prop handler on first render', async ({ kuiklyPage }) => {
     // The first Input has text("initial-input-text") which exercises KRTextFieldView.SRC handler
-    await expect(kuiklyPage.page.getByText('1. Basic Input')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. Basic Input', { exact: false })).toBeVisible();
 
-    const firstInput = kuiklyPage.page.locator('input').first();
+    const firstInput = kuiklyPage.page.locator('input[placeholder="enter text here"]').first();
     await expect(firstInput).toBeVisible();
 
     // Verify initial text was set (SRC prop handler = KRTextFieldView line 57-61)

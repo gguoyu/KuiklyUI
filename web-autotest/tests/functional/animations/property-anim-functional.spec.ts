@@ -44,7 +44,7 @@ test.describe('属性动画 functional 验证', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 600, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('5. Timing Functions')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('5. Timing Functions', { exact: false })).toBeVisible();
 
     await kuiklyPage.page.getByText('ease-in-trigger', { exact: true }).click();
     await kuiklyPage.page.waitForTimeout(600);
@@ -53,6 +53,6 @@ test.describe('属性动画 functional 验证', () => {
     await kuiklyPage.page.getByText('ease-in-out-delay-trigger', { exact: true }).click();
     await kuiklyPage.page.waitForTimeout(700);
 
-    await expect(kuiklyPage.page.getByText('5. Timing Functions')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('5. Timing Functions', { exact: false })).toBeVisible();
   });
 });

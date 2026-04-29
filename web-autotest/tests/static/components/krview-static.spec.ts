@@ -25,7 +25,7 @@ test.describe('KRView 静态验证', () => {
     await kuiklyPage.waitForRenderComplete();
 
     // Section 5 should contain gradient views — scroll to make sure it's visible
-    await expect(kuiklyPage.page.getByText('5. 渐变背景')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('5. 渐变背景', { exact: false })).toBeVisible();
 
     // Verify KRView elements with gradient backgrounds are rendered
     const gradientViews = kuiklyPage.page.locator('[data-kuikly-component=KRView]');
@@ -41,7 +41,7 @@ test.describe('KRView 静态验证', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 400, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('5. 渐变背景')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('5. 渐变背景', { exact: false })).toBeVisible();
 
     // Verify no rendering errors by checking KRView count remains stable
     const views = kuiklyPage.page.locator('[data-kuikly-component=KRView]');

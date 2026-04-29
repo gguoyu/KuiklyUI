@@ -40,9 +40,9 @@ test.describe('HorizontalListTestPage 水平列表滚动验证', () => {
     await kuiklyPage.goto('HorizontalListTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('水平列表滚动测试')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('水平列表滚动测试', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('H1', { exact: true })).toBeVisible();
-    await expect(kuiklyPage.page.getByText('垂直列表')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('垂直列表', { exact: false })).toBeVisible();
   });
 
   test('clicking horizontal item should update selection', async ({ kuiklyPage }) => {

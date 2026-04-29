@@ -86,19 +86,17 @@ Text { attr { text(if (ctx.count == 0) "clear-idle" else "cleared: ${ctx.count}"
 
 ---
 
-## 4. TextArea / Input 事件在 Playwright headless 下不触发
+## 4. TextArea / Input 事件在 Playwright 中用 fill() 不触发 ✅ 已解决
 
 **问题**：`KRTextAreaView.kt` 和 `KRTextFieldView.kt` 的 `textDidChange`、`focus`、`blur` 等事件处理函数在覆盖率报告里始终为 0，即使写了 `fill()` 调用。
 
-**原因**：Kuikly 的 Input/TextArea 组件通过 `addEventListener("input", ...)` 监听原生 DOM `input` 事件。Playwright 的 `page.fill()` 直接设置 `element.value`，不触发 DOM `input` 事件，所以 Kuikly 的回调永远不被调用。
+**原因**：Kuikly 的 Input/TextArea 组件通过 `addEventListener("input", ...)` 监听原生 DOM `input` 事件。Playwright 的 `page.fill()` 直接设置 `element.value`，不触发 DOM `input` 事件，所以 Kuikly 的回调永远不被调用。**这不是 headless 限制**，headed 模式下行为相同。
 
-**已知限制**：以下 Input 组件的路径在 headless Playwright 下**永远不可达**：
-- `KRTextFieldView.kt`：`textDidChange`、`focus`、`blur`、`return` 事件 handler
-- `KRTextAreaView.kt`：同上
-
-**处理方式**：
-1. 为这些 Input 页面写 spec 时，只验证**静态渲染**（placeholder 文字、输入框可见）和**非输入交互**（按钮点击、toggle）
-2. 覆盖率报告里这部分永远缺口，接受并在循环中 escalate，不要继续尝试提升
+**解决方案**：使用 `KuiklyPage.fillInput(locator, text)` 替代 `locator.fill(text)`：
+```typescript
+// ✅ 触发 Kuikly textDidChange 回调
+await kuiklyPage.fillInput(textarea, 'hello');
+```
 
 ---
 

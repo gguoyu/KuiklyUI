@@ -361,7 +361,7 @@ test.describe('list scroll 功能验证', () => {
     await kuiklyPage.page.waitForTimeout(300);
 
     // dragBegin count should be > 0
-    const dragBeginText = kuiklyPage.page.getByText(/drag-begin: [1-9]/);
+    const dragBeginText = kuiklyPage.page.getByText(/drag-begin: [1-9]/, { exact: false });
     await expect(dragBeginText).toBeVisible();
   });
 
@@ -378,7 +378,7 @@ test.describe('list scroll 功能验证', () => {
     await kuiklyPage.page.waitForTimeout(400);
 
     // scroll-events count should be > 0 after wheel scrolling
-    const scrollText = kuiklyPage.page.getByText(/scroll-events: [1-9]/);
+    const scrollText = kuiklyPage.page.getByText(/scroll-events: [1-9]/, { exact: false });
     await expect(scrollText).toBeVisible();
   });
 

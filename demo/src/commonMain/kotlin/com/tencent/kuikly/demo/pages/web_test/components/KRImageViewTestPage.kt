@@ -21,6 +21,7 @@ import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ColorStop
 import com.tencent.kuikly.core.base.Direction
 import com.tencent.kuikly.core.base.ViewBuilder
+import com.tencent.kuikly.core.reactive.handler.observable
 import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.views.Image
 import com.tencent.kuikly.core.views.List
@@ -42,12 +43,15 @@ import com.tencent.kuikly.core.views.View
 @Page("KRImageViewTestPage")
 internal class KRImageViewTestPage : Pager() {
 
+    private var loadFailureCount by observable(0)
+
     companion object {
         // 使用固定的测试图片 URL（不带随机参数，确保每次返回相同图片）
         const val TEST_IMAGE_URL = "https://vfiles.gtimg.cn/wuji_dashboard/xy/componenthub/Dfnp7Q9F.png"
     }
 
     override fun body(): ViewBuilder {
+        val ctx = this
         return {
             attr {
                 backgroundColor(Color.WHITE)
@@ -56,6 +60,46 @@ internal class KRImageViewTestPage : Pager() {
             List {
                 attr {
                     flex(1f)
+                }
+
+                // === Load Failure (top of page for testability) ===
+                Text {
+                    attr {
+                        text("Load Failure")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(16f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        flexDirectionRow()
+                        alignItemsCenter()
+                        padding(all = 16f)
+                    }
+                    Image {
+                        attr {
+                            size(80f, 80f)
+                            src("https://invalid.example.test/no-such-image.png")
+                            resizeCover()
+                            backgroundColor(0xFFE5E5E5)
+                        }
+                        event {
+                            loadFailure {
+                                ctx.loadFailureCount += 1
+                            }
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("load-failure-count:${ctx.loadFailureCount}")
+                            fontSize(12f)
+                            marginLeft(8f)
+                            color(Color.BLACK)
+                        }
+                    }
                 }
 
                 // === Section 1: resizeContain ===

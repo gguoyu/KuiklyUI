@@ -8,9 +8,9 @@ test.describe('KRRichTextView static 验证', () => {
     await kuiklyPage.page.waitForTimeout(500);
 
     await expect(kuiklyPage.page.getByText('1. 多色多样式Span', { exact: true })).toBeVisible();
-    await expect(kuiklyPage.page.getByText('普通文本').first()).toBeVisible();
-    await expect(kuiklyPage.page.getByText('红色文本').first()).toBeVisible();
-    await expect(kuiklyPage.page.getByText('蓝色文本').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('普通文本', { exact: false }).first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('红色文本', { exact: false }).first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('蓝色文本', { exact: false }).first()).toBeVisible();
     await expect(kuiklyPage.page.getByText('粗体字重', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('斜体文本', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('下划线文本', { exact: true })).toBeVisible();
@@ -29,8 +29,8 @@ test.describe('KRRichTextView static 验证', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 800, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('8. 行截断与文本属性')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('9. 间距与字体')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('8. 行截断与文本属性', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('9. 间距与字体', { exact: false })).toBeVisible();
 
     await kuiklyPage.scrollInContainer(list, { deltaY: 400, smooth: false });
     await expect(kuiklyPage.page.getByText('letter-spacing-text', { exact: true })).toBeVisible();

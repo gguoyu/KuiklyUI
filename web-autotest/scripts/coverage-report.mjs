@@ -24,6 +24,7 @@ const v8OutputDir = join(e2eRoot, reporting.v8TempDirName);
 const reportDir = join(e2eRoot, reporting.coverageDir);
 const generatedKotlinOutputDir = normalize(join(projectRoot, coverageConfig.generatedKotlinOutputDir));
 const coverageScopeRoots = coverageConfig.scopeRoots.map((scopeRoot) => normalize(join(projectRoot, scopeRoot)));
+const coverageExcludePaths = (coverageConfig.excludePaths || []).map((p) => normalize(join(projectRoot, p)));
 const targetModuleSet = new Set(coverageConfig.targetModules);
 
 // Derive the repo-relative anchor used to recognise source paths embedded in sourcemaps.
@@ -218,6 +219,9 @@ function resolveSourcePath(filePath, info = {}) {
 
 function isInCoverageScope(filePath) {
   const normalizedPath = normalize(filePath);
+  if (coverageExcludePaths.some((excludePath) => normalizedPath.startsWith(excludePath))) {
+    return false;
+  }
   return coverageScopeRoots.some((scopeRoot) => normalizedPath.startsWith(scopeRoot));
 }
 
@@ -427,6 +431,92 @@ function isConstructorDelegationLine(lineText) {
   return constructorDelegationLinePattern.test(lineText.trim());
 }
 
+
+function isTypeSignatureContinuationLine(trimmed, previousLineText) {
+  // Type signature continuation lines inside property declarations:
+  // Lines that are part of type annotations (generics, function types, etc)
+  // identified by containing type parameters inside parentheses.
+  
+  if (!previousLineText) {
+    return false;
+  }
+  
+  const prevTrimmed = previousLineText.trim();
+  
+  // Count unclosed parentheses in the previous line
+  const prevOpenParen = (prevTrimmed.match(/\(/g) || []).length;
+  const prevCloseParen = (prevTrimmed.match(/\)/g) || []).length;
+  const hasUnclosedParen = prevOpenParen > prevCloseParen;
+  
+  // Current line is part of type signature if previous had unclosed parens
+  if (hasUnclosedParen && !trimmed.includes('{') && !/^\s*=\s*/.test(trimmed)) {
+    const isTypeParam = trimmed.includes(':') && !trimmed.includes('=');
+    const isClosingParen = /^\s*\)/.test(trimmed);
+    return isTypeParam || isClosingParen;
+  }
+  
+  return false;
+}
+function isObjectLiteralConstructor(lineText) {
+  // Detect if this line contains an object literal constructor like: object : InterfaceName {
+  // Object literals in Kotlin are not actual function calls that execute, so covered methods
+  // inside them don't reliably indicate the object was instantiated.
+  const trimmed = lineText.trim();
+  return /object\s*:\s*\w+/u.test(trimmed);
+}
+
+function isWhenArmHeaderLine(lineText) {
+  // Detect when-arm header: "is SomeType -> " or "else -> "
+  const trimmed = lineText.trim();
+  return /^(?:is\s+\w+|\w+\s*,|\s*else)\s*->/.test(trimmed);
+}
+
+function isIfHeaderLine(lineText) {
+  // Detect if condition header or else if: "if (...) {" or "else if (...) {"
+  const trimmed = lineText.trim();
+  return /^(?:else\s+)?if\s*\(/.test(trimmed) && !trimmed.includes('=');
+}
+
+function isControlFlowHeaderLine(lineText) {
+  // Detect any control-flow header: when-arm or if/else-if
+  return isWhenArmHeaderLine(lineText) || isIfHeaderLine(lineText);
+}
+
+// Detect if a line is likely executable Kotlin code (not structural/declarative).
+// Used in the lineCount==null fallback of deriveLineStatus to return 'no' (uncovered)
+// instead of 'neutral' for lines that are clearly code but have no Istanbul mapping.
+function isLikelyExecutableLine(lineText) {
+  const trimmed = lineText.trim();
+  if (!trimmed) {
+    return false;
+  }
+  // Comments, annotations, package/import are not executable
+  if (/^(?:\/\/|\/\*|\*|@|package\b|import\b)/u.test(trimmed)) {
+    return false;
+  }
+  // Pure structural tokens are not executable
+  if (/^[)\]};,]+$/u.test(trimmed)) {
+    return false;
+  }
+  // When-arm bodies (e.g., `"Win" in userAgent -> " 8.1"`, `is Long -> { ... }`)
+  if (trimmed.includes('->')) {
+    return true;
+  }
+  // Assignment, function calls, property access, operators
+  if (/[=(.]/.test(trimmed)) {
+    return true;
+  }
+  // Variable/val declarations with initializers
+  if (/^(?:val|var)\b.*=/u.test(trimmed)) {
+    return true;
+  }
+  // Keywords indicating executable statements
+  if (/^(?:return|throw|if|else|when|for|while|do|try|catch|finally)\b/u.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
 function markAbstractInterfaceMemberLinesNeutral(sourceLines, neutralLines) {
   let inBlockComment = false;
   let pendingInterfaceHeader = false;
@@ -439,6 +529,12 @@ function markAbstractInterfaceMemberLinesNeutral(sourceLines, neutralLines) {
     if (!trimmed) {
       return;
     }
+
+function isOverrideFunction(lineText) {
+  // Detect override keyword in function or property declarations
+  const trimmed = lineText.trim();
+  return /^override\s+(fun|val|var)/u.test(trimmed);
+}
 
     if (inBlockComment) {
       if (trimmed.includes('*/')) {
@@ -503,6 +599,9 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
   let inBlockComment = false;
   let inClassHeader = false;
   let inFunctionHeader = false;
+  let inPropertyTypeAnnotation = false;
+  let propertyTypeParenDepth = 0;
+  let previousLineText = null;
 
   sourceLines.forEach((lineText, index) => {
     const lineNumber = index + 1;
@@ -544,6 +643,10 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
 
     // Multi-line function header continuation lines (parameter declarations,
     // closing bracket with return type) are not executable — mark as neutral.
+    // Type signature lines (multiline type declarations) should be neutral
+    if (previousLineText && isTypeSignatureContinuationLine(trimmed, previousLineText)) {
+      neutralLines.add(lineNumber);
+    }
     if (inFunctionHeader) {
       neutralLines.add(lineNumber);
       if (trimmed.includes('{') || trimmed.includes('=')) {
@@ -577,6 +680,33 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
       neutralLines.add(lineNumber);
     }
 
+    // Multi-line property type annotation tracking:
+    // Property declarations like `var cb: ((A, B) -> Unit)? = null` can span
+    // multiple lines. The type parameter continuation lines are not executable.
+    if (inPropertyTypeAnnotation) {
+      neutralLines.add(lineNumber);
+      const openParens = (trimmed.match(/\(/g) || []).length;
+      const closeParens = (trimmed.match(/\)/g) || []).length;
+      propertyTypeParenDepth += openParens - closeParens;
+      if (propertyTypeParenDepth <= 0 || trimmed.includes('= null') || /=\s*\S/.test(trimmed)) {
+        inPropertyTypeAnnotation = false;
+        propertyTypeParenDepth = 0;
+      }
+      previousLineText = lineText;
+      return;
+    }
+
+    // Detect start of multi-line property type annotations:
+    // `val/var name: ((` or `val/var name: (` where the type doesn't close on the same line
+    if (propertyDeclarationLinePattern.test(trimmed) && /:\s*\(/.test(trimmed)) {
+      const openParens = (trimmed.match(/\(/g) || []).length;
+      const closeParens = (trimmed.match(/\)/g) || []).length;
+      if (openParens > closeParens) {
+        inPropertyTypeAnnotation = true;
+        propertyTypeParenDepth = openParens - closeParens;
+      }
+    }
+
     // Block function header lines (`fun ... {`) are not executable statements
     // themselves — they are entry-point markers. Regardless of whether the
     // function was called, the declaration line should display as neutral.
@@ -591,6 +721,7 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
       neutralLines.add(lineNumber);
       inFunctionHeader = true;
     }
+    previousLineText = lineText;
   });
 
   markAbstractInterfaceMemberLinesNeutral(sourceLines, neutralLines);
@@ -961,6 +1092,7 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   promoteCoveredAccessorHeaderLines(lineCoverage, filePath, sourceLines);
   promoteCoveredMultilineExpressionBodiedFunctionHeaderLines(lineCoverage, filePath, sourceLines);
   promoteSimpleLambdaBodyCoverage(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
+  promoteClosureBodyCoverage(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   promoteCoveredBuilderWrapperLines(lineCoverage, filePath, sourceLines);
   suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressFalseCoveredLinesInUncoveredFunctions(fileCoverage, lineCoverage, filePath, sourceLines);
@@ -1475,6 +1607,64 @@ function promoteSimpleLambdaBodyCoverage(fileCoverage, lineCoverage, filePath, s
   }
 }
 
+
+function promoteClosureBodyCoverage(fileCoverage, lineCoverage, filePath, sourceLines, branchStats) {
+  // Promote lines inside scope functions (.let {}, .apply {}, .run {}, .also {}, .with {})
+  // when the closure itself has been executed
+  
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    const lineText = getLineText(sourceLines, lineNumber).trim();
+    
+    // Detect scope function call with opening brace: .let { or ?.let { etc.
+    if (!/(?:\?\.)?(let|apply|run|also|with)\s*{\s*$/.test(lineText)) {
+      continue;
+    }
+    
+    // Find the closing brace of this scope function block
+    const closingBraceLineNumber = findBlockEndLine(sourceLines, lineNumber);
+    if (closingBraceLineNumber <= lineNumber) {
+      continue;
+    }
+    
+    // Check if any nested function in this block has coverage
+    // If yes, the closure was executed and we can promote its body lines
+    let hasExecutedNestedFunction = false;
+    for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+      const funcCount = Number(fileCoverage.f?.[functionId] || 0);
+      if (funcCount <= 0) {
+        continue;
+      }
+      
+      const funcStartLine = functionCoverage?.loc?.start?.line;
+      const funcEndLine = functionCoverage?.loc?.end?.line;
+      
+      if (funcStartLine && funcEndLine && funcStartLine >= lineNumber && funcEndLine <= closingBraceLineNumber) {
+        hasExecutedNestedFunction = true;
+        break;
+      }
+    }
+    
+    if (!hasExecutedNestedFunction) {
+      continue;
+    }
+    
+    // Promote body lines between the braces
+    const bodyLines = getTopLevelExecutableLinesInFunctionRange(filePath, sourceLines, lineNumber + 1, closingBraceLineNumber - 1);
+    bodyLines.forEach((bodyLineNumber) => {
+      const bodyLineText = getLineText(sourceLines, bodyLineNumber);
+      const directStatementCount = getDirectStatementCountOnLine(fileCoverage, bodyLineNumber);
+      
+      // Only promote if line is not already covered and has no direct statement count
+      if (!(Number(lineCoverage[bodyLineNumber]) > 0)
+        && (directStatementCount == null || directStatementCount === 0)
+        && (!branchStats.has(bodyLineNumber) || !isPartialControlLine(bodyLineText))) {
+        // Use 1 as the promotion count since we know the closure was executed
+        lineCoverage[bodyLineNumber] = 1;
+      }
+    });
+  }
+}
+
 function hasValidLineRange(loc) {
   const startLine = Number(loc?.start?.line || 0);
   const endLine = Number(loc?.end?.line || 0);
@@ -1639,10 +1829,15 @@ function suppressFalseCoveredLinesInUncoveredFunctions(fileCoverage, lineCoverag
     // originating outside the function (e.g. Kotlin/JS object initializers).
     // Only a nested covered function (not a sibling with the same loc) reliably
     // proves the function was called.
-    const hasLocalCoveredExecution = hasCoveredNestedFunctionContainedInRange(fileCoverage, headerStartLine, functionEndLine, functionId);
+    // For object literals (object : SomeType { ... }), nested methods don't indicate
+    // the object was instantiated. So we don't use hasLocalCoveredExecution to skip
+    // suppression for object literals.
+    const isObjectLiteral = isObjectLiteralConstructor(headerText);
+    const hasLocalCoveredExecution = !isObjectLiteral && hasCoveredNestedFunctionContainedInRange(fileCoverage, headerStartLine, functionEndLine, functionId);
     if (hasLocalCoveredExecution) {
       continue;
     }
+
 
     const executableLines = getExecutableLinesInRange(filePath, sourceLines, headerStartLine, functionEndLine);
     executableLines.forEach((lineNumber) => {
@@ -1659,6 +1854,12 @@ function suppressFalseCoveredLinesInUncoveredFunctions(fileCoverage, lineCoverag
       }
       const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
       if (directStatementCount != null && directStatementCount > 0) {
+        return;
+      }
+      // Suppress control-flow header lines (when-arms, if conditions) in uncovered functions
+      const lineText = getLineText(sourceLines, lineNumber);
+      if (isControlFlowHeaderLine(lineText)) {
+        lineCoverage[lineNumber] = 0;
         return;
       }
       if (isTopLevelZeroCountLambda && lineNumber === headerStartLine) {
@@ -2960,8 +3161,10 @@ function getPromotedExpressionBodiedFunctionStatus(fileCoverage, sourceLines, li
     return null;
   }
 
-  return hasCoveredSpanningStatementStartingOnLine(fileCoverage, lineNumber)
-    || getCoveredFunctionCountsStartingOnLine(fileCoverage, lineNumber).length > 0
+  // Only promote if the expression-bodied function was actually called
+  // Dont rely on spanning statements from class initialization
+  const coveredFunctionCounts = getCoveredFunctionCountsStartingOnLine(fileCoverage, lineNumber);
+  return coveredFunctionCounts.length > 0
     ? 'yes'
     : null;
 }
@@ -3017,6 +3220,16 @@ function getPromotedCoveredFunctionStatementStatus(fileCoverage, filePath, sourc
     return null;
   }
 
+  // Check if the line is inside an uncovered named function — spanning statements
+  // from the outer covered function should not promote lines within an inner
+  // uncovered named function.
+  const zeroCountNamedFn = findInnermostZeroCountNamedFunctionRange(fileCoverage, sourceLines, lineNumber);
+  if (zeroCountNamedFn
+    && lineNumber !== zeroCountNamedFn.startLine
+    && !hasCoveredNestedFunctionContainedInRange(fileCoverage, zeroCountNamedFn.startLine, zeroCountNamedFn.endLine, zeroCountNamedFn.functionId)) {
+    return null;
+  }
+
   const lineText = getLineText(sourceLines, lineNumber).trim();
   if (/^(?:return(?:@\w+)?|throw)\b/u.test(lineText) || isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber)) {
     return null;
@@ -3059,6 +3272,63 @@ function findEnclosingBlockFunctionRange(sourceLines, lineNumber) {
   return null;
 }
 
+// Promote simple executable statements inside a called function when sourcemap
+// gaps cause missing line coverage. Guards prevent false promotion in uncovered
+// branches, catch blocks, nested uncovered functions, and overly large functions.
+function getPromotedSimpleStatementInCalledFunctionStatus(fileCoverage, filePath, sourceLines, lineNumber) {
+  const enclosingFunction = findEnclosingBlockFunctionRange(sourceLines, lineNumber);
+  if (!enclosingFunction) {
+    return null;
+  }
+
+  // Skip if the function body is too large — larger functions are more likely
+  // to have genuinely uncovered lines and promoting them would be unreliable.
+  if (enclosingFunction.endLine - enclosingFunction.startLine > 80) {
+    return null;
+  }
+
+  // Check if the enclosing function was actually called
+  const functionCounts = getCoveredFunctionCountsStartingOnLine(fileCoverage, enclosingFunction.startLine);
+  if (!functionCounts.length) {
+    return null;
+  }
+
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+
+  // Skip return/throw lines — they may not execute if an earlier branch exits
+  if (/^(?:return(?:@\w+)?|throw)\b/u.test(lineText)) {
+    return null;
+  }
+
+  // Skip lines in reliably uncovered branch arms
+  if (isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber)) {
+    return null;
+  }
+
+  // Skip lines inside uncovered catch blocks
+  if (isLineInUncoveredCatchBlock(fileCoverage, filePath, sourceLines, lineNumber)) {
+    return null;
+  }
+
+  // Skip if the line is inside a nested zero-count lambda
+  const zeroCountLambda = findInnermostZeroCountLambdaRange(fileCoverage, sourceLines, lineNumber);
+  if (zeroCountLambda
+    && lineNumber !== zeroCountLambda.startLine
+    && !hasLocalCoveredExecutionInRange(fileCoverage, zeroCountLambda.startLine, zeroCountLambda.endLine, zeroCountLambda.functionId)) {
+    return null;
+  }
+
+  // Skip if the line is inside a nested zero-count named function
+  const zeroCountNamedFn = findInnermostZeroCountNamedFunctionRange(fileCoverage, sourceLines, lineNumber);
+  if (zeroCountNamedFn
+    && zeroCountNamedFn.startLine !== enclosingFunction.startLine
+    && !hasCoveredNestedFunctionContainedInRange(fileCoverage, zeroCountNamedFn.startLine, zeroCountNamedFn.endLine, zeroCountNamedFn.functionId)) {
+    return null;
+  }
+
+  return 'yes';
+}
+
 function findInnermostZeroCountLambdaRange(fileCoverage, sourceLines, lineNumber) {
   let match = null;
   for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
@@ -3074,6 +3344,37 @@ function findInnermostZeroCountLambdaRange(fileCoverage, sourceLines, lineNumber
 
     const headerText = getLineText(sourceLines, startLine).trim();
     if (/\bfun\b/u.test(headerText)) {
+      continue;
+    }
+
+    if (!match || (endLine - startLine) < (match.endLine - match.startLine)) {
+      match = { functionId, startLine, endLine };
+    }
+  }
+
+  return match;
+}
+
+// Similar to findInnermostZeroCountLambdaRange but for named `fun` functions.
+// Returns the innermost zero-count named function range containing the given line,
+// or null if none found. Used to prevent spanning statement leakage from an outer
+// covered function into an inner uncovered named function.
+function findInnermostZeroCountNamedFunctionRange(fileCoverage, sourceLines, lineNumber) {
+  let match = null;
+  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+    if (Number(fileCoverage.f?.[functionId] || 0) > 0) {
+      continue;
+    }
+
+    const startLine = Number(functionCoverage?.loc?.start?.line || 0);
+    const endLine = Number(functionCoverage?.loc?.end?.line || 0);
+    if (!startLine || !endLine || endLine < startLine || lineNumber < startLine || lineNumber > endLine) {
+      continue;
+    }
+
+    const headerText = getLineText(sourceLines, startLine).trim();
+    // Only match named functions (lines containing `fun` keyword)
+    if (!/\bfun\b/u.test(headerText)) {
       continue;
     }
 
@@ -3323,6 +3624,11 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
       return promotedCoveredFunctionStatementStatus;
     }
 
+    const promotedSimpleStatementInCalledFunctionStatus = getPromotedSimpleStatementInCalledFunctionStatus(fileCoverage, filePath, sourceLines, lineNumber);
+    if (promotedSimpleStatementInCalledFunctionStatus) {
+      return promotedSimpleStatementInCalledFunctionStatus;
+    }
+
     const promotedInitializedPropertyHeaderStatus = getPromotedInitializedPropertyHeaderStatus(fileCoverage, filePath, sourceLines, lineNumber);
     if (promotedInitializedPropertyHeaderStatus) {
       return promotedInitializedPropertyHeaderStatus;
@@ -3371,6 +3677,11 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
     return promotedCoveredFunctionStatementStatus;
   }
 
+  const promotedSimpleStatementInCalledFunctionStatus = getPromotedSimpleStatementInCalledFunctionStatus(fileCoverage, filePath, sourceLines, lineNumber);
+  if (promotedSimpleStatementInCalledFunctionStatus) {
+    return promotedSimpleStatementInCalledFunctionStatus;
+  }
+
   const promotedInitializedPropertyHeaderStatus = getPromotedInitializedPropertyHeaderStatus(fileCoverage, filePath, sourceLines, lineNumber);
   if (promotedInitializedPropertyHeaderStatus) {
     return promotedInitializedPropertyHeaderStatus;
@@ -3379,6 +3690,13 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
   const lineText = getLineText(sourceLines, lineNumber);
   const branchStat = branchStats.get(lineNumber);
   if (!branchStat || !isPartialControlLine(lineText)) {
+    // Lines with no Istanbul mapping that are clearly executable code inside a
+    // function body should be 'no' (uncovered), not 'neutral'. This prevents
+    // when-arm bodies and other executable lines without sourcemap entries from
+    // being incorrectly shown as neutral/gray.
+    if (isLikelyExecutableLine(lineText) && findEnclosingBlockFunctionRange(sourceLines, lineNumber)) {
+      return 'no';
+    }
     return 'neutral';
   }
 

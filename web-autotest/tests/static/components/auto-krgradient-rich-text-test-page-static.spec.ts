@@ -5,8 +5,8 @@ test.describe('Auto KRGradientRichTextTestPage static 验证', () => {
     await kuiklyPage.goto('KRGradientRichTextTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('1. 水平渐变文本').first()).toBeVisible();
-    await expect(kuiklyPage.page.getByText('水平渐变效果 Horizontal Gradient').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. 水平渐变文本', { exact: false }).first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('水平渐变效果 Horizontal Gradient', { exact: false }).first()).toBeVisible();
     await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
   });
 });

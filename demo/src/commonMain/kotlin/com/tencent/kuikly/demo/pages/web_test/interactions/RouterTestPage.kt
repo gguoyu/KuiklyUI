@@ -148,6 +148,27 @@ internal class RouterTestPage : Pager() {
                         marginTop(12f)
                     }
                 }
+
+                // Close page button — exercises KRRouterModule.closePage
+                Button {
+                    attr {
+                        size(120f, 44f)
+                        marginTop(16f)
+                        borderRadius(8f)
+                        backgroundColor(Color(0xFFE53935))
+                        titleAttr {
+                            text("关闭页面")
+                            fontSize(15f)
+                            fontWeightBold()
+                            color(Color.WHITE)
+                        }
+                    }
+                    event {
+                        click {
+                            getPager().acquireModule<RouterModule>(RouterModule.MODULE_NAME).closePage()
+                        }
+                    }
+                }
             }
         }
     }

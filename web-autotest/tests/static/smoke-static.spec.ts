@@ -5,7 +5,7 @@ test.describe('Smoke static 验证', () => {
     await kuiklyPage.goto('SmokeTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('Smoke')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('Smoke', { exact: false })).toBeVisible();
   });
 
   test('应注入 data-kuikly-component 属性', async ({ kuiklyPage }) => {

@@ -29,52 +29,52 @@ test.describe('Gesture functional', () => {
     });
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('Page 1 of 5')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('Page 1 of 5', { exact: false })).toBeVisible();
   });
 
   test('tap counter should increment on each click', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('GestureTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('tap-count: 0').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('tap-count: 0', { exact: false }).first()).toBeVisible();
 
-    await kuiklyPage.page.getByText('tap here').click();
+    await kuiklyPage.page.getByText('tap here', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('tap-count: 1').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('tap-count: 1', { exact: false }).first()).toBeVisible();
 
-    await kuiklyPage.page.getByText('tap here').click();
+    await kuiklyPage.page.getByText('tap here', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('tap-count: 2').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('tap-count: 2', { exact: false }).first()).toBeVisible();
   });
 
   test('tapping different zones should update current-zone label', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('GestureTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('current-zone: none')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('current-zone: none', { exact: false })).toBeVisible();
 
-    await kuiklyPage.page.getByText('zone-a').click();
+    await kuiklyPage.page.getByText('zone-a', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('current-zone: a')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('current-zone: a', { exact: false })).toBeVisible();
 
-    await kuiklyPage.page.getByText('zone-b').click();
+    await kuiklyPage.page.getByText('zone-b', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('current-zone: b')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('current-zone: b', { exact: false })).toBeVisible();
 
-    await kuiklyPage.page.getByText('zone-c').click();
+    await kuiklyPage.page.getByText('zone-c', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('current-zone: c')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('current-zone: c', { exact: false })).toBeVisible();
   });
 
   test('tapping a zone should update gesture-log', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('GestureTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('gesture-log: idle')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: idle', { exact: false })).toBeVisible();
 
-    await kuiklyPage.page.getByText('zone-b').click();
+    await kuiklyPage.page.getByText('zone-b', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
-    await expect(kuiklyPage.page.getByText('gesture-log: tapped zone-b')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: tapped zone-b', { exact: false })).toBeVisible();
   });
 
   test('rapid successive taps should keep incrementing count and log', async ({ kuiklyPage }) => {
@@ -88,8 +88,8 @@ test.describe('Gesture functional', () => {
     await target.click();
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('tap-count: 3').first()).toBeVisible();
-    await expect(kuiklyPage.page.getByText('gesture-log: tap #3')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('tap-count: 3', { exact: false }).first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: tap #3', { exact: false })).toBeVisible();
   });
 
   test('second long press should deactivate the long press state', async ({ kuiklyPage }) => {
@@ -99,13 +99,13 @@ test.describe('Gesture functional', () => {
     const target = kuiklyPage.page.getByText('long-press-area', { exact: true });
     await longPressTarget(target);
 
-    await expect(kuiklyPage.page.getByText('long-press-status: active')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('gesture-log: long-press-activated')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: active', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: long-press-activated', { exact: false })).toBeVisible();
 
     await longPressTarget(kuiklyPage.page.getByText('long-pressed', { exact: true }));
 
-    await expect(kuiklyPage.page.getByText('long-press-status: inactive')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('gesture-log: long-press-cancelled')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: inactive', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: long-press-cancelled', { exact: false })).toBeVisible();
   });
 
   test('double clicking the double-click area should increment counter', async ({ kuiklyPage }) => {
@@ -119,7 +119,7 @@ test.describe('Gesture functional', () => {
     await kuiklyPage.page.waitForTimeout(400);
 
     await expect(kuiklyPage.page.getByText('double-clicked: 1', { exact: true })).toBeVisible();
-    await expect(kuiklyPage.page.getByText('gesture-log: double-click #1')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: double-click #1', { exact: false })).toBeVisible();
   });
 
   test('pan gesture on the pan area should transition through pan states', async ({ kuiklyPage }) => {
@@ -144,7 +144,7 @@ test.describe('Gesture functional', () => {
     await kuiklyPage.page.waitForTimeout(200);
 
     // After pan completes, gesture-log should reflect a pan event
-    const log = kuiklyPage.page.getByText(/gesture-log: pan:/);
+    const log = kuiklyPage.page.getByText(/gesture-log: pan:/, { exact: false });
     await expect(log).toBeVisible();
   });
 });

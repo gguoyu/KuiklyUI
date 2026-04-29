@@ -44,7 +44,11 @@ internal class KRTextAreaViewTestPage : Pager() {
     private var clearedCount by observable(0)
     private var readOnly by observable(false)
     private var setTextCount by observable(0)
+    private var focusState by observable("none")
+    private var cursorIndex by observable(-1)
+    private var beyondLimitCount by observable(0)
     private var textAreaRef: ViewRef<TextAreaView>? = null
+    private var limitedAreaRef: ViewRef<TextAreaView>? = null
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -92,8 +96,12 @@ internal class KRTextAreaViewTestPage : Pager() {
                             textDidChange { params ->
                                 ctx.areaValue = params.text
                             }
-                            inputFocus { }
-                            inputBlur { }
+                            inputFocus {
+                                ctx.focusState = "focused"
+                            }
+                            inputBlur {
+                                ctx.focusState = "blurred"
+                            }
                             inputReturn { }
                         }
                     }
@@ -338,6 +346,185 @@ internal class KRTextAreaViewTestPage : Pager() {
                             placeholder("bold-weight-area")
                             fontWeightBold()
                             returnKeyTypeDone()
+                        }
+                    }
+                }
+
+                // === Section 7: Focus / Blur / Cursor ===
+                Text {
+                    attr {
+                        text("7. Focus / Blur / Cursor")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                Text {
+                    attr {
+                        text("focus-state:${ctx.focusState}")
+                        fontSize(13f)
+                        marginTop(6f)
+                        marginLeft(16f)
+                        color(0xFF666666)
+                    }
+                }
+
+                Text {
+                    attr {
+                        text("cursor-index:${ctx.cursorIndex}")
+                        fontSize(13f)
+                        marginTop(4f)
+                        marginLeft(16f)
+                        color(0xFF666666)
+                    }
+                }
+
+                // Focus button — exercises KRTextAreaView.call(FOCUS)
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(40f)
+                        backgroundColor(Color(0xFF1976D2))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.textAreaRef?.view?.focus()
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("textarea-focus")
+                            fontSize(13f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // Blur button — exercises KRTextAreaView.call(BLUR)
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(40f)
+                        backgroundColor(Color(0xFF7B1FA2))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.textAreaRef?.view?.blur()
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("textarea-blur")
+                            fontSize(13f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // GetCursorIndex button — exercises KRTextAreaView.call(GET_CURSOR_INDEX)
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(40f)
+                        backgroundColor(Color(0xFF00897B))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.textAreaRef?.view?.cursorIndex { index ->
+                                ctx.cursorIndex = index
+                            }
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("textarea-get-cursor")
+                            fontSize(13f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // SetCursorIndex button — exercises KRTextAreaView.call(SET_CURSOR_INDEX)
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(40f)
+                        backgroundColor(Color(0xFFEF6C00))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.textAreaRef?.view?.setCursorIndex(0)
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("textarea-set-cursor-0")
+                            fontSize(13f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // === Section 8: TextLengthBeyondLimit ===
+                Text {
+                    attr {
+                        text("8. Text Length Limit Callback")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                Text {
+                    attr {
+                        text("beyond-limit-count:${ctx.beyondLimitCount}")
+                        fontSize(13f)
+                        marginTop(6f)
+                        marginLeft(16f)
+                        color(0xFF666666)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(0xFFF5F5F5)
+                        borderRadius(8f)
+                        padding(all = 8f)
+                    }
+                    TextArea {
+                        ref {
+                            ctx.limitedAreaRef = it
+                        }
+                        attr {
+                            flex(1f)
+                            fontSize(14f)
+                            color(Color.BLACK)
+                            placeholder("max 5 chars")
+                            maxTextLength(5)
+                        }
+                        event {
+                            textLengthBeyondLimit {
+                                ctx.beyondLimitCount += 1
+                            }
                         }
                     }
                 }

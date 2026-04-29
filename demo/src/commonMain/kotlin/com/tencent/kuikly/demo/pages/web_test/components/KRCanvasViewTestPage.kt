@@ -391,6 +391,57 @@ internal class KRCanvasViewTestPage : Pager() {
                     }
                 }
 
+                // === Section 7: Line Cap ===
+                Text {
+                    attr {
+                        text("7. Line Cap")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        margin(left = 16f, top = 8f, right = 16f)
+                        height(120f)
+                    }
+                    Canvas({
+                        attr {
+                            absolutePosition(0f, 0f, 0f, 0f)
+                            backgroundColor(0xFFF5F5F5)
+                        }
+                    }) { context, width, _ ->
+                        // butt line cap (default)
+                        context.beginPath()
+                        context.lineWidth(15f)
+                        context.lineCapButt()
+                        context.strokeStyle(Color.RED)
+                        context.moveTo(20f, 30f)
+                        context.lineTo(width - 20f, 30f)
+                        context.stroke()
+
+                        // round line cap
+                        context.beginPath()
+                        context.lineWidth(15f)
+                        context.lineCapRound()
+                        context.strokeStyle(Color(0xFF4CAF50))
+                        context.moveTo(20f, 60f)
+                        context.lineTo(width - 20f, 60f)
+                        context.stroke()
+
+                        // square line cap
+                        context.beginPath()
+                        context.lineWidth(15f)
+                        context.lineCapSquare()
+                        context.strokeStyle(Color.BLUE)
+                        context.moveTo(20f, 90f)
+                        context.lineTo(width - 20f, 90f)
+                        context.stroke()
+                    }
+                }
+
                 // 底部间距
                 View {
                     attr {

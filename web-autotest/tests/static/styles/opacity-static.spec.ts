@@ -30,7 +30,7 @@ test.describe('Opacity static 验证', () => {
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page.locator('text=4. 透明度叠加')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('父 opacity=0.5')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('父 opacity=0.5', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('子元素', { exact: true })).toBeVisible();
   });
 });

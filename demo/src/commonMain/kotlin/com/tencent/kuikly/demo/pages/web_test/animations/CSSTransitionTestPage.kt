@@ -17,10 +17,15 @@ package com.tencent.kuikly.demo.pages.web_test.animations
 
 import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.base.Animation
+import com.tencent.kuikly.core.base.Border
+import com.tencent.kuikly.core.base.BorderStyle
 import com.tencent.kuikly.core.base.Color
+import com.tencent.kuikly.core.base.ColorStop
+import com.tencent.kuikly.core.base.Direction
 import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.reactive.handler.observable
+import com.tencent.kuikly.core.views.Image
 import com.tencent.kuikly.core.views.List
 import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
@@ -43,6 +48,9 @@ internal class CSSTransitionTestPage : Pager() {
     private var isWidthExpanded by observable(false)
     private var isComboAnimated by observable(false)
     private var isRepeatAnim by observable(false)
+    private var animEndCount by observable(0)
+    private var animToggled by observable(false)
+    private var springToggled by observable(false)
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -281,6 +289,132 @@ internal class CSSTransitionTestPage : Pager() {
                             ctx.isRepeatAnim
                         )
                         opacity(if (ctx.isRepeatAnim) 0.2f else 1.0f)
+                    }
+                }
+
+                // === Section 6: Animation Completion Callback (exercises animationCompletionBlock) ===
+                Text {
+                    attr {
+                        text("6. Animation End Callback")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, top = 8f)
+                        size(80f, 80f)
+                        backgroundColor(Color(0xFF00897B))
+                        borderRadius(8f)
+                        animation(Animation.linear(durationS = 0.3f), ctx.animToggled)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.animToggled = !ctx.animToggled
+                        }
+                        animationCompletion {
+                            ctx.animEndCount = ctx.animEndCount + 1
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("anim-end: ${ctx.animEndCount}")
+                            fontSize(12f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // === Section 7: Spring Animation (exercises getCssTimeFuncType spring branch) ===
+                Text {
+                    attr {
+                        text("7. Spring Animation")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, top = 8f)
+                        size(if (ctx.springToggled) 120f else 60f, 60f)
+                        backgroundColor(Color(0xFF6A1B9A))
+                        borderRadius(8f)
+                        animation(Animation.springEaseInOut(0.3f, 0.9f, 1f), ctx.springToggled)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.springToggled = !ctx.springToggled
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("Spring")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // === Section 8: Border with Child (exercises checkAndUpdatePositionForH5) ===
+                Text {
+                    attr {
+                        text("8. Border with Child")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, top = 8f)
+                        padding(all = 12f)
+                        border(Border(2f, BorderStyle.SOLID, Color(0xFF2196F3)))
+                        borderRadius(8f)
+                    }
+                    Text {
+                        attr {
+                            text("child-inside-border")
+                            fontSize(14f)
+                            color(Color.BLACK)
+                        }
+                    }
+                }
+
+                // === Section 9: Mask Gradient (exercises convertGradientStringToCssMask) ===
+                Text {
+                    attr {
+                        text("9. Mask Gradient")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                Image {
+                    attr {
+                        margin(left = 16f, top = 8f)
+                        width(200f)
+                        height(60f)
+                        src("https://vfiles.gtimg.cn/wuji_dashboard/xy/componenthub/Dfnp7Q9F.png")
+                        resizeCover()
+                        maskLinearGradient(Direction.TO_RIGHT, ColorStop(Color.BLACK, 1f), ColorStop(Color.BLACK, 0f))
                     }
                 }
 

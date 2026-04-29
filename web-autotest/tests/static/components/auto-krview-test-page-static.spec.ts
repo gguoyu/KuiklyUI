@@ -5,8 +5,8 @@ test.describe('Auto KRViewTestPage static 验证', () => {
     await kuiklyPage.goto('KRViewTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('1. 不同尺寸').first()).toBeVisible();
-    await expect(kuiklyPage.page.getByText('2. 不同背景色').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. 不同尺寸', { exact: false }).first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('2. 不同背景色', { exact: false }).first()).toBeVisible();
     await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
   });
 
@@ -17,16 +17,16 @@ test.describe('Auto KRViewTestPage static 验证', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 800, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('8. Visibility')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('8. Visibility', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('show', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('after-hidden', { exact: true })).toBeVisible();
 
     await kuiklyPage.scrollInContainer(list, { deltaY: 300, smooth: false });
-    await expect(kuiklyPage.page.getByText('9. Box Shadow')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('9. Box Shadow', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('shadow', { exact: true })).toBeVisible();
 
     await kuiklyPage.scrollInContainer(list, { deltaY: 200, smooth: false });
-    await expect(kuiklyPage.page.getByText('10. Accessibility Role')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('10. Accessibility Role', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('accessibility-role-button', { exact: true })).toBeVisible();
   });
 
@@ -37,11 +37,11 @@ test.describe('Auto KRViewTestPage static 验证', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 1200, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('11. Screen Frame Event')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('11. Screen Frame Event', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('frame-count:', { exact: false }).first()).toBeVisible();
 
     await kuiklyPage.scrollInContainer(list, { deltaY: 200, smooth: false });
-    await expect(kuiklyPage.page.getByText('12. Screen Frame Pause')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('12. Screen Frame Pause', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('pause-frames', { exact: true })).toBeVisible();
   });
 

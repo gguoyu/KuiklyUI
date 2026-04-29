@@ -7,7 +7,7 @@ test.describe('SharedPreferences 模块功能验证', () => {
   });
 
   test('should render SharedPreferencesTestPage', async ({ kuiklyPage }) => {
-    await expect(kuiklyPage.page.getByText('SharedPreferences 模块测试')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('SharedPreferences 模块测试', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('setString / getString', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('setInt / getInt', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('setFloat / getFloat', { exact: true })).toBeVisible();

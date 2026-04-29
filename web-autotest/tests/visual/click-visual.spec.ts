@@ -14,16 +14,16 @@ test.describe('点击交互视觉验证', () => {
     await kuiklyPage.goto('ClickTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await kuiklyPage.page.getByText('点击我').click();
+    await kuiklyPage.page.getByText('点击我', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
 
-    const plusButton = kuiklyPage.page.getByText('+');
+    const plusButton = kuiklyPage.page.getByText('+', { exact: true });
     await plusButton.click();
     await kuiklyPage.waitForRenderComplete();
     await plusButton.click();
     await kuiklyPage.waitForRenderComplete();
 
-    await kuiklyPage.page.getByText('推荐').click();
+    await kuiklyPage.page.getByText('推荐', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page).toHaveScreenshot('click-test-after-interaction.png', {

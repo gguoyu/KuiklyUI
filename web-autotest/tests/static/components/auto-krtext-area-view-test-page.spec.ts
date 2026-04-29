@@ -9,7 +9,12 @@ const STABLE_TEXTS = [
   "area-value-length: ${ctx.areaValue.length}",
   "3. Read-only Toggle"
 ];
-const ACTION_LABELS = [];
+const ACTION_LABELS = [
+  "textarea-focus",
+  "textarea-blur",
+  "textarea-get-cursor",
+  "textarea-set-cursor-0"
+];
 const INTERACTION_HINTS = {
   "actions": [
     "click-visible-labels",

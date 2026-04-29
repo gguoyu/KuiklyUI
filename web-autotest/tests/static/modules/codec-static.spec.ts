@@ -5,7 +5,7 @@ test.describe('KRCodecModule static 验证', () => {
     await kuiklyPage.goto('CodecModuleTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('CodecModuleTestPage')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('CodecModuleTestPage', { exact: false })).toBeVisible();
   });
 
   test('urlEncode/urlDecode 结果应可见', async ({ kuiklyPage }) => {
@@ -28,8 +28,8 @@ test.describe('KRCodecModule static 验证', () => {
     await kuiklyPage.goto('CodecModuleTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('md5(16):')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('md5(32):')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('sha256:')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('md5(16):', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('md5(32):', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('sha256:', { exact: false })).toBeVisible();
   });
 });

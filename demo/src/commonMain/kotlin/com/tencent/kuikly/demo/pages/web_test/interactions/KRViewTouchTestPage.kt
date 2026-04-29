@@ -46,6 +46,7 @@ internal class KRViewTouchTestPage : Pager() {
     private var doubleClickCount by observable(0)
     private var frameCount by observable(0)
     private var framePaused by observable(false)
+    private var superTouchCount by observable(0)
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -282,6 +283,80 @@ internal class KRViewTouchTestPage : Pager() {
                     Text {
                         attr {
                             text("frame-count: ${ctx.frameCount}")
+                            fontSize(14f)
+                            fontWeightBold()
+                            color(Color.WHITE)
+                        }
+                    }
+                }
+
+                View {
+                    attr { height(50f) }
+                }
+
+                // === Section 6: Super Touch ===
+                Text {
+                    attr {
+                        text("6. Super Touch")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(80f)
+                        backgroundColor(Color(0xFF1565C0))
+                        borderRadius(8f)
+                        allCenter()
+                        superTouch(true)
+                    }
+                    event {
+                        touchDown {
+                            ctx.superTouchCount = ctx.superTouchCount + 1
+                        }
+                        touchUp { }
+                    }
+                    Text {
+                        attr {
+                            text(if (ctx.superTouchCount == 0) "super-touch-idle" else "super-touch: ${ctx.superTouchCount}")
+                            fontSize(14f)
+                            fontWeightBold()
+                            color(Color.WHITE)
+                        }
+                    }
+                }
+
+                // === Section 7: View with Pan inside List ===
+                Text {
+                    attr {
+                        text("7. Pan in List")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(80f)
+                        backgroundColor(Color(0xFFBF360C))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        pan { }
+                    }
+                    Text {
+                        attr {
+                            text("pan-in-list")
                             fontSize(14f)
                             fontWeightBold()
                             color(Color.WHITE)

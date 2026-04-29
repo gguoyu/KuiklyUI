@@ -5,7 +5,7 @@ test.describe('Gradient static 验证', () => {
     await kuiklyPage.goto('GradientTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('1. 水平渐变')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. 水平渐变', { exact: false })).toBeVisible();
   });
 
   test('应渲染水平和垂直渐变标签', async ({ kuiklyPage }) => {
@@ -22,7 +22,7 @@ test.describe('Gradient static 验证', () => {
     await kuiklyPage.goto('GradientTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('3. 对角渐变')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('3. 对角渐变', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('↘', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('↙', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('↗', { exact: true })).toBeVisible();
@@ -33,8 +33,8 @@ test.describe('Gradient static 验证', () => {
     await kuiklyPage.goto('GradientTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('4. 多色渐变')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('5. 渐变+圆角组合')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('4. 多色渐变', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('5. 渐变+圆角组合', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('三色渐变', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('四色渐变', { exact: true })).toBeVisible();
   });

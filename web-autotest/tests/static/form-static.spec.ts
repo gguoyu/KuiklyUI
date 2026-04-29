@@ -7,14 +7,14 @@ test.describe('FormTestPage static', () => {
   });
 
   test('should load FormTestPage and render all field labels', async ({ kuiklyPage }) => {
-    await expect(kuiklyPage.page.getByText('User Info Form')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('Fields marked * are required')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('* Name')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('* Email')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('Phone')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('Note')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('Subscribe to updates')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('I agree to the terms')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('User Info Form', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('Fields marked * are required', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('* Name', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('* Email', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('Phone', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('Note', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('Subscribe to updates', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('I agree to the terms', { exact: false })).toBeVisible();
   });
 
   test('submit button should be grey initially (terms not agreed)', async ({ kuiklyPage }) => {

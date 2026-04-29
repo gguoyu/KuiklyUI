@@ -59,6 +59,7 @@ internal class ListScrollTestPage : Pager() {
     private var dragEndCount by observable(0)
     private var scrollEndCount by observable(0)
     private var scrollToCount by observable(0)
+    private var scrollToAnimatedCount by observable(0)
     private var listRef: ViewRef<ListView<*, *>>? = null
 
     override fun body(): ViewBuilder {
@@ -153,6 +154,30 @@ internal class ListScrollTestPage : Pager() {
                             }
                         }
                     }
+                    // Animated setContentOffset button — exercises H5ListView.setContentOffset animated path
+                    View {
+                        attr {
+                            height(22f)
+                            backgroundColor(Color(0x44FFFFFF))
+                            borderRadius(4f)
+                            allCenter()
+                            marginTop(2f)
+                            marginLeft(4f)
+                        }
+                        event {
+                            click {
+                                ctx.scrollToAnimatedCount += 1
+                                ctx.listRef?.view?.setContentOffset(0f, 500f, animated = true)
+                            }
+                        }
+                        Text {
+                            attr {
+                                text(if (ctx.scrollToAnimatedCount == 0) "scroll-anim-idle" else "scroll-anim: ${ctx.scrollToAnimatedCount}")
+                                fontSize(9f)
+                                color(Color.WHITE)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -164,6 +189,7 @@ internal class ListScrollTestPage : Pager() {
                 attr {
                     flex(1f)
                     showScrollerIndicator(true)
+                    bouncesEnable(true)
                 }
                 event {
                     click {

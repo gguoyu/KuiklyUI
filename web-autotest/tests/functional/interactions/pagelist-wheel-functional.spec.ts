@@ -1,0 +1,42 @@
+import { test, expect } from '../../../fixtures/test-base';
+
+test.describe('PageListWheelTestPage functional', () => {
+  test('should switch page via mouse wheel', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PageListWheelTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const pageList = kuiklyPage.component('PageList').first();
+    await expect(pageList).toBeVisible();
+
+    const box = await pageList.boundingBox();
+    if (box) {
+      // Wheel down to trigger page switch
+      await kuiklyPage.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await kuiklyPage.page.mouse.wheel(0, 300);
+      await kuiklyPage.page.waitForTimeout(600);
+    }
+
+    // Index text should update
+    await expect(kuiklyPage.page.getByText(/index:[0-9]/, { exact: false })).toBeVisible();
+  });
+
+  test('should handle boundary at last page', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('PageListWheelTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const pageList = kuiklyPage.component('PageList').first();
+    const box = await pageList.boundingBox();
+    if (box) {
+      // Wheel down multiple times
+      await kuiklyPage.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      for (let i = 0; i < 5; i++) {
+        await kuiklyPage.page.mouse.wheel(0, 500);
+        await kuiklyPage.page.waitForTimeout(200);
+      }
+    }
+
+    await kuiklyPage.page.waitForTimeout(500);
+    // Should still be visible
+    await expect(kuiklyPage.page.getByText('PageList Wheel Test', { exact: false })).toBeVisible();
+  });
+});

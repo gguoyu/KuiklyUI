@@ -16,7 +16,7 @@ test.describe('CSS Transition 视觉验证', () => {
     await kuiklyPage.goto('CSSTransitionTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    const trigger = kuiklyPage.page.getByText('Combo Animation');
+    const trigger = kuiklyPage.page.getByText('Combo Animation', { exact: false });
     await trigger.click();
     await kuiklyPage.waitForTransitionEnd(trigger.locator('..'));
     await kuiklyPage.waitForRenderComplete();
@@ -33,7 +33,7 @@ test.describe('CSS Transition 视觉验证', () => {
     await kuiklyPage.waitForRenderComplete();
 
     const baseline = await kuiklyPage.page.screenshot();
-    await kuiklyPage.page.getByText('Click Me').click();
+    await kuiklyPage.page.getByText('Click Me', { exact: false }).click();
 
     const frames = [baseline, ...(await kuiklyPage.captureAnimationFrames({
       interval: 100,

@@ -5,9 +5,9 @@ test.describe('KRActivityIndicatorView static 验证', () => {
     await kuiklyPage.goto('KRActivityIndicatorTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('KRActivityIndicatorTestPage')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('1. 白色样式')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('2. 灰色样式')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('KRActivityIndicatorTestPage', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. 白色样式', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('2. 灰色样式', { exact: false })).toBeVisible();
   });
 
   test('白色与灰色 activity indicator 应渲染不同底图并保持旋转动画', async ({ kuiklyPage }) => {

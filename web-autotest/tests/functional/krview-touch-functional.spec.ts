@@ -12,8 +12,8 @@ test.describe('KRViewTouchTestPage touch event functional', () => {
     await kuiklyPage.waitForRenderComplete();
 
     // touchDown and touchUp should each be at least 1
-    await expect(kuiklyPage.page.getByText(/touch-down: [1-9]/)).toBeVisible();
-    await expect(kuiklyPage.page.getByText(/touch-up: [1-9]/)).toBeVisible();
+    await expect(kuiklyPage.page.getByText(/touch-down: [1-9]/, { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(/touch-up: [1-9]/, { exact: false })).toBeVisible();
   });
 
   test('dragging touch-area should trigger touchDown and touchUp via mouse down/up', async ({ kuiklyPage }) => {
@@ -38,8 +38,8 @@ test.describe('KRViewTouchTestPage touch event functional', () => {
     await kuiklyPage.page.waitForTimeout(200);
 
     // After drag, touchDown should have fired at least once
-    await expect(kuiklyPage.page.getByText(/touch-down: [1-9]/)).toBeVisible();
-    await expect(kuiklyPage.page.getByText(/touch-up: [1-9]/)).toBeVisible();
+    await expect(kuiklyPage.page.getByText(/touch-down: [1-9]/, { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(/touch-up: [1-9]/, { exact: false })).toBeVisible();
   });
 
   test('pan gesture drag should update panState', async ({ kuiklyPage }) => {
@@ -63,7 +63,7 @@ test.describe('KRViewTouchTestPage touch event functional', () => {
     await kuiklyPage.page.waitForTimeout(200);
 
     // Pan state should have transitioned away from idle
-    const panLog = kuiklyPage.page.getByText(/pan-(?:start|move|end)/);
+    const panLog = kuiklyPage.page.getByText(/pan-(?:start|move|end)/, { exact: false });
     await expect(panLog).toBeVisible();
   });
 
@@ -91,7 +91,7 @@ test.describe('KRViewTouchTestPage touch event functional', () => {
     await kuiklyPage.page.waitForTimeout(300);
 
     // Long press count should be > 0
-    await expect(kuiklyPage.page.getByText(/lp-count: [1-9]/)).toBeVisible();
+    await expect(kuiklyPage.page.getByText(/lp-count: [1-9]/, { exact: false })).toBeVisible();
   });
 
   test('double-clicking dblclick area should increment counter', async ({ kuiklyPage }) => {
@@ -114,7 +114,7 @@ test.describe('KRViewTouchTestPage touch event functional', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('5. Screen Frame')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('5. Screen Frame', { exact: false })).toBeVisible();
 
     // Wait for frame count to advance (screenFrame fires repeatedly)
     await kuiklyPage.page.waitForTimeout(200);

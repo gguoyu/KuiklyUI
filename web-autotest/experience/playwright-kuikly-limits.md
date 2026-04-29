@@ -5,20 +5,26 @@
 
 ---
 
-## 1. Input / TextArea 事件不触发
+## 1. Input / TextArea 事件不触发 ✅ 已解决
 
 **现象**：`page.fill()` / `page.type()` 填充输入框后，Kuikly 响应式状态不更新，
 `textDidChange`、`focus`、`blur` 回调不被调用。
 
 **根因**：Kuikly 使用 `addEventListener("input", ...)` 监听 DOM `input` 事件。
 Playwright 的 `fill()` 直接设置 `element.value`，绕过了 DOM 事件派发。
+**这不是 headless 限制**，headed 模式下 `fill()` 行为相同。
 
 **受影响文件**：`KRTextFieldView.kt`、`KRTextAreaView.kt`（及所有使用它们的页面）
 
-**处理方式**：
-- spec 只验证静态渲染（输入框可见、placeholder 显示）和非输入交互（按钮点击）
-- 覆盖率报告里这些事件 handler 的缺口属于**已知 headless 限制**，接受并记录，不继续尝试
-- 在 spec 里加注释 `// KNOWN: textDidChange not triggered by Playwright fill()`
+**解决方案**：使用 `KuiklyPage.fillInput(locator, text)` 替代 `locator.fill(text)`。
+该方法通过 `evaluate()` 在 DOM 上设置 value 后手动派发 `input` 和 `change` 事件：
+```typescript
+// ❌ 旧写法：不触发 Kuikly 事件
+await input.fill('hello');
+
+// ✅ 新写法：触发 Kuikly textDidChange 回调
+await kuiklyPage.fillInput(input, 'hello');
+```
 
 ---
 
@@ -42,13 +48,26 @@ test.skip('custom modal flow [KNOWN: Modal headless rendering issue]', async ({ 
 
 ---
 
-## 3. 部分 KRView 的 click 事件不被 Playwright 合成点击触发
+## 3. 部分 KRView 的 click 事件不被 Playwright 合成点击触发 ✅ 有解决方案
 
 **现象**：对某些 View 调用 `page.getByText('label').click()` 或 `page.mouse.click(x, y)` 后，
 Kuikly 的 `event { click { ... } }` 回调不执行，页面状态不变。
 
 **已确认受影响的场景**：
 - `FormTestPage` 的 `submit` 按钮（`flex(2f)` 布局 + 动态背景色）
+
+**根因**：**不是 headless 限制**。Playwright 的 `click()` 计算元素中心坐标后模拟鼠标事件，
+但某些 Kuikly 布局条件下（z-index、flex 嵌套）实际点击目标可能不是预期元素。
+
+**解决方案**：使用 `KuiklyPage.forceClick(locator)` 替代 `locator.click()`。
+该方法通过 `evaluate()` 直接在 DOM 上 `dispatchEvent(new MouseEvent('click'))`：
+```typescript
+// ❌ 旧写法：可能被遮挡
+await page.getByText('submit').click();
+
+// ✅ 新写法：绕过 Playwright 点击目标计算
+await kuiklyPage.forceClick(page.getByText('submit', { exact: true }));
+```
 
 **诊断方法**：
 ```typescript
@@ -58,12 +77,6 @@ await page.getByText('submit', { exact: true }).click();
 await page.waitForTimeout(500);
 const after = await page.evaluate(() => document.body.innerText);
 console.log('changed:', before !== after);
-```
-
-**处理方式**：如果多种点击方式（`getByText.click()`、`mouse.click(cx, cy)`、`dispatchEvent`）
-都无效，则确认为产品层限制，标记 skip：
-```typescript
-test.skip('... [KNOWN: KRView click headless issue on FormTestPage submit]', async () => { ... });
 ```
 
 ---
@@ -84,59 +97,54 @@ test.skip('... [KNOWN: PAGE_CRASH on KRScrollContentViewTestPage]', async ({ kui
 
 ---
 
-## 5. getByText() strict mode violation
+## 5. getByText() strict mode violation — 编码规范
 
 **现象**：`expect(page.getByText('custom-modal')).toBeVisible()` 报错：
 ```
 strict mode violation: getByText('custom-modal') resolved to 2 elements
 ```
 
-**根因**：页面上有多个元素的文字都**包含**目标字符串：
-- `"show-custom-modal"` 包含 `"custom-modal"`
-- `"custom-modal-result: none"` 包含 `"custom-modal"`
+**根因**：**不是限制**，是测试代码的定位策略问题。页面上有多个元素的文字都**包含**目标字符串。
 
-**解决方案**：加 `{ exact: true }` 精确匹配，或换用更具体的定位器：
+**规范**：所有 `getByText()` 调用都应使用 `{ exact: true }` 精确匹配：
 ```typescript
-// ❌ 包含匹配，多个元素
+// ❌ 包含匹配，可能多个元素
 await page.getByText('custom-modal').click();
 
 // ✅ 精确匹配
 await page.getByText('custom-modal', { exact: true }).click();
-
-// ✅ 或者用更具体的文字
-await page.getByText('show-custom-modal', { exact: true }).click();
 ```
 
 **预防**：在设计载体页面的 oracle 文字时，确保所有 oracle 字符串互不包含。
 
 ---
 
-## 6. 通过 KRListView 滚动到底部才能找到 toggle 元素
+## 6. 通过 KRListView 滚动到底部才能找到 toggle 元素 ✅ 已封装
 
 **现象**：用 `getBoundingClientRect()` 找 toggle 控件（52×28 的 KRView）时，
 滚动后找不到元素，或坐标错误导致 `mouse.click()` 未命中。
 
-**根因**：Kuikly 的 `List` 组件使用虚拟滚动，`window.scrollTo()` 不生效。
-需要滚动 `KRListView` DOM 元素本身：
+**根因**：**不是 headless 限制**，是 Kuikly 框架特性。`List` 组件使用虚拟滚动，`window.scrollTo()` 不生效。
+需要滚动 `KRListView` DOM 元素本身。
 
+**解决方案**：使用 `KuiklyPage` 提供的封装方法：
 ```typescript
+// ✅ 增量滚动
+const list = kuiklyPage.component('KRListView').first();
+await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
+
+// ✅ 滚动到底部
+await kuiklyPage.scrollListToBottom(list);
+
 // ❌ 无效，不会滚动 Kuikly List
 await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-
-// ✅ 滚动 Kuikly 的 List 容器
-await page.evaluate(() => {
-  document.querySelectorAll('[data-kuikly-component="KRListView"]')
-    .forEach(el => { (el as HTMLElement).scrollTop = 9999; });
-});
-await page.waitForTimeout(400);
 ```
 
 ---
 
-## 7. Visual spec 基准截图在 UI 文字变更后必须删除并重建
+## 7. Visual spec 基准截图变更后的工作流指南
 
-**现象**：将载体页面从中文改为英文后，visual spec 报 screenshot diff，
-即使 `maxDiffPixels: 300` 也超出（因为文字完全变了）。
+**说明**：这不是限制，而是 visual regression 测试的正常工作流。任何 UI 文字变更都会导致截图基准失效。
 
 **处理方式**：先删除旧 PNG 基准，再用 `--update-snapshots` 重建：
 ```bash

@@ -2,12 +2,12 @@
 import { test, expect } from '../../../fixtures/test-base';
 
 const PAGE_NAME = "KRTextFieldViewTestPage";
-const TITLE_TEXT = "1. Basic Input";
+const TITLE_TEXT = "Text Length Limit Callback";
 const STABLE_TEXTS = [
+  "Text Length Limit Callback",
+  "beyond-limit-count:${ctx.beyondLimitCount}",
   "1. Basic Input",
-  "initial-input-text",
-  "input-value: ${ctx.inputValue}",
-  "3. Read-only Toggle"
+  "initial-input-text"
 ];
 const ACTION_LABELS = [];
 const INTERACTION_HINTS = {

@@ -14,7 +14,7 @@ test.describe('KRNetworkModule functional 验证', () => {
     await kuiklyPage.goto('NetworkModuleTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('NetworkModuleTestPage')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('NetworkModuleTestPage', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByLabel('requestGet', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByLabel('requestPostBinary', { exact: true })).toBeVisible();
   });

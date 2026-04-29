@@ -22,6 +22,7 @@ internal class PageListTestPage : Pager() {
     private var tabItems by observableList<PageTabItem>()
     private var pageItems by observableList<PageSectionItem>()
     private lateinit var pageListRef: ViewRef<PageListView<*, *>>
+    private var nonAnimScrollCount by observable(0)
 
     override fun created() {
         super.created()
@@ -77,6 +78,29 @@ internal class PageListTestPage : Pager() {
                         }
                     }
                 }
+                // Non-animated setContentOffset button — exercises H5ListPagingHelper.setContentOffset non-animated branch
+                View {
+                    attr {
+                        allCenter()
+                        backgroundColor(0x33000000)
+                        borderRadius(4f)
+                        padding(left = 8f, right = 8f, top = 4f, bottom = 4f)
+                    }
+                    event {
+                        click {
+                            ctx.nonAnimScrollCount += 1
+                            val targetIndex = if (ctx.currentIndex < 3) ctx.currentIndex + 1 else 0
+                            ctx.pageListRef.view?.setContentOffset(targetIndex * ctx.pageData.pageViewWidth, 0f, false)
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("no-anim:${ctx.nonAnimScrollCount}")
+                            fontSize(10f)
+                            color(Color.WHITE)
+                        }
+                    }
+                }
             }
             PageList {
                 ref { ctx.pageListRef = it }
@@ -87,6 +111,7 @@ internal class PageListTestPage : Pager() {
                     pageItemHeight(ctx.pageData.pageViewHeight - 88f)
                     showScrollerIndicator(false)
                     keepItemAlive(true)
+                    bouncesEnable(true)
                 }
                 vfor({ ctx.pageItems }) { pageItem ->
                     List {

@@ -41,6 +41,7 @@ internal class KRTextFieldViewTestPage : Pager() {
     private var inputValue by observable("")
     private var clearedCount by observable(0)
     private var readOnly by observable(false)
+    private var beyondLimitCount by observable(0)
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -51,6 +52,52 @@ internal class KRTextFieldViewTestPage : Pager() {
 
             List {
                 attr { flex(1f) }
+
+                // === Text Length Limit Callback (top for testability) ===
+                Text {
+                    attr {
+                        text("Text Length Limit Callback")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(16f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                Text {
+                    attr {
+                        text("beyond-limit-count:${ctx.beyondLimitCount}")
+                        fontSize(13f)
+                        marginTop(6f)
+                        marginLeft(16f)
+                        color(0xFF666666)
+                    }
+                }
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(0xFFF5F5F5)
+                        borderRadius(8f)
+                        padding(left = 12f, right = 12f)
+                        justifyContentCenter()
+                    }
+                    Input {
+                        attr {
+                            flex(1f)
+                            height(42f)
+                            fontSize(15f)
+                            color(Color.BLACK)
+                            placeholder("max 5 chars")
+                            maxTextLength(5)
+                        }
+                        event {
+                            textLengthBeyondLimit {
+                                ctx.beyondLimitCount += 1
+                            }
+                        }
+                    }
+                }
 
                 // === Section 1: Basic Input ===
                 Text {
@@ -258,7 +305,6 @@ internal class KRTextFieldViewTestPage : Pager() {
                     }
                 }
 
-                View { attr { height(50f) } }
 
                 // === Section 6: Keyboard Types ===
                 Text {

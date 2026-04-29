@@ -14,9 +14,9 @@ test.describe('Gesture visual', () => {
     await kuiklyPage.goto('GestureTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await kuiklyPage.page.getByText('zone-a').click();
+    await kuiklyPage.page.getByText('zone-a', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
-    await kuiklyPage.page.getByText('tap here').click();
+    await kuiklyPage.page.getByText('tap here', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page).toHaveScreenshot('gesture-test-after-interaction.png', {

@@ -45,6 +45,7 @@ internal class ModalTestPage : Pager() {
     private var alertResult by observable("none")
     private var actionSheetResult by observable("none")
     private var customModalResult by observable("none")
+    private var nestedModalResult by observable("none")
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -329,6 +330,31 @@ internal class ModalTestPage : Pager() {
                                 Text {
                                     attr {
                                         text("confirm")
+                                        fontSize(14f)
+                                        color(Color.WHITE)
+                                        fontWeightBold()
+                                    }
+                                }
+                            }
+
+                            // Nested modal trigger — exercises KRModalView.isInsideModalView
+                            View {
+                                attr {
+                                    width(140f)
+                                    height(36f)
+                                    marginTop(8f)
+                                    backgroundColor(Color(0xFFFF9800))
+                                    borderRadius(18f)
+                                    allCenter()
+                                }
+                                event {
+                                    click {
+                                        ctx.showActionSheet = true
+                                    }
+                                }
+                                Text {
+                                    attr {
+                                        text("nested-modal")
                                         fontSize(14f)
                                         color(Color.WHITE)
                                         fontWeightBold()

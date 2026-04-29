@@ -7,6 +7,7 @@ import com.tencent.kuikly.core.base.Direction
 import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.base.attr.ImageUri
 import com.tencent.kuikly.core.pager.Pager
+import com.tencent.kuikly.core.views.Blur
 import com.tencent.kuikly.core.views.Image
 import com.tencent.kuikly.core.views.List
 import com.tencent.kuikly.core.views.Text
@@ -48,6 +49,36 @@ internal class KRBlurViewTestPage : Pager() {
                             ColorStop(Color.WHITE, 0.6f),
                             ColorStop(Color(red255 = 255, green255 = 255, blue255 = 255, 0f), 1f)
                         )
+                    }
+                }
+            }
+            Text {
+                attr {
+                    text("Blur Component (KRBlurView)")
+                    color(Color.BLACK)
+                    marginTop(20f)
+                    marginLeft(16f)
+                }
+            }
+            View {
+                attr {
+                    margin(left = 16f, right = 16f, top = 16f)
+                    height(220f)
+                    backgroundColor(0xFF0F4C81)
+                    borderRadius(20f)
+                    overflow(false)
+                }
+                Image {
+                    attr {
+                        absolutePositionAllZero()
+                        src(ImageUri.commonAssets("penguin2.png"))
+                        resizeCover()
+                    }
+                }
+                Blur {
+                    attr {
+                        absolutePositionAllZero()
+                        blurRadius(10f)
                     }
                 }
             }

@@ -221,15 +221,15 @@ test.describe('EventProcessor touch branches functional', () => {
     await kuiklyPage.page.waitForTimeout(100);
     await dispatchTouchSequence(client, [{ type: 'touchEnd' }]);
     await kuiklyPage.page.waitForTimeout(800);
-    await expect(kuiklyPage.page.getByText('long-press-status: inactive')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: inactive', { exact: false })).toBeVisible();
 
     await dispatchTouchSequence(client, [{ type: 'touchStart', x, y }]);
     await kuiklyPage.page.waitForTimeout(820);
-    await expect(kuiklyPage.page.getByText('long-press-status: active')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: active', { exact: false })).toBeVisible();
 
     await dispatchTouchSequence(client, [{ type: 'touchCancel' }]);
     await kuiklyPage.page.waitForTimeout(200);
-    await expect(kuiklyPage.page.getByText('long-press-status: active')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: active', { exact: false })).toBeVisible();
   });
 
   test('touch 长按激活后轻微移动时应触发 move 分支并回写取消日志', async ({ kuiklyPage }) => {
@@ -242,8 +242,8 @@ test.describe('EventProcessor touch branches functional', () => {
     });
     await kuiklyPage.page.waitForTimeout(150);
 
-    await expect(kuiklyPage.page.getByText('long-press-status: inactive')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('gesture-log: long-press-cancelled')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('long-press-status: inactive', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('gesture-log: long-press-cancelled', { exact: false })).toBeVisible();
   });
 
   test('touch pan 从非左侧边缘开始拖拽时不应触发页面位移', async ({ kuiklyPage }) => {
@@ -286,7 +286,7 @@ test.describe('EventProcessor touch branches functional', () => {
     );
     await kuiklyPage.page.waitForTimeout(300);
 
-    const log = kuiklyPage.page.getByText(/gesture-log: pan:/);
+    const log = kuiklyPage.page.getByText(/gesture-log: pan:/, { exact: false });
     // If touch pan triggered the handler, gesture-log should show pan state
     // In headless Chromium, touch-based pan may not fire reliably — be lenient
     const logCount = await log.count();
@@ -322,7 +322,7 @@ test.describe('EventProcessor touch branches functional', () => {
     // Note: if touch double-tap doesn't fire in headless, the count stays 0
     // We accept the test to be lenient here since DoubleTapHandler touch path
     // is difficult to trigger reliably in headless Chromium
-    const dblText = kuiklyPage.page.getByText(/double-clicked: [1-9]/);
+    const dblText = kuiklyPage.page.getByText(/double-clicked: [1-9]/, { exact: false });
     const count = await dblText.count();
     // Either the dbl-click fired (count > 0) or we at least successfully dispatched touch events
     expect(count).toBeGreaterThanOrEqual(0);

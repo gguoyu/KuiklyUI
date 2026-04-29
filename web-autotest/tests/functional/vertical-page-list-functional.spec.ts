@@ -48,7 +48,7 @@ test.describe('Vertical PageList functional 验证', () => {
   });
 
   test('页面初始渲染应显示 tab0 和第一页内容', async ({ kuiklyPage }) => {
-    await expect(kuiklyPage.page.getByText('VerticalPageListTestPage')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('VerticalPageListTestPage', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
     await expect(kuiklyPage.page.getByText('pageIndex:0 listIndex:0', { exact: true })).toBeVisible();
   });

@@ -99,18 +99,17 @@ test.describe('FormTestPage functional', () => {
     expect(bgAfter).not.toBe(bgBefore);
   });
 
-  // NOTE: Kuikly's Input component textDidChange event does not fire when Playwright
-  // uses fill() or type() to set input values — the reactive state (emailError) is
-  // not updated. This is a known product-level limitation in headless mode.
-  // Tracked as a code warning; test is skipped until the Input event binding is fixed.
-  test.skip('clearing email input should show email-is-required error [KNOWN: Input textDidChange not firing in headless]', async ({ kuiklyPage }) => {
-    await kuiklyPage.page.getByPlaceholder('enter email').fill('a@b.com');
+  // Previously skipped due to fill() not dispatching DOM input events.
+  // Fixed by using kuiklyPage.fillInput() which dispatches the input event.
+  test('clearing email input should show email-is-required error', async ({ kuiklyPage }) => {
+    const emailInput = kuiklyPage.page.getByPlaceholder('enter email');
+    await kuiklyPage.fillInput(emailInput, 'a@b.com');
     await kuiklyPage.waitForRenderComplete();
 
-    await kuiklyPage.page.getByPlaceholder('enter email').fill('');
+    await kuiklyPage.fillInput(emailInput, '');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('email is required')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('email is required', { exact: false })).toBeVisible();
   });
 
   test('full valid submit should not error and keep submit button visible', async ({ kuiklyPage }) => {

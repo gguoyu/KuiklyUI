@@ -15,7 +15,7 @@ test.describe('SearchTestPage visual', () => {
   test('visual regression: SearchTestPage filtered by berry', async ({ kuiklyPage }) => {
     const input = kuiklyPage.page.getByPlaceholder('search...');
     await input.fill('berry');
-    await kuiklyPage.page.getByText('search').click();
+    await kuiklyPage.page.getByText('search', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page).toHaveScreenshot('search-test-filtered.png', {
@@ -24,7 +24,7 @@ test.describe('SearchTestPage visual', () => {
   });
 
   test('visual regression: SearchTestPage after item selected', async ({ kuiklyPage }) => {
-    await kuiklyPage.page.getByText('Mango').first().click();
+    await kuiklyPage.page.getByText('Mango', { exact: false }).first().click();
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page).toHaveScreenshot('search-test-item-selected.png', {

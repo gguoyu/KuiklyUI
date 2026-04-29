@@ -14,11 +14,11 @@ test.describe('Modal static', () => {
     await kuiklyPage.goto('ModalTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('show-alert')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('show-action-sheet')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('show-custom-modal')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('show-alert', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('show-action-sheet', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('show-custom-modal', { exact: false })).toBeVisible();
 
-    const noneTexts = kuiklyPage.page.getByText('none');
+    const noneTexts = kuiklyPage.page.getByText('none', { exact: false });
     expect(await noneTexts.count()).toBeGreaterThanOrEqual(3);
   });
 });

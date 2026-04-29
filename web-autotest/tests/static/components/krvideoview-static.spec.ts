@@ -6,8 +6,8 @@ test.describe('KRVideoView static 验证', () => {
     await kuiklyPage.waitForRenderComplete();
     await kuiklyPage.page.waitForTimeout(500);
 
-    await expect(kuiklyPage.page.getByText('1. Basic Video (play)')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('2. Muted Video (muted=true)')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. Basic Video (play)', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('2. Muted Video (muted=true)', { exact: false })).toBeVisible();
 
     // Video elements should be rendered (SRC, MUTED, RATE, RESIZE_MODE props exercised)
     const videos = kuiklyPage.page.locator('video');
@@ -22,8 +22,8 @@ test.describe('KRVideoView static 验证', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('3. Rate 1.5x + contain')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('4. Stretch + Rate 2x')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('3. Rate 1.5x + contain', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('4. Stretch + Rate 2x', { exact: false })).toBeVisible();
   });
 
   test('playState 和 firstFrame 状态文本应反映视频回调已注册', async ({ kuiklyPage }) => {
@@ -73,7 +73,7 @@ test.describe('KRVideoView static 验证', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 1200, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('5. PrePlay')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('5. PrePlay', { exact: false })).toBeVisible();
 
     // Verify video element is rendered
     const videos = kuiklyPage.page.locator('video');

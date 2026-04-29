@@ -5,7 +5,7 @@ test.describe('KRImageView static 验证', () => {
     await kuiklyPage.goto('KRImageViewTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    await expect(kuiklyPage.page.getByText('1. resizeContain')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('1. resizeContain', { exact: false })).toBeVisible();
   });
 
   test('应渲染图片组件与章节标题', async ({ kuiklyPage }) => {
@@ -16,8 +16,8 @@ test.describe('KRImageView static 验证', () => {
 
     const images = await kuiklyPage.components('KRImageView');
     expect(images.length).toBeGreaterThan(0);
-    await expect(kuiklyPage.page.getByText('2. resizeCover')).toBeVisible();
-    await expect(kuiklyPage.page.getByText('3. resizeStretch')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('2. resizeCover', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('3. resizeStretch', { exact: false })).toBeVisible();
   });
 
   test('blur radius section renders blurred images', async ({ kuiklyPage }) => {
@@ -29,13 +29,13 @@ test.describe('KRImageView static 验证', () => {
     for (let i = 0; i < 8; i += 1) {
       await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
       // Check if section 8 is visible
-      const visible = await kuiklyPage.page.getByText('8. Blur Radius').isVisible().catch(() => false);
+      const visible = await kuiklyPage.page.getByText('8. Blur Radius', { exact: false }).isVisible().catch(() => false);
       if (visible) break;
     }
 
     // Section 8 may or may not be in the DOM due to virtual list behavior —
     // if it's not visible, just skip the blur filter check gracefully
-    const sectionVisible = await kuiklyPage.page.getByText('8. Blur Radius').isVisible().catch(() => false);
+    const sectionVisible = await kuiklyPage.page.getByText('8. Blur Radius', { exact: false }).isVisible().catch(() => false);
     if (!sectionVisible) {
       // Virtual list may not have rendered section 8 yet — test is lenient
       console.log('Section 8 not visible, skipping blur filter assertion');
@@ -57,7 +57,7 @@ test.describe('KRImageTintColorTestPage static 验证', () => {
     await kuiklyPage.waitForRenderComplete();
     await kuiklyPage.page.waitForLoadState('networkidle');
 
-    await expect(kuiklyPage.page.getByText('KRImageTintColorTestPage')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('KRImageTintColorTestPage', { exact: false })).toBeVisible();
 
     const images = await kuiklyPage.components('KRImageView');
     expect(images.length).toBeGreaterThanOrEqual(10);
@@ -71,7 +71,7 @@ test.describe('KRImageTintColorTestPage static 验证', () => {
     await kuiklyPage.waitForRenderComplete();
     await kuiklyPage.page.waitForLoadState('networkidle');
 
-    await expect(kuiklyPage.page.getByText('KRImageTintColorTestPage')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('KRImageTintColorTestPage', { exact: false })).toBeVisible();
 
     const filters = await kuiklyPage.page
       .locator('[data-kuikly-component="KRImageView"] img')

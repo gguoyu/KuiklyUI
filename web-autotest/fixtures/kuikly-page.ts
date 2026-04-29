@@ -169,6 +169,57 @@ export class KuiklyPage {
     await this.page.waitForTimeout(300);
   }
 
+  /**
+   * Scroll a KRListView container to the bottom.
+   * Kuikly List uses virtual scrolling so window.scrollTo() has no effect —
+   * you must set scrollTop on the list container element directly.
+   * @param container - Locator for the KRListView element
+   */
+  async scrollListToBottom(container: Locator): Promise<void> {
+    await container.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await this.page.waitForTimeout(400);
+  }
+
+  // ==================== Input Operations ====================
+
+  /**
+   * Fill an input/textarea element and dispatch DOM events so that Kuikly's
+   * event listeners (textDidChange, focus, input, change) are triggered.
+   *
+   * Playwright's built-in fill() sets element.value directly without
+   * dispatching a DOM 'input' event, so Kuikly's addEventListener('input')
+   * callback never fires. This method works around that limitation.
+   *
+   * @param locator - Locator for the input or textarea element
+   * @param text - Text to fill
+   */
+  async fillInput(locator: Locator, text: string): Promise<void> {
+    await locator.evaluate((el, value) => {
+      const input = el as HTMLInputElement | HTMLTextAreaElement;
+      input.focus();
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, text);
+    await this.page.waitForTimeout(100);
+  }
+
+  /**
+   * Force-click an element by dispatching a MouseEvent directly on the DOM.
+   * Useful when Playwright's click() fails due to element occlusion or
+   * Kuikly layout quirks where the computed click target is wrong.
+   *
+   * @param locator - Locator for the element to click
+   */
+  async forceClick(locator: Locator): Promise<void> {
+    await locator.evaluate((el) => {
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await this.page.waitForTimeout(100);
+  }
+
   // ==================== Animation Operations ====================
 
   /**

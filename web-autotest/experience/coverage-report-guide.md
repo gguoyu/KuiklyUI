@@ -126,6 +126,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 | 抽象接口成员函数 | interface 内的抽象 `fun` (无 `{`) |
 | 块函数头行 | `fun ... {` — 函数声明本身不是可执行语句，无论函数是否被调用都视为 neutral |
 | 多行函数头行 | `fun ...(` 起始行及其参数续行、`): Type {` 关闭行 — 使用 `inFunctionHeader` 状态追踪；排除表达式体函数 (`fun ... = expr`) |
+| 多行属性类型注解 | `val/var name: ((A, B) -> Unit)?` 的类型参数续行 — 使用 `inPropertyTypeAnnotation` 状态追踪括号深度，标记至类型注解关闭 |
 
 #### 4.2.2 Promote 规则 (从已覆盖上下文推断覆盖)
 
@@ -268,11 +269,33 @@ Branch 数据: loc[0] L15-L17 count=0 (true 分支), loc[1] undefined count=3135
 2. **单行空块函数** → 根据函数计数 `yes` 或 `no`
 3. **有 V8 行计数 > 0** → 检查是否应在未调用函数中 suppress → `yes` 或 `no`
 4. **有 V8 行计数 = 0** → 先检查未覆盖 catch 块 (isLineInUncoveredCatchBlock) → `no`; 否则尝试 promote:
-   - when arm 头 → expression-bodied 函数 → expression-bodied accessor → data class 头 → covered 控制头 → 多行控制条件续行 → covered 函数内语句 → 多行初始化属性头 → block 函数头 → 多行控制头 → 控制行
+   - when arm 头 → expression-bodied 函数 → expression-bodied accessor → data class 头 → covered 控制头 → 多行控制条件续行 → covered 函数内语句 → **已调用函数内简单语句** → 多行初始化属性头 → block 函数头 → 多行控制头 → 控制行
    - promote 成功 → `yes` 或 `partial`
    - 全部失败 → `no`
-5. **无 V8 行计数** → 先检查未覆盖 catch 块 → `no`; 否则同样尝试 promote 链
-6. **最终回退** → 检查 branchStats: 部分覆盖 → `partial`, 未覆盖 → `no`, 全覆盖 → `yes`, 否则 → `neutral`
+5. **无 V8 行计数** → 先检查未覆盖 catch 块 → `no`; 否则同样尝试 promote 链 (含已调用函数内简单语句)
+6. **最终回退** → 如果是可执行行且在函数体内 → `no`; 否则检查 branchStats: 部分覆盖 → `partial`, 未覆盖 → `no`, 全覆盖 → `yes`, 否则 → `neutral`
+
+### 6.1 新增规则说明
+
+#### `getPromotedSimpleStatementInCalledFunctionStatus` (已调用函数内简单语句提升)
+- **条件**: 行在 fnMap 中 count > 0 的函数体内，且函数体 ≤ 80 行
+- **防护**: 排除 `return`/`throw` 行、未覆盖分支臂内行、未覆盖 catch 块内行、嵌套 count=0 函数/lambda 内行
+- **目的**: 弥补 sourcemap 缺口 — 已调用函数内的简单可执行语句因映射缺失无法被其他 promote 规则覆盖
+
+#### `findInnermostZeroCountNamedFunctionRange` (命名函数跨行语句泄漏抑制)
+- **用于**: `getPromotedCoveredFunctionStatementStatus` 中
+- **逻辑**: 如果行在一个 count=0 的命名 `fun` 函数内且该函数无覆盖的嵌套函数，阻止从外层覆盖函数的跨行语句提升该行
+- **目的**: 防止 object/class 初始化器的 spanning statement 泄漏到内层未执行的表达式体函数
+
+#### `isLikelyExecutableLine` (可执行行识别)
+- **用于**: `deriveLineStatus` 的 `lineCount == null` 回退路径
+- **逻辑**: 识别包含 `->`、`=`、`.`、`(`、控制关键字等的行为可执行行
+- **目的**: 对于无 Istanbul 行映射但明确可执行的行（如 when 臂体），返回 `no` 而非 `neutral`
+
+#### 多行属性类型注解 neutral 检测
+- **用于**: `buildStructuralNeutralLineSet`
+- **逻辑**: 通过 `inPropertyTypeAnnotation` 状态和括号深度追踪，识别 `val/var` 声明的多行类型注解续行
+- **目的**: 将 `var cb: ((A, B) -> Unit)? = null` 的类型参数续行标记为 neutral
 
 ---
 

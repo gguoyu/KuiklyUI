@@ -35,7 +35,7 @@ test.describe('SearchTestPage functional', () => {
   test('fill + search should change stat from "total: N" to "found: N"', async ({ kuiklyPage }) => {
     const input = kuiklyPage.page.getByPlaceholder('search...');
     await input.fill('berry');
-    await kuiklyPage.page.getByText('search').click();
+    await kuiklyPage.page.getByText('search', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
 
     const stat = await getStatText(kuiklyPage.page);
@@ -45,7 +45,7 @@ test.describe('SearchTestPage functional', () => {
   test('search mango should return 1 result', async ({ kuiklyPage }) => {
     const input = kuiklyPage.page.getByPlaceholder('search...');
     await input.fill('mango');
-    await kuiklyPage.page.getByText('search').click();
+    await kuiklyPage.page.getByText('search', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
 
     const stat = await getStatText(kuiklyPage.page);
@@ -55,7 +55,7 @@ test.describe('SearchTestPage functional', () => {
   test('search with no match should show "found: 0"', async ({ kuiklyPage }) => {
     const input = kuiklyPage.page.getByPlaceholder('search...');
     await input.fill('zzznomatch999');
-    await kuiklyPage.page.getByText('search').click();
+    await kuiklyPage.page.getByText('search', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
 
     const stat = await getStatText(kuiklyPage.page);
@@ -65,7 +65,7 @@ test.describe('SearchTestPage functional', () => {
   test('clearing input should restore "total: N" stat', async ({ kuiklyPage }) => {
     const input = kuiklyPage.page.getByPlaceholder('search...');
     await input.fill('mango');
-    await kuiklyPage.page.getByText('search').click();
+    await kuiklyPage.page.getByText('search', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
 
     let stat = await getStatText(kuiklyPage.page);
@@ -82,14 +82,14 @@ test.describe('SearchTestPage functional', () => {
     const input = kuiklyPage.page.getByPlaceholder('search...');
 
     await input.fill('a');
-    await kuiklyPage.page.getByText('search').click();
+    await kuiklyPage.page.getByText('search', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
     const statA = await getStatText(kuiklyPage.page);
     const countA = parseInt(statA.match(/\d+/)?.[0] || '0', 10);
     expect(countA).toBeGreaterThan(1);
 
     await input.fill('watermelon');
-    await kuiklyPage.page.getByText('search').click();
+    await kuiklyPage.page.getByText('search', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
     const statWatermelon = await getStatText(kuiklyPage.page);
     expect(statWatermelon).toMatch(/found: 1/);
@@ -98,7 +98,7 @@ test.describe('SearchTestPage functional', () => {
   test('clicking a list item should change its background color', async ({ kuiklyPage }) => {
     const bgBefore = await getRowBgForText(kuiklyPage.page, 'Apple');
 
-    await kuiklyPage.page.getByText('Apple').first().click();
+    await kuiklyPage.page.getByText('Apple', { exact: false }).first().click();
     await kuiklyPage.waitForRenderComplete();
 
     const bgAfter = await getRowBgForText(kuiklyPage.page, 'Apple');

@@ -17,6 +17,8 @@ package com.tencent.kuikly.demo.pages.web_test.components
 
 import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.base.Color
+import com.tencent.kuikly.core.base.ColorStop
+import com.tencent.kuikly.core.base.Direction
 import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.views.ImageSpan
@@ -529,6 +531,72 @@ internal class KRRichTextViewTestPage : Pager() {
                         marginTop(8f)
                         marginLeft(16f)
                         marginRight(16f)
+                    }
+                }
+
+                // === Section 10: Span-Level Text Effects ===
+                Text {
+                    attr {
+                        text("10. Span Text Effects")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        padding(left = 16f, top = 8f, right = 16f, bottom = 8f)
+                    }
+                    RichText {
+                        attr {
+                            fontSize(16f)
+                            color(Color.BLACK)
+                        }
+                        Span {
+                            text("shadow ")
+                            textShadow(2f, 2f, 3f, Color(0xFF999999))
+                        }
+                        Span {
+                            text("stroke ")
+                            textStroke(Color.RED, 1f)
+                        }
+                        Span {
+                            text("spacing ")
+                            letterSpacing(3f)
+                        }
+                        Span {
+                            text("lineHeight")
+                            lineHeight(24f)
+                        }
+                    }
+                }
+
+                // === Section 11: Gradient Text ===
+                Text {
+                    attr {
+                        text("11. Gradient Text")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        padding(left = 16f, top = 8f, right = 16f, bottom = 8f)
+                    }
+                    RichText {
+                        attr {
+                            fontSize(24f)
+                            fontWeightBold()
+                            backgroundLinearGradient(Direction.TO_RIGHT, ColorStop(Color.RED, 0f), ColorStop(Color(0xFF0000FF), 1f))
+                        }
+                        Span {
+                            text("gradient-text")
+                        }
                     }
                 }
 

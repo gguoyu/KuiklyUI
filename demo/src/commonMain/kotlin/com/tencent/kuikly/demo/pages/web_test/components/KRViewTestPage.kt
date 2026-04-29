@@ -737,6 +737,66 @@ internal class KRViewTestPage : Pager() {
                 }
 
                 View { attr { height(50f) } }
+
+                // === Section 14: Border with Child — exercises checkAndUpdatePositionForH5 ===
+                Text {
+                    attr {
+                        text("14. Border with Child")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(20f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        padding(all = 12f)
+                        border(Border(2f, BorderStyle.SOLID, Color(0xFF2196F3)))
+                        borderRadius(8f)
+                    }
+                    Text {
+                        attr {
+                            text("Child inside bordered view")
+                            fontSize(14f)
+                            color(Color.BLACK)
+                        }
+                    }
+                }
+
+                // === Section 15: Semi-transparent Color — exercises toRgbColor alpha path ===
+                Text {
+                    attr {
+                        text("15. Semi-transparent Color")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(20f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(60f)
+                        backgroundColor(Color(0x80FF0000))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    Text {
+                        attr {
+                            text("50% alpha red")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                View { attr { height(50f) } }
             }
         }
     }

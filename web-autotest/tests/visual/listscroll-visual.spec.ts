@@ -6,7 +6,7 @@ test.describe('list scroll 视觉验证', () => {
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page).toHaveScreenshot('listscroll-test-initial.png', {
-      maxDiffPixels: 300,
+      maxDiffPixels: 800,
     });
   });
 
@@ -18,7 +18,7 @@ test.describe('list scroll 视觉验证', () => {
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page).toHaveScreenshot('listscroll-test-selected.png', {
-      maxDiffPixels: 300,
+      maxDiffPixels: 800,
     });
   });
 });

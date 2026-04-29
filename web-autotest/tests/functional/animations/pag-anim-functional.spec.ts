@@ -30,7 +30,7 @@ test.describe('PAG 动画 functional 验证', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
 
-    await expect(kuiklyPage.page.getByText('Scale Modes')).toBeVisible();
+    await expect(kuiklyPage.page.getByText('Scale Modes', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('cancel-count: 0', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('repeat-count: 0', { exact: true })).toBeVisible();
   });
@@ -44,7 +44,7 @@ test.describe('PAG 动画 functional 验证', () => {
     await kuiklyPage.page.waitForTimeout(2000);
 
     // loadFailure callback registered — exercises LOAD_FAIL prop handler in KRPagView
-    const loadText = kuiklyPage.page.getByText(/load-fail:/);
+    const loadText = kuiklyPage.page.getByText(/load-fail:/, { exact: false });
     await expect(loadText).toBeVisible();
   });
 });

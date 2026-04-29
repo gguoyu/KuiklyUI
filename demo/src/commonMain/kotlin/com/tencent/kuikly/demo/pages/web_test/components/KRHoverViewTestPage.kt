@@ -44,6 +44,7 @@ internal class KRHoverViewTestPage : Pager() {
                     absolutePosition(top = 188f, left = 48f, right = 48f)
                     height(40f)
                     backgroundColor(0xFF1E88E5)
+                    hoverMarginTop(50f)
                 }
             }
         }

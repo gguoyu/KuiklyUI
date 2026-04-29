@@ -13,7 +13,7 @@ test.describe('NavigationTestPage visual', () => {
   });
 
   test('视觉回归：NavigationTestPage 切换 Tab 后截图', async ({ kuiklyPage }) => {
-    await kuiklyPage.page.getByText('消息').click();
+    await kuiklyPage.page.getByText('消息', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page).toHaveScreenshot('navigation-test-message-tab.png', {
@@ -22,7 +22,7 @@ test.describe('NavigationTestPage visual', () => {
   });
 
   test('视觉回归：NavigationTestPage 子页面截图', async ({ kuiklyPage }) => {
-    await kuiklyPage.page.getByText('设置页面').click();
+    await kuiklyPage.page.getByText('设置页面', { exact: false }).click();
     await kuiklyPage.waitForRenderComplete();
 
     await expect(kuiklyPage.page).toHaveScreenshot('navigation-test-subpage.png', {

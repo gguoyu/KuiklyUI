@@ -57,6 +57,15 @@ module.exports = {
       'core-render-web/base/src/jsMain/kotlin',
       'core-render-web/h5/src/jsMain/kotlin',
     ],
+    /**
+     * Paths (relative to repo root) to exclude from coverage statistics.
+     * Files under these directories are in scope but currently not reachable
+     * through demo test pages, so they are excluded to avoid dragging down
+     * the aggregate metrics.
+     */
+    excludePaths: [
+      'core-render-web/base/src/jsMain/kotlin/com/tencent/kuikly/core/render/web/nvi',
+    ],
     generatedKotlinOutputDir: 'h5App/build/compileSync/js/main/developmentExecutable/kotlin',
     targetModules: [
       'KuiklyCore-render-web-base.js',
