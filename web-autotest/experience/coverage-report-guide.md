@@ -140,11 +140,13 @@ node web-autotest/scripts/coverage-report.mjs --check
 | `promoteDirectCoveredBranchBodyLines` | 分支体内 ≤4 行时，无直接语句计数的行继承分支/跨行语句计数 |
 | `applySimpleFunctionBodyFallback` | 函数体 ≤3 行且无复杂控制流时，未覆盖行继承已覆盖行计数 |
 | `promoteCoveredSimpleFunctionGapLines` | 简单函数体中，前后行都已覆盖的中间空隙行 (简单表达式) 继承覆盖 |
+| `promoteFunctionEntryGapLines` | 块函数/多行签名后，函数入口前几行若无 direct statement 但后续首个体内语句已覆盖，则这些入口语句继承覆盖 |
 | `alignFunctionHeaderCoverageWithBody` | 函数签名行继承函数体的最大覆盖计数 |
 | `promoteCoveredTopLevelFunctionStatements` | 函数顶层 ≤6 个可执行行，未覆盖行继承已覆盖行计数 |
 | `promoteCoveredBlockFunctionHeaderLines` | ~~已废弃~~ — 块函数头行 (`fun ... {`) 现已归入 structural neutral，不再 promote |
 | `promoteCoveredAccessorHeaderLines` | `get() {` / `set() {` 头行，若体有已覆盖行，则继承 |
 | `promoteCoveredMultilineExpressionBodiedFunctionHeaderLines` | 多行表达式体函数的头行 (如 `fun ... =`) 继承下一行覆盖 |
+| `promoteMultilineExpressionBodyContinuationLines` | 多行表达式体函数的续行，若函数本身已调用且续行无 direct statement，则继承函数计数 |
 | `promoteSimpleLambdaBodyCoverage` | Lambda 体 ≤6 行时，未覆盖行继承函数计数或已覆盖行计数 |
 | `promoteCoveredBuilderWrapperLines` | `.apply {` / `.also {` / `.let {` / `.run {` 行继承体内已覆盖行计数 |
 | `promoteCoveredWhenHeaderLines` | `when {` 行，若体内有已覆盖行，则继承最大计数 |
@@ -165,6 +167,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 | `suppressFalseCoveredLinesInUncoveredFunctions` | 未调用函数体内的行，若无局部执行证据，则设为 0。关键细节: (1) Lambda/匿名函数使用自身 loc 范围做 suppress，不向上扩展到外层函数 — 扩展会错误包含兄弟 lambda 的覆盖语句; (2) 使用 `locEndLine` 代替 `findBlockEndLine` 确定 suppress 范围 — 后者在包含嵌套 lambda/class 的方法中可能过早结束; (3) 当 `hasLocalCoveredExecution=false` 时无条件 suppress 所有覆盖行 — 函数从未被调用时，范围内的 statement 覆盖都来自外层 spanning statement |
 | `suppressFalseCoveredWhenElseTailLines` | `when` 中 `else ->` 行，若仅有一个已覆盖的非 else 分支且计数相同，则 else 设为 0 (源映射伪影) |
 | `suppressFalseCoveredLinesInUncoveredWhenArms` | 未覆盖 when 臂体内的行，若无局部执行证据则设为 0 |
+| `suppressUnselectedInlineWhenArmLines` | inline `when` arm (`cond -> expr` / `cond -> {`) 若同级存在已覆盖 sibling arm、当前 arm 无 direct statement / 无可靠执行证据，则设为 0 |
 | `suppressTerminalCatchNullCoverageNoise` | catch 块末尾的 `null` 行，若前面行都未覆盖则设为 0 |
 | `suppressWhenTryCatchFallbackReturnNoise` | when 分支内 try/catch 后的 `return null`，若分支内无真实覆盖则设为 0 |
 | `suppressChainedTryFallbackReturnNoise` | 多层 try/catch 后的 `return ...` (非 null)，若无 catch 体覆盖则设为 0 |
@@ -172,6 +175,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 | `suppressSuspiciousPropertyDeclarationHeadLineCounts` | 无初始化器的属性声明行有覆盖计数但无直接语句时，删除 |
 | `suppressSuspiciousInitializedPropertyHeaderLineCounts` | 多行初始化属性头行有覆盖计数但无直接语句时，删除 |
 | `suppressPromotedLinesInUncoveredCatchBlocks` | 未覆盖 catch 块内被中间 promote 规则错误推断为覆盖的行 (无 direct statement coverage)，重置为 0。作为 source 层预防之后的安全网 |
+| `hardSuppressZeroCountLambdaListenerBodies` | 对 count=0 的 listener/lambda，若体内无 direct statement 且无独立已覆盖嵌套函数，则将体内 promote 出来的假覆盖强制清零；保留注册调用所在头行 |
 | `applyFunctionCoverageFallback` | 当 stmtMap 为空 (MCR sourcemap remap 未生成语句映射) 但 fnMap 有已覆盖函数时，从函数 loc 范围推导行覆盖。处理如 object 内表达式体函数仅生成 fnMap 但无 stmtMap 的情况 |
 
 #### 4.2.5 未调用函数体内假覆盖 Suppress 细节
@@ -265,17 +269,41 @@ Branch 数据: loc[0] L15-L17 count=0 (true 分支), loc[1] undefined count=3135
 
 ## 6. 行状态判定优先级 (`deriveLineStatus`)
 
-1. **structural neutral** → `neutral`
-2. **单行空块函数** → 根据函数计数 `yes` 或 `no`
-3. **有 V8 行计数 > 0** → 检查是否应在未调用函数中 suppress → `yes` 或 `no`
-4. **有 V8 行计数 = 0** → 先检查未覆盖 catch 块 (isLineInUncoveredCatchBlock) → `no`; 否则尝试 promote:
+1. **function-entry / multiline-expression 特判** → 先尝试 `promoteFunctionEntryGapLines` / `promoteMultilineExpressionBodyContinuationLines` 对应的 status promote，避免被 structural neutral 误吞
+2. **structural neutral** → `neutral`
+3. **单行空块函数** → 根据函数计数 `yes` 或 `no`
+4. **有 direct statement count > 0** → 直接 `yes`（例如 listener 注册行）
+5. **有 V8 行计数 > 0** → 检查未调用函数 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm 等 suppress guard → `yes` 或 `no`
+6. **有 V8 行计数 = 0** → 先检查未覆盖 catch 块 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm → `no`; 否则尝试 promote:
    - when arm 头 → expression-bodied 函数 → expression-bodied accessor → data class 头 → covered 控制头 → 多行控制条件续行 → covered 函数内语句 → **已调用函数内简单语句** → 多行初始化属性头 → block 函数头 → 多行控制头 → 控制行
    - promote 成功 → `yes` 或 `partial`
    - 全部失败 → `no`
-5. **无 V8 行计数** → 先检查未覆盖 catch 块 → `no`; 否则同样尝试 promote 链 (含已调用函数内简单语句)
-6. **最终回退** → 如果是可执行行且在函数体内 → `no`; 否则检查 branchStats: 部分覆盖 → `partial`, 未覆盖 → `no`, 全覆盖 → `yes`, 否则 → `neutral`
+7. **无 V8 行计数** → 先检查未覆盖 catch 块 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm → `no`; 否则同样尝试 promote 链
+8. **最终回退** → 如果是可执行行且在函数体内 → `no`; 否则检查 branchStats: 部分覆盖 → `partial`, 未覆盖 → `no`, 全覆盖 → `yes`, 否则 → `neutral`
 
 ### 6.1 新增规则说明
+
+#### `promoteFunctionEntryGapLines` / `getPromotedFunctionEntryGapStatus` (函数入口空洞提升)
+- **场景**: Kotlin 多行函数签名后的前几条初始化语句在 sourcemap remap 后没有 direct line mapping，HTML 会显示 `neutral`
+- **条件**: 函数 count > 0，签名后的前 1~8 个可执行 body 行里，后续存在首个已覆盖语句
+- **防护**: 排除未覆盖分支臂、未覆盖 catch、zero-count lambda、内层 zero-count named function，以及 `return`/`throw`
+- **结果**: 如 `KuiklyRenderView.init`、`KuiklyRenderViewDelegator` 初始化段的入口语句可稳定显示为 `yes`
+
+#### `promoteMultilineExpressionBodyContinuationLines` (多行表达式体续行提升)
+- **场景**: `fun foo() =` 的函数头或下一行有 fnMap 覆盖，但表达式续行本身没有行映射，报告显示 `neutral`
+- **条件**: 行位于多行表达式体函数中，包含它的函数 count > 0
+- **防护**: 排除未覆盖分支臂、未覆盖 catch、zero-count lambda
+- **结果**: 例如 `isNullOrUndefined` 这类多行表达式体函数，头行和续行都会正确显示为 `yes`
+
+#### `suppressUnselectedInlineWhenArmLines` (未命中 inline when arm 抑制)
+- **场景**: `cond -> expr` / `cond -> { ... }` 形式的 inline `when` arm，被外层 spanning statement 误染成 `yes`
+- **条件**: 同级 arm 中存在已覆盖 sibling，当前 arm 没有 direct statement、没有可靠 spanning/function 执行证据
+- **结果**: 将未命中的 sibling arm 设为 `no`，避免 `when` 臂整片假绿
+
+#### `hardSuppressZeroCountLambdaListenerBodies` (zero-count listener/lambda 硬抑制)
+- **场景**: 事件监听注册行执行了，但回调 lambda 本身从未触发；spanning statement 会把 lambda 体误标为 `yes`
+- **条件**: lambda fnMap count=0，体内没有 direct statement 覆盖，也没有独立已覆盖的嵌套函数
+- **结果**: 保留 listener 注册头行为 `yes`，把回调体改回 `no`；适用于 `KRTextAreaView` / `KRTextFieldView` 的 composition listener 场景
 
 #### `getPromotedSimpleStatementInCalledFunctionStatus` (已调用函数内简单语句提升)
 - **条件**: 行在 fnMap 中 count > 0 的函数体内，且函数体 ≤ 80 行
@@ -291,6 +319,11 @@ Branch 数据: loc[0] L15-L17 count=0 (true 分支), loc[1] undefined count=3135
 - **用于**: `deriveLineStatus` 的 `lineCount == null` 回退路径
 - **逻辑**: 识别包含 `->`、`=`、`.`、`(`、控制关键字等的行为可执行行
 - **目的**: 对于无 Istanbul 行映射但明确可执行的行（如 when 臂体），返回 `no` 而非 `neutral`
+
+#### `isMisclassifiedExecutableFunctionBodyLine` (structural neutral 误判修正)
+- **用于**: `isForceNeutralLine`
+- **逻辑**: 若某行虽然落在 structural neutral 集合中，但它位于 block function 的签名结束之后、且本身是可执行语句，则不再按 neutral 处理
+- **目的**: 修复多行函数签名后首批初始化语句被长期显示为 `neutral` 的问题
 
 #### 多行属性类型注解 neutral 检测
 - **用于**: `buildStructuralNeutralLineSet`

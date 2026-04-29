@@ -482,6 +482,25 @@ function isControlFlowHeaderLine(lineText) {
   return isWhenArmHeaderLine(lineText) || isIfHeaderLine(lineText);
 }
 
+function isInlineWhenArmLine(lineText) {
+  const trimmed = lineText.trim().replace(/^(?:\}\s*)+/u, '');
+  return trimmed.includes('->') && !/->\s*\{\s*$/u.test(trimmed);
+}
+
+function findEnclosingWhenBlockRange(sourceLines, lineNumber) {
+  for (let cursor = lineNumber; cursor >= 1; cursor -= 1) {
+    const lineText = getLineText(sourceLines, cursor).trim();
+    if (!/\bwhen\b[\s\S]*\{\s*$/u.test(lineText)) {
+      continue;
+    }
+    const endLine = findBlockEndLine(sourceLines, cursor);
+    if (lineNumber <= endLine) {
+      return { startLine: cursor, endLine };
+    }
+  }
+  return null;
+}
+
 // Detect if a line is likely executable Kotlin code (not structural/declarative).
 // Used in the lineCount==null fallback of deriveLineStatus to return 'no' (uncovered)
 // instead of 'neutral' for lines that are clearly code but have no Istanbul mapping.
@@ -729,8 +748,24 @@ function buildStructuralNeutralLineSet(filePath, sourceLines) {
   return neutralLines;
 }
 
+function isMisclassifiedExecutableFunctionBodyLine(sourceLines, lineNumber) {
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+  if (!lineText || !isLikelyExecutableLine(lineText)) {
+    return false;
+  }
+
+  const enclosingFunction = findEnclosingBlockFunctionRange(sourceLines, lineNumber);
+  if (!enclosingFunction) {
+    return false;
+  }
+
+  const signatureEndLine = findFunctionSignatureEndLine(sourceLines, enclosingFunction.startLine, lineNumber);
+  return lineNumber > signatureEndLine;
+}
+
 function isForceNeutralLine(filePath, sourceLines, lineNumber) {
-  return buildStructuralNeutralLineSet(filePath, sourceLines).has(lineNumber);
+  return buildStructuralNeutralLineSet(filePath, sourceLines).has(lineNumber)
+    && !isMisclassifiedExecutableFunctionBodyLine(sourceLines, lineNumber);
 }
 
 function cloneCoverageData(coverageData) {
@@ -1086,11 +1121,13 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   promoteDirectCoveredBranchBodyLines(fileCoverage, lineCoverage, filePath, sourceLines);
   applySimpleFunctionBodyFallback(lineCoverage, filePath, sourceLines, branchStats);
   promoteCoveredSimpleFunctionGapLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
+  promoteFunctionEntryGapLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   alignFunctionHeaderCoverageWithBody(fileCoverage, lineCoverage, filePath, sourceLines);
   promoteCoveredTopLevelFunctionStatements(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   promoteCoveredBlockFunctionHeaderLines(fileCoverage, lineCoverage, filePath, sourceLines);
   promoteCoveredAccessorHeaderLines(lineCoverage, filePath, sourceLines);
   promoteCoveredMultilineExpressionBodiedFunctionHeaderLines(lineCoverage, filePath, sourceLines);
+  promoteMultilineExpressionBodyContinuationLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   promoteSimpleLambdaBodyCoverage(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   promoteClosureBodyCoverage(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   promoteCoveredBuilderWrapperLines(lineCoverage, filePath, sourceLines);
@@ -1107,6 +1144,7 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   promoteCoveredUncoveredMultilineCallStarterLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   promoteCoveredSafeCallStarterLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats);
   suppressFalseCoveredLinesInUncoveredWhenArms(fileCoverage, lineCoverage, filePath, sourceLines);
+  suppressUnselectedInlineWhenArmLines(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressFalseCoveredLinesInUncoveredBranches(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressFalseCoveredLinesInUncoveredFunctions(fileCoverage, lineCoverage, filePath, sourceLines);
   suppressTerminalCatchNullCoverageNoise(lineCoverage, filePath, sourceLines);
@@ -1122,6 +1160,7 @@ function computeLineCoverageFromStatements(fileCoverage, filePath, sourceLines) 
   // This handles cases like expression-body functions in object declarations where
   // MCR only generates fnMap entries but no statements.
   applyFunctionCoverageFallback(fileCoverage, lineCoverage, filePath, sourceLines);
+  hardSuppressZeroCountLambdaListenerBodies(fileCoverage, lineCoverage, filePath, sourceLines);
 
   return lineCoverage;
 }
@@ -1154,6 +1193,37 @@ function applyFunctionCoverageFallback(fileCoverage, lineCoverage, filePath, sou
         lineCoverage[lineNumber] = count;
       }
     }
+  }
+}
+
+function hardSuppressZeroCountLambdaListenerBodies(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+    if (Number(fileCoverage.f?.[functionId] || 0) > 0) {
+      continue;
+    }
+
+    const startLine = Number(functionCoverage?.loc?.start?.line || 0);
+    const endLine = Number(functionCoverage?.loc?.end?.line || 0);
+    if (!startLine || !endLine || endLine < startLine) {
+      continue;
+    }
+
+    const headerText = getLineText(sourceLines, startLine).trim();
+    if (/\bfun\b/u.test(headerText)) {
+      continue;
+    }
+
+    const hardSuppressedRange = findInnermostHardSuppressedZeroCountLambdaRange(fileCoverage, sourceLines, startLine);
+    if (!hardSuppressedRange || hardSuppressedRange.functionId !== functionId) {
+      continue;
+    }
+
+    const executableLines = getExecutableLinesInRange(filePath, sourceLines, startLine, endLine);
+    executableLines.forEach((lineNumber) => {
+      if (Number(lineCoverage[lineNumber]) > 0) {
+        lineCoverage[lineNumber] = 0;
+      }
+    });
   }
 }
 
@@ -1748,6 +1818,42 @@ function hasReliableCoveredExecutionContainedInRange(fileCoverage, startLine, en
     || hasCoveredNestedFunctionContainedInRange(fileCoverage, startLine, endLine, excludedFunctionId);
 }
 
+function hasReliableCoveredInlineWhenArmExecution(fileCoverage, lineNumber) {
+  return Number(getDirectStatementCountOnLine(fileCoverage, lineNumber) || 0) > 0
+    || getCoveredSpanningStatementCountsStartingOnLine(fileCoverage, lineNumber).length > 0
+    || getCoveredFunctionCountsContainingLine(fileCoverage, lineNumber).length > 0;
+}
+
+function isLineInReliablyUncoveredInlineWhenArm(fileCoverage, sourceLines, lineNumber) {
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+  if (!isInlineWhenArmLine(lineText)) {
+    return false;
+  }
+
+  const whenRange = findEnclosingWhenBlockRange(sourceLines, lineNumber);
+  if (!whenRange) {
+    return false;
+  }
+
+  const siblingInlineArmLines = [];
+  for (let cursor = whenRange.startLine + 1; cursor < whenRange.endLine; cursor += 1) {
+    const candidateText = getLineText(sourceLines, cursor).trim();
+    if (isInlineWhenArmLine(candidateText)) {
+      siblingInlineArmLines.push(cursor);
+    }
+  }
+  if (siblingInlineArmLines.length < 2) {
+    return false;
+  }
+
+  const hasCoveredSibling = siblingInlineArmLines.some((cursor) => cursor !== lineNumber && hasReliableCoveredInlineWhenArmExecution(fileCoverage, cursor));
+  if (!hasCoveredSibling) {
+    return false;
+  }
+
+  return !hasReliableCoveredInlineWhenArmExecution(fileCoverage, lineNumber);
+}
+
 function hasCoveredExecutionOwnedByFunctionOnLine(fileCoverage, functionStartLine, functionEndLine, lineNumber, excludedFunctionId) {
   const hasCoveredStatementOnLine = Object.entries(fileCoverage.statementMap || {}).some(([statementId, loc]) => Number(fileCoverage.s?.[statementId] || 0) > 0
     && loc?.start?.line >= functionStartLine
@@ -2053,6 +2159,23 @@ function suppressFalseCoveredLinesInUncoveredWhenArms(fileCoverage, lineCoverage
         }
       });
       cursor = armEndLine;
+    }
+  }
+}
+
+function suppressUnselectedInlineWhenArmLines(fileCoverage, lineCoverage, filePath, sourceLines) {
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    if (!isLineInReliablyUncoveredInlineWhenArm(fileCoverage, sourceLines, lineNumber)) {
+      continue;
+    }
+
+    const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+    if (directStatementCount != null && directStatementCount > 0) {
+      continue;
+    }
+
+    if (Number(lineCoverage[lineNumber]) > 0 || lineCoverage[lineNumber] == null) {
+      lineCoverage[lineNumber] = 0;
     }
   }
 }
@@ -2791,6 +2914,23 @@ function getCoveredFunctionCountsStartingOnLine(fileCoverage, lineNumber) {
     .filter((count) => count > 0);
 }
 
+function getCoveredFunctionRangesContainingLine(fileCoverage, lineNumber) {
+  return Object.entries(fileCoverage.fnMap || {})
+    .filter(([functionId, functionCoverage]) => Number(fileCoverage.f?.[functionId] || 0) > 0
+      && Number(functionCoverage?.loc?.start?.line || 0) <= lineNumber
+      && lineNumber <= Number(functionCoverage?.loc?.end?.line || 0))
+    .map(([functionId, functionCoverage]) => ({
+      functionId,
+      functionCoverage,
+      count: Number(fileCoverage.f?.[functionId] || 0),
+    }));
+}
+
+function getCoveredFunctionCountsContainingLine(fileCoverage, lineNumber) {
+  return getCoveredFunctionRangesContainingLine(fileCoverage, lineNumber)
+    .map(({ count }) => count);
+}
+
 function getSingleLineEmptyBlockFunctionStatus(fileCoverage, sourceLines, lineNumber) {
   if (!isSingleLineEmptyBlockFunctionLine(getLineText(sourceLines, lineNumber))) {
     return null;
@@ -2826,6 +2966,47 @@ function promoteCoveredMultilineExpressionBodiedFunctionHeaderLines(lineCoverage
     }
 
     setLineCoverage(lineCoverage, lineNumber, Number(lineCoverage[nextLine]));
+  }
+}
+
+function promoteMultilineExpressionBodyContinuationLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats) {
+  for (let lineNumber = 1; lineNumber <= sourceLines.length; lineNumber += 1) {
+    if (Number(lineCoverage[lineNumber]) > 0 || branchStats.has(lineNumber) || isForceNeutralLine(filePath, sourceLines, lineNumber)) {
+      continue;
+    }
+
+    const lineText = getLineText(sourceLines, lineNumber).trim();
+    if (!lineText || !isLikelyExecutableLine(lineText)) {
+      continue;
+    }
+    if (isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber)
+      || isLineInReliablyUncoveredInlineWhenArm(fileCoverage, sourceLines, lineNumber)
+      || isLineInUncoveredCatchBlock(fileCoverage, filePath, sourceLines, lineNumber)
+      || shouldHardSuppressZeroCountLambdaLine(fileCoverage, sourceLines, lineNumber)) {
+      continue;
+    }
+
+    let headerLine = null;
+    for (let cursor = lineNumber - 1, minLine = Math.max(1, lineNumber - 3); cursor >= minLine; cursor -= 1) {
+      const candidateText = getLineText(sourceLines, cursor).trim();
+      if (!candidateText || /^(?:\/\/|\/\*|\*|\*\/)/u.test(candidateText)) {
+        continue;
+      }
+      if (/\bfun\b/u.test(candidateText) && /\)\s*(?::[^=]+)?\s*=\s*$/u.test(candidateText)) {
+        headerLine = cursor;
+      }
+      break;
+    }
+    if (!headerLine) {
+      continue;
+    }
+
+    const coveredFunctionCounts = getCoveredFunctionCountsContainingLine(fileCoverage, lineNumber);
+    if (!coveredFunctionCounts.length) {
+      continue;
+    }
+
+    setLineCoverage(lineCoverage, lineNumber, Math.max(...coveredFunctionCounts));
   }
 }
 
@@ -2888,6 +3069,74 @@ function promoteCoveredSimpleFunctionGapLines(fileCoverage, lineCoverage, filePa
       }
 
       lineCoverage[lineNumber] = fallbackCount;
+    }
+  }
+}
+
+function canPromoteFunctionEntryGapLine(fileCoverage, filePath, sourceLines, lineNumber, branchStats, functionId, functionStartLine, functionEndLine) {
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+  if (!lineText || !isLikelyExecutableLine(lineText)) {
+    return false;
+  }
+  if (branchStats.has(lineNumber) || /^(?:return(?:@\w+)?|throw)\b/u.test(lineText)) {
+    return false;
+  }
+  if (isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber)
+    || isLineInReliablyUncoveredInlineWhenArm(fileCoverage, sourceLines, lineNumber)
+    || isLineInUncoveredCatchBlock(fileCoverage, filePath, sourceLines, lineNumber)) {
+    return false;
+  }
+  const zeroCountLambda = shouldHardSuppressZeroCountLambdaLine(fileCoverage, sourceLines, lineNumber);
+  if (zeroCountLambda) {
+    return false;
+  }
+  const zeroCountNamedFn = findInnermostZeroCountNamedFunctionRange(fileCoverage, sourceLines, lineNumber);
+  if (zeroCountNamedFn
+    && zeroCountNamedFn.functionId !== functionId
+    && zeroCountNamedFn.startLine >= functionStartLine
+    && zeroCountNamedFn.endLine <= functionEndLine
+    && !hasCoveredNestedFunctionContainedInRange(fileCoverage, zeroCountNamedFn.startLine, zeroCountNamedFn.endLine, zeroCountNamedFn.functionId)) {
+    return false;
+  }
+  return true;
+}
+
+function promoteFunctionEntryGapLines(fileCoverage, lineCoverage, filePath, sourceLines, branchStats) {
+  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+    const count = Number(fileCoverage.f?.[functionId] || 0);
+    const locStartLine = functionCoverage?.loc?.start?.line;
+    const locEndLine = functionCoverage?.loc?.end?.line;
+    if (count <= 0 || !locStartLine || !locEndLine || locEndLine <= locStartLine) {
+      continue;
+    }
+
+    const headerStartLine = findFunctionHeaderStartLine(sourceLines, locStartLine);
+    if (!headerStartLine || !/\bfun\b/u.test(getLineText(sourceLines, headerStartLine))) {
+      continue;
+    }
+
+    const signatureEndLine = findFunctionSignatureEndLine(sourceLines, headerStartLine, locStartLine);
+    const bodyLines = getExecutableLinesInRange(filePath, sourceLines, signatureEndLine + 1, locEndLine);
+    const firstCoveredIndex = bodyLines.findIndex((lineNumber) => Number(lineCoverage[lineNumber]) > 0 || Number(getDirectStatementCountOnLine(fileCoverage, lineNumber)) > 0);
+    if (firstCoveredIndex <= 0 || firstCoveredIndex > 8) {
+      continue;
+    }
+
+    const firstCoveredLine = bodyLines[firstCoveredIndex];
+    const firstCoveredCount = Math.max(
+      count,
+      Number(lineCoverage[firstCoveredLine] || 0),
+      Number(getDirectStatementCountOnLine(fileCoverage, firstCoveredLine) || 0),
+    );
+    for (let index = 0; index < firstCoveredIndex; index += 1) {
+      const lineNumber = bodyLines[index];
+      if (Number(lineCoverage[lineNumber]) > 0) {
+        continue;
+      }
+      if (!canPromoteFunctionEntryGapLine(fileCoverage, filePath, sourceLines, lineNumber, branchStats, functionId, signatureEndLine + 1, locEndLine)) {
+        continue;
+      }
+      setLineCoverage(lineCoverage, lineNumber, firstCoveredCount);
     }
   }
 }
@@ -3086,6 +3335,10 @@ function getPromotedWhenArmHeaderStatus(fileCoverage, sourceLines, lineNumber) {
   if (!/->\s*\{\s*$/u.test(lineText)) {
     return null;
   }
+  if (isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber)
+    || isLineInReliablyUncoveredInlineWhenArm(fileCoverage, sourceLines, lineNumber)) {
+    return null;
+  }
 
   const armEndLine = findBlockEndLine(sourceLines, lineNumber);
   if (armEndLine <= lineNumber + 1) {
@@ -3094,8 +3347,7 @@ function getPromotedWhenArmHeaderStatus(fileCoverage, sourceLines, lineNumber) {
 
   const hasCoveredArmExecution = hasCoveredSpanningStatementStartingOnLine(fileCoverage, lineNumber)
     || hasCoveredStatementContainedInRange(fileCoverage, lineNumber + 1, armEndLine - 1)
-    || hasCoveredBranchContainedInRange(fileCoverage, lineNumber + 1, armEndLine - 1)
-    || hasCoveredNestedFunctionContainedInRange(fileCoverage, lineNumber + 1, armEndLine - 1, null);
+    || hasCoveredBranchContainedInRange(fileCoverage, lineNumber + 1, armEndLine - 1);
   if (!hasCoveredArmExecution) {
     return null;
   }
@@ -3161,10 +3413,94 @@ function getPromotedExpressionBodiedFunctionStatus(fileCoverage, sourceLines, li
     return null;
   }
 
-  // Only promote if the expression-bodied function was actually called
-  // Dont rely on spanning statements from class initialization
+  // Only promote if the expression-bodied function was actually called.
+  // Prefer the current line, but allow the mapped fnMap start to land on the
+  // next expression line for multiline expression-bodied functions.
   const coveredFunctionCounts = getCoveredFunctionCountsStartingOnLine(fileCoverage, lineNumber);
-  return coveredFunctionCounts.length > 0
+  if (coveredFunctionCounts.length > 0) {
+    return 'yes';
+  }
+
+  if (!/\)\s*(?::[^=]+)?\s*=\s*$/u.test(lineText)) {
+    return null;
+  }
+
+  for (let cursor = lineNumber + 1, maxLine = Math.min(sourceLines.length, lineNumber + 3); cursor <= maxLine; cursor += 1) {
+    const candidateText = getLineText(sourceLines, cursor).trim();
+    if (!candidateText || /^(?:\/\/|\/\*|\*|\*\/)/u.test(candidateText)) {
+      continue;
+    }
+    return getCoveredFunctionCountsStartingOnLine(fileCoverage, cursor).length > 0
+      ? 'yes'
+      : null;
+  }
+
+  return null;
+}
+
+function getPromotedMultilineExpressionBodyContinuationStatus(fileCoverage, filePath, sourceLines, lineNumber) {
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+  if (!lineText || !isLikelyExecutableLine(lineText)) {
+    return null;
+  }
+  if (isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber)
+    || isLineInReliablyUncoveredInlineWhenArm(fileCoverage, sourceLines, lineNumber)
+    || isLineInUncoveredCatchBlock(fileCoverage, filePath, sourceLines, lineNumber)
+    || shouldHardSuppressZeroCountLambdaLine(fileCoverage, sourceLines, lineNumber)) {
+    return null;
+  }
+
+  let headerLine = null;
+  for (let cursor = lineNumber - 1, minLine = Math.max(1, lineNumber - 3); cursor >= minLine; cursor -= 1) {
+    const candidateText = getLineText(sourceLines, cursor).trim();
+    if (!candidateText || /^(?:\/\/|\/\*|\*|\*\/)/u.test(candidateText)) {
+      continue;
+    }
+    if (/\bfun\b/u.test(candidateText) && /\)\s*(?::[^=]+)?\s*=\s*$/u.test(candidateText)) {
+      headerLine = cursor;
+    }
+    break;
+  }
+  if (!headerLine) {
+    return null;
+  }
+
+  return getCoveredFunctionCountsContainingLine(fileCoverage, lineNumber).length > 0
+    ? 'yes'
+    : null;
+}
+
+function getPromotedFunctionEntryGapStatus(fileCoverage, filePath, sourceLines, lineNumber) {
+  const enclosingFunction = findEnclosingBlockFunctionRange(sourceLines, lineNumber);
+  if (!enclosingFunction) {
+    return null;
+  }
+
+  const topLevelLines = getTopLevelExecutableLinesInFunctionRange(filePath, sourceLines, enclosingFunction.startLine, enclosingFunction.endLine);
+  const entryIndex = topLevelLines.indexOf(lineNumber);
+  if (entryIndex === -1 || entryIndex > 4) {
+    return null;
+  }
+
+  if (isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber)
+    || isLineInReliablyUncoveredInlineWhenArm(fileCoverage, sourceLines, lineNumber)
+    || isLineInUncoveredCatchBlock(fileCoverage, filePath, sourceLines, lineNumber)
+    || shouldHardSuppressZeroCountLambdaLine(fileCoverage, sourceLines, lineNumber)) {
+    return null;
+  }
+
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+  if (!lineText || /^(?:return(?:@\w+)?|throw)\b/u.test(lineText) || !isLikelyExecutableLine(lineText)) {
+    return null;
+  }
+
+  const nextCoveredLine = topLevelLines.slice(entryIndex + 1, entryIndex + 6)
+    .find((candidate) => Number(getLineCoverageCount(fileCoverage, candidate)) > 0 || Number(getDirectStatementCountOnLine(fileCoverage, candidate) || 0) > 0);
+  if (!nextCoveredLine) {
+    return null;
+  }
+
+  return getCoveredFunctionCountsContainingLine(fileCoverage, lineNumber).length > 0
     ? 'yes'
     : null;
 }
@@ -3255,15 +3591,28 @@ function getPromotedCoveredFunctionStatementStatus(fileCoverage, filePath, sourc
 
 function findEnclosingBlockFunctionRange(sourceLines, lineNumber) {
   for (let cursor = lineNumber; cursor >= 1; cursor -= 1) {
-    const lineText = getLineText(sourceLines, cursor).trim();
-    if (!/\bfun\b/u.test(lineText) || !lineText.includes('{')) {
+    const openLineText = getLineText(sourceLines, cursor);
+    if (!openLineText.includes('{')) {
+      continue;
+    }
+
+    const headerStartLine = findFunctionHeaderStartLine(sourceLines, cursor);
+    if (!headerStartLine || headerStartLine > cursor) {
+      continue;
+    }
+    if (!/\bfun\b/u.test(getLineText(sourceLines, headerStartLine))) {
+      continue;
+    }
+
+    const signatureEndLine = findFunctionSignatureEndLine(sourceLines, headerStartLine, cursor);
+    if (signatureEndLine !== cursor) {
       continue;
     }
 
     const endLine = findBlockEndLine(sourceLines, cursor);
     if (endLine >= lineNumber) {
       return {
-        startLine: cursor,
+        startLine: headerStartLine,
         endLine,
       };
     }
@@ -3294,6 +3643,10 @@ function getPromotedSimpleStatementInCalledFunctionStatus(fileCoverage, filePath
   }
 
   const lineText = getLineText(sourceLines, lineNumber).trim();
+
+  if (isInlineWhenArmLine(lineText)) {
+    return null;
+  }
 
   // Skip return/throw lines — they may not execute if an earlier branch exits
   if (/^(?:return(?:@\w+)?|throw)\b/u.test(lineText)) {
@@ -3353,6 +3706,57 @@ function findInnermostZeroCountLambdaRange(fileCoverage, sourceLines, lineNumber
   }
 
   return match;
+}
+
+function findInnermostHardSuppressedZeroCountLambdaRange(fileCoverage, sourceLines, lineNumber) {
+  let match = null;
+  for (const [functionId, functionCoverage] of Object.entries(fileCoverage.fnMap || {})) {
+    if (Number(fileCoverage.f?.[functionId] || 0) > 0) {
+      continue;
+    }
+
+    const startLine = Number(functionCoverage?.loc?.start?.line || 0);
+    const endLine = Number(functionCoverage?.loc?.end?.line || 0);
+    if (!startLine || !endLine || endLine < startLine || lineNumber < startLine || lineNumber > endLine) {
+      continue;
+    }
+
+    const headerText = getLineText(sourceLines, startLine).trim();
+    if (/\bfun\b/u.test(headerText)) {
+      continue;
+    }
+
+    if (hasCoveredNestedFunctionContainedInRange(fileCoverage, startLine, endLine, functionId)) {
+      continue;
+    }
+
+    const bodyStartLine = startLine + 1;
+    const bodyEndLine = endLine - 1;
+    if (bodyStartLine <= bodyEndLine && hasDirectCoveredStatementContainedInRange(fileCoverage, bodyStartLine, bodyEndLine)) {
+      continue;
+    }
+
+    if (!match || (endLine - startLine) < (match.endLine - match.startLine)) {
+      match = { functionId, startLine, endLine };
+    }
+  }
+
+  return match;
+}
+
+function shouldHardSuppressZeroCountLambdaLine(fileCoverage, sourceLines, lineNumber) {
+  const hardSuppressedRange = findInnermostHardSuppressedZeroCountLambdaRange(fileCoverage, sourceLines, lineNumber);
+  if (!hardSuppressedRange) {
+    return false;
+  }
+
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+  if (lineNumber === hardSuppressedRange.startLine || !isLikelyExecutableLine(lineText)) {
+    return false;
+  }
+
+  const directStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+  return directStatementCount == null || directStatementCount === 0;
 }
 
 // Similar to findInnermostZeroCountLambdaRange but for named `fun` functions.
@@ -3564,6 +3968,21 @@ function getPromotedBlockFunctionHeaderStatus(fileCoverage, filePath, sourceLine
 }
 
 function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branchStats) {
+  const promotedFunctionEntryGapStatus = getPromotedFunctionEntryGapStatus(fileCoverage, filePath, sourceLines, lineNumber);
+  if (promotedFunctionEntryGapStatus) {
+    return promotedFunctionEntryGapStatus;
+  }
+
+  const promotedMultilineExpressionBodyContinuationStatus = getPromotedMultilineExpressionBodyContinuationStatus(fileCoverage, filePath, sourceLines, lineNumber);
+  if (promotedMultilineExpressionBodyContinuationStatus) {
+    return promotedMultilineExpressionBodyContinuationStatus;
+  }
+
+  const preNeutralExpressionBodiedFunctionStatus = getPromotedExpressionBodiedFunctionStatus(fileCoverage, sourceLines, lineNumber);
+  if (preNeutralExpressionBodiedFunctionStatus) {
+    return preNeutralExpressionBodiedFunctionStatus;
+  }
+
   if (isForceNeutralLine(filePath, sourceLines, lineNumber)) {
     return 'neutral';
   }
@@ -3573,10 +3992,18 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
     return singleLineEmptyBlockFunctionStatus;
   }
 
+  const directCoveredStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+  if (directCoveredStatementCount != null && directCoveredStatementCount > 0) {
+    return 'yes';
+  }
+
   const lineCount = getLineCoverageCount(fileCoverage, lineNumber);
   if (lineCount != null) {
     if (lineCount > 0) {
-      if (shouldSuppressCoveredLineInFunctionWithoutLocalExecution(fileCoverage, filePath, sourceLines, lineNumber)) {
+      if (shouldSuppressCoveredLineInFunctionWithoutLocalExecution(fileCoverage, filePath, sourceLines, lineNumber)
+        || isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber)
+        || shouldHardSuppressZeroCountLambdaLine(fileCoverage, sourceLines, lineNumber)
+        || isLineInReliablyUncoveredInlineWhenArm(fileCoverage, sourceLines, lineNumber)) {
         return 'no';
       }
       return 'yes';
@@ -3585,7 +4012,10 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
     // Lines inside an uncovered catch block should never be promoted —
     // the catch path was never executed, so any positive count in lineCoverage
     // is an artifact of promote rules that inferred coverage from the try path.
-    if (isLineInUncoveredCatchBlock(fileCoverage, filePath, sourceLines, lineNumber)) {
+    if (isLineInUncoveredCatchBlock(fileCoverage, filePath, sourceLines, lineNumber)
+      || isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber)
+      || shouldHardSuppressZeroCountLambdaLine(fileCoverage, sourceLines, lineNumber)
+      || isLineInReliablyUncoveredInlineWhenArm(fileCoverage, sourceLines, lineNumber)) {
       return 'no';
     }
 
@@ -3653,7 +4083,10 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
 
   // Lines inside an uncovered catch block should never be promoted —
   // the catch path was never executed.
-  if (isLineInUncoveredCatchBlock(fileCoverage, sourceLines, lineNumber)) {
+  if (isLineInUncoveredCatchBlock(fileCoverage, filePath, sourceLines, lineNumber)
+    || isLineInReliablyUncoveredBranchArm(fileCoverage, lineNumber)
+    || shouldHardSuppressZeroCountLambdaLine(fileCoverage, sourceLines, lineNumber)
+    || isLineInReliablyUncoveredInlineWhenArm(fileCoverage, sourceLines, lineNumber)) {
     return 'no';
   }
 
