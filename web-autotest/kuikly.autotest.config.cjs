@@ -65,6 +65,7 @@ module.exports = {
      */
     excludePaths: [
       'core-render-web/base/src/jsMain/kotlin/com/tencent/kuikly/core/render/web/nvi',
+      'core-render-web/h5/src/jsMain/kotlin/com/tencent/kuikly/core/render/web/runtime/web/expand/module/H5WindowResizeModule.kt',
     ],
     generatedKotlinOutputDir: 'h5App/build/compileSync/js/main/developmentExecutable/kotlin',
     targetModules: [
