@@ -2,6 +2,7 @@ const runtime = {
   defaultPort: 8080,
   playwrightTimeoutMs: 60_000,
   webServerTimeoutMs: 30_000,
+  localWorkers: 2,
   ciWorkers: 1,
   ciRetries: 2,
   localRetries: 1,
@@ -13,7 +14,7 @@ function resolvePort(env = process.env) {
 
 function resolvePlaywrightWorkers({ env = process.env } = {}) {
   const workerOverride = env.KUIKLY_WORKERS ? Number(env.KUIKLY_WORKERS) : null;
-  return workerOverride ?? (env.CI ? runtime.ciWorkers : undefined);
+  return workerOverride ?? (env.CI ? runtime.ciWorkers : runtime.localWorkers);
 }
 
 function resolvePlaywrightRetries({ env = process.env } = {}) {
