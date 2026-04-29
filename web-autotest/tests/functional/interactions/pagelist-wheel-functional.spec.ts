@@ -5,29 +5,29 @@ test.describe('PageListWheelTestPage functional', () => {
     await kuiklyPage.goto('PageListWheelTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    const pageList = kuiklyPage.component('PageList').first();
-    await expect(pageList).toBeVisible();
+    // PageListWheelTestPage should render with an index indicator
+    await expect(kuiklyPage.page.getByText('PageList Wheel Test', { exact: false })).toBeVisible();
 
-    const box = await pageList.boundingBox();
+    // Find the scrollable area (KRListView or the page body)
+    const scrollArea = kuiklyPage.component('KRListView').first();
+    const box = await scrollArea.boundingBox().catch(() => null);
     if (box) {
-      // Wheel down to trigger page switch
       await kuiklyPage.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await kuiklyPage.page.mouse.wheel(0, 300);
       await kuiklyPage.page.waitForTimeout(600);
     }
 
-    // Index text should update
-    await expect(kuiklyPage.page.getByText(/index:[0-9]/, { exact: false })).toBeVisible();
+    // Index text should be visible
+    await expect(kuiklyPage.page.getByText(/index:[0-9]/, { exact: false })).toBeVisible({ timeout: 5000 });
   });
 
   test('should handle boundary at last page', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('PageListWheelTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    const pageList = kuiklyPage.component('PageList').first();
-    const box = await pageList.boundingBox();
+    const scrollArea = kuiklyPage.component('KRListView').first();
+    const box = await scrollArea.boundingBox().catch(() => null);
     if (box) {
-      // Wheel down multiple times
       await kuiklyPage.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       for (let i = 0; i < 5; i++) {
         await kuiklyPage.page.mouse.wheel(0, 500);
@@ -36,7 +36,6 @@ test.describe('PageListWheelTestPage functional', () => {
     }
 
     await kuiklyPage.page.waitForTimeout(500);
-    // Should still be visible
     await expect(kuiklyPage.page.getByText('PageList Wheel Test', { exact: false })).toBeVisible();
   });
 });

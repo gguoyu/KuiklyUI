@@ -125,4 +125,33 @@ test.describe('CSSPropsTestPage functional', () => {
     await kuiklyPage.page.waitForTimeout(300);
     await expect(kuiklyPage.page.getByText('click-with-double: 1', { exact: false })).toBeVisible();
   });
+
+  test('text shadow section should render styled text elements', async ({ kuiklyPage }) => {
+    // Section 1: Text Shadow — exercises KuiklyRenderCSSKTX textShadow path
+    await expect(kuiklyPage.page.getByText('1. Text Shadow', { exact: false })).toBeVisible();
+    // Verify multiple RichTextView components exist in this section
+    const richTextViews = kuiklyPage.page.locator('[data-kuikly-component="KRRichTextView"]');
+    const count = await richTextViews.count();
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
+
+  test('stroke width and color section should render styled text', async ({ kuiklyPage }) => {
+    // Section 2: exercises KuiklyRenderCSSKTX stroke/textStroke conversion
+    await expect(kuiklyPage.page.getByText('2. Stroke Width and Color', { exact: false })).toBeVisible();
+    const strokeViews = kuiklyPage.page.locator('[data-kuikly-component="KRRichTextView"]');
+    const count = await strokeViews.count();
+    expect(count).toBeGreaterThanOrEqual(2);
+  });
+
+  test('z-index section should apply CSS zIndex to rendered views', async ({ kuiklyPage }) => {
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 600, smooth: false });
+
+    // Verify actual computed zIndex on KRView elements in section 6
+    const zIndexView = kuiklyPage.page.getByText('zindex-10', { exact: true });
+    await expect(zIndexView).toBeVisible();
+    const parentView = zIndexView.locator('..');
+    const zIndex = await parentView.evaluate((el) => window.getComputedStyle(el).zIndex);
+    expect(Number(zIndex)).toBeGreaterThanOrEqual(1);
+  });
 });

@@ -48,5 +48,63 @@ test.describe('KRView 静态验证', () => {
     const count = await views.count();
     expect(count).toBeGreaterThan(10);
   });
+
+  test('visibility toggle 区域应渲染 Section 8', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 800, smooth: false });
+
+    // Section 8: Visibility — exercises KRView.setVisibility
+    await expect(kuiklyPage.page.getByText('8. Visibility', { exact: false })).toBeVisible();
+  });
+
+  test('box shadow 区域应渲染 Section 9', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1000, smooth: false });
+
+    // Section 9: Box Shadow — exercises KuiklyRenderCSSKTX boxShadow conversion
+    await expect(kuiklyPage.page.getByText('9. Box Shadow', { exact: false })).toBeVisible();
+    const shadowViews = kuiklyPage.page.locator('[data-kuikly-component=KRView]');
+    const count = await shadowViews.count();
+    expect(count).toBeGreaterThan(15);
+  });
+
+  test('accessibility role 区域应渲染 Section 10', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1200, smooth: false });
+
+    // Section 10: Accessibility Role — exercises KRView.setAccessibilityRole
+    await expect(kuiklyPage.page.getByText('10. Accessibility Role', { exact: false })).toBeVisible();
+  });
+
+  test('screen frame event 区域应渲染 Section 11', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1400, smooth: false });
+
+    // Section 11 + 12: Screen Frame — exercises KRView screen frame observation
+    await expect(kuiklyPage.page.getByText('11. Screen Frame Event', { exact: false })).toBeVisible();
+  });
+
+  test('border with child 和 semi-transparent color 区域应渲染', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1800, smooth: false });
+
+    // Section 14 + 15: exercises checkAndUpdatePositionForH5 and toRgbColor alpha path
+    await expect(kuiklyPage.page.getByText('14. Border with Child', { exact: false })).toBeVisible({ timeout: 3000 });
+  });
 });
 

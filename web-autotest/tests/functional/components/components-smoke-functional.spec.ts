@@ -7,8 +7,10 @@ test.describe('Components functional smoke', () => {
 
     await expect(kuiklyPage.page.getByText('Load Failure', { exact: false })).toBeVisible();
 
+    // DNS resolution for invalid.example.test may take a long time.
+    // Use extended timeout to allow the image error event + Kuikly callback chain to complete.
     await expect(kuiklyPage.page.locator('[data-kuikly-component]').filter({ hasText: /load-failure-count:(?!0)/ }).first())
-      .toBeVisible({ timeout: 10000 });
+      .toBeVisible({ timeout: 30000 });
   });
 
   test('KRTextFieldView: textLengthBeyondLimit callback fires when exceeding max length', async ({ kuiklyPage }) => {

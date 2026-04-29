@@ -150,12 +150,13 @@ test.describe('KRTextAreaView functional', () => {
     const limitedTextarea = kuiklyPage.page.locator('textarea[placeholder="max 5 chars"]');
     await expect(limitedTextarea).toBeVisible();
 
-    // Type more than 5 characters to trigger the beyond-limit callback
+    // Use keyboard.type() to simulate actual character input which triggers
+    // the beforeinput/input event chain needed for textLengthBeyondLimit
     await limitedTextarea.click();
-    await kuiklyPage.fillInput(limitedTextarea, 'abcdef');
-    await kuiklyPage.page.waitForTimeout(300);
+    await kuiklyPage.page.keyboard.type('abcdef', { delay: 30 });
+    await kuiklyPage.page.waitForTimeout(500);
 
     // beyond-limit-count should have increased
-    await expect(kuiklyPage.page.locator('[data-kuikly-component]').filter({ hasText: /beyond-limit-count:(?!0)/ }).first()).toBeVisible({ timeout: 3000 });
+    await expect(kuiklyPage.page.locator('[data-kuikly-component]').filter({ hasText: /beyond-limit-count:(?!0)/ }).first()).toBeVisible({ timeout: 5000 });
   });
 });
