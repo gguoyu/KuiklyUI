@@ -31,3 +31,18 @@ Use this reference when reviewing generated specs or adding new validation rules
 Only promote an anti-pattern into a hard rule when it is both:
 - high confidence
 - low false-positive for the current repo
+
+### Redundant spec file for already-covered page
+- Symptom: a new auto-generated or handwritten spec file is created for a TestPage that already has a spec in the same classification (static/functional/visual).
+- Why it is bad: creates duplicate page loads and overlapping assertions, increasing CI time without coverage gain. When the page changes, multiple files must be updated.
+- Rule: before creating any spec file, `grep -rl "goto('PageName')" tests/` to check for existing coverage. Add tests to the existing file instead.
+
+### Single-test page-load-only spec
+- Symptom: a spec file contains only one test that does `goto()` + `waitForRenderComplete()` + a single `toBeVisible()` assertion.
+- Why it is bad: this is already covered by the `beforeEach` or first test of any functional spec for the same page. The file adds CI overhead with no unique value.
+- Rule: do not create standalone page-load specs. If no functional spec exists yet, write at least 2 meaningful assertions.
+
+### Split functional specs for the same page
+- Symptom: the same TestPage has multiple functional spec files testing different aspects (e.g., `calendar-branches.spec.ts`, `calendar-coverage.spec.ts`, `calendar-precision.spec.ts`).
+- Why it is bad: each file re-loads the page independently, multiplying test time. Logically related tests should share `beforeEach` navigation.
+- Rule: consolidate into one `<feature>-functional.spec.ts` per TestPage. Use `test.describe` blocks within the file to group sub-topics.

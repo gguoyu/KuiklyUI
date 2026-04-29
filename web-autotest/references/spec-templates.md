@@ -224,3 +224,65 @@ When a generated spec fails, the loop downgrades it according to `repair-ladder.
 
 The `repairStep` counter in the `@kuikly-autogen` metadata tracks the current rung so that
 subsequent rounds continue from where the previous one stopped.
+
+---
+
+## Test file organization rules
+
+These rules govern when to create new spec files vs. adding tests to existing files. Follow them strictly to prevent file proliferation and redundancy.
+
+### Rule 1: Check before creating — no duplicate coverage
+
+Before creating a new spec file for a TestPage, **search existing specs** to confirm no file already tests that page:
+
+```bash
+grep -rl "goto('TargetPageName')" web-autotest/tests/
+```
+
+If a spec already exists for that page in the same classification (functional/static/visual), **add tests to the existing file** instead of creating a new one.
+
+### Rule 2: One TestPage = one functional spec
+
+Each TestPage should have at most **one** functional spec file. Do not split a page's functional tests across multiple files unless they genuinely test different aspects that would make a single file exceed ~300 lines.
+
+| Correct | Incorrect |
+|---------|-----------|
+| `calendar-functional.spec.ts` (all calendar tests) | `calendar-branches.spec.ts` + `calendar-coverage.spec.ts` + `calendar-precision.spec.ts` |
+
+### Rule 3: Auto-generated specs must not overlap with handwritten specs
+
+If a handwritten spec already covers a TestPage (static, functional, or visual), **do not generate an auto-spec for the same page and classification**. The handwritten spec is always preferred because it has more precise assertions.
+
+Check before generating:
+```bash
+grep -rl "goto('TargetPageName')" web-autotest/tests/static/
+grep -rl "goto('TargetPageName')" web-autotest/tests/functional/
+```
+
+### Rule 4: Minimum viable spec size
+
+Do not create a spec file with only 1 test that merely verifies page loading (`goto` + `toBeVisible`). Instead:
+- If a functional spec already exists for that page, the page-load check is redundant (the functional spec's `beforeEach` or first test already does it).
+- If no spec exists yet, include at least 2 meaningful assertions beyond page loading.
+
+### Rule 5: Static specs should not repeat functional coverage
+
+A static spec should only exist when it tests something the functional spec does **not** cover (e.g., initial DOM structure, CSS computed properties, component count). If the functional spec already verifies page loading and element visibility, a separate static spec that only checks `toBeVisible()` is redundant.
+
+### Rule 6: File naming conventions
+
+| Type | Directory | Naming pattern | Example |
+|------|-----------|---------------|---------|
+| Functional | `tests/functional/` | `<feature>-functional.spec.ts` | `modal-functional.spec.ts` |
+| Functional (component) | `tests/functional/components/` | `<component>-functional.spec.ts` | `krhoverview-functional.spec.ts` |
+| Functional (module) | `tests/functional/modules/` | `<module>-functional.spec.ts` | `calendar-functional.spec.ts` |
+| Static | `tests/static/` | `<feature>-static.spec.ts` | `form-static.spec.ts` |
+| Visual | `tests/visual/` | `<feature>-visual.spec.ts` | `modal-visual.spec.ts` |
+| Auto-generated | same as above | `auto-<page>-test-page.spec.ts` | `auto-krvideo-view-test-page.spec.ts` |
+
+### Rule 7: When merging is required
+
+Merge spec files when:
+- Multiple files test the same TestPage in the same classification
+- A spec file has only 1-2 tests and can logically fit into a related file
+- An auto-generated spec exists alongside a handwritten spec for the same page

@@ -38,6 +38,10 @@ Human-readable references:
 - `web-autotest/references/spec-templates.md`
 - `web-autotest/references/page-generation-guide.md`
 
+**Before creating or generating any new spec file**, read:
+- `web-autotest/references/spec-templates.md` → "Test file organization rules" section — mandatory check-before-create rules, one-page-one-spec principle, merging rules
+- `web-autotest/references/anti-patterns-catalog.md` → "Redundant spec file" / "Single-test page-load-only spec" / "Split functional specs" anti-patterns
+
 Accumulated experience (read before writing carrier pages or specs):
 - `web-autotest/experience/carrier-page-pitfalls.md` — Kotlin DSL 坑、shared observable、动态模板字符串、styles category 交互覆盖等
 - `web-autotest/experience/playwright-kuikly-limits.md` — headless 下不可触发的事件、Modal/click 限制、KRListView 滚动、screenshot 更新等
