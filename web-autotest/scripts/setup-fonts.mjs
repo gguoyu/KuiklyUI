@@ -5,7 +5,7 @@
  * Downloads the Noto Sans SC subset font (Latin + common CJK) from Google Fonts CDN
  * and saves it to web-autotest/fonts/<fontFileName> (configured in kuikly.autotest.config.cjs).
  *
- * The font is injected into test pages by serve.js to decouple text rendering from system
+ * The font is injected into test pages by serve.cjs to decouple text rendering from system
  * fonts, eliminating cross-platform rendering differences that would cause screenshot flakiness.
  *
  * Usage:

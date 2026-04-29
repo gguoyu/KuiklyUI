@@ -23,7 +23,6 @@ Rebuild coverage artifacts from existing `.v8_output`:
 ```bash
 node web-autotest/scripts/coverage-report.mjs
 node web-autotest/scripts/coverage-report.mjs --check
-node web-autotest/scripts/coverage-js-no-sourcemap-report.mjs
 ```
 
 Inspect completeness and analysis artifacts:

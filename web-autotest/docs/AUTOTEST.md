@@ -328,9 +328,8 @@ web-e2e/
 │
 ├── scripts/
 │   ├── kuikly-test.mjs       # CLI 统一入口脚本
-│   ├── serve.js              # 测试服务器（支持 Kotlin modules loader）
-│   ├── coverage-report.mjs   # 生成 Monocart Kotlin 覆盖率报告
-│   └── coverage-js-no-sourcemap-report.mjs # 生成 JS 调试覆盖率报告
+│   ├── serve.cjs              # 测试服务器（支持 Kotlin modules loader）
+│   └── coverage-report.mjs   # 生成 Monocart Kotlin 覆盖率报告
 │
 ├── tests/
 │   ├── static/               # static：纯逻辑 / 数据结果 / 静态属性 / 确定性文本输出
@@ -976,11 +975,11 @@ module.exports = defineConfig({
     // Kuikly Web 主要面向移动端 H5，暂只用 Chromium
   ],
 
-  // 本地调试单轮用例时，Playwright 可自动启动 node scripts/serve.js（port 8080）
+  // 本地调试单轮用例时，Playwright 可自动启动 node scripts/serve.cjs（port 8080）
   // 日常标准入口仍应优先使用 kuikly-test.mjs --full
   // reuseExistingServer: true，已有服务器会被直接复用
   webServer: {
-    command: 'node scripts/serve.js',
+    command: 'node scripts/serve.cjs',
     port: 8080,
     reuseExistingServer: true,
     timeout: 30000,
@@ -1078,13 +1077,12 @@ node web-autotest/scripts/kuikly-test.mjs --level static --dry-run --print-resol
 - 覆盖率采集来源是浏览器运行期间的 **Playwright Chromium V8 native coverage**。
 - 正式门禁范围聚焦 `core-render-web/base` 与 `core-render-web/h5` 的 Kotlin 源文件。
 - 报告生成时会把 V8 原始覆盖率结合 compileSync 模块 sourcemap 反向映射回 Kotlin 源文件。
-- JS no-sourcemap 报告仅作为调试视角，不单独定义为正式覆盖率口径。
 
 ### 12.2 运行时覆盖率对象
 
 | 运行时脚本 | 来源 | 说明 | 正式口径 |
 | ---------- | ---- | ---- | -------- |
-| `h5App.js` | `serve.js` 动态生成的 loader | 运行时入口，顺序加载 `/kotlin-modules/*.js` | 间接参与 |
+| `h5App.js` | `serve.cjs` 动态生成的 loader | 运行时入口，顺序加载 `/kotlin-modules/*.js` | 间接参与 |
 | `kotlin-modules/KuiklyCore-render-web-base.js` | compileSync Kotlin modules | 核心渲染引擎模块之一 | ⭐ 必须 |
 | `kotlin-modules/KuiklyCore-render-web-h5.js` | compileSync Kotlin modules | H5 渲染引擎模块之一 | ⭐ 必须 |
 | `kotlin-modules/KuiklyUI-h5App.js` | compileSync Kotlin modules | 宿主侧 Kotlin/JS 模块 | ⭐ 必须 |
@@ -1142,18 +1140,16 @@ module.exports = {
 ### 12.5 覆盖率收集流程
 
 1. **构建产物：** CLI 调用 Gradle 构建 compileSync Kotlin modules 及其 source map。
-2. **启动测试服务器：** CLI 自动启动或复用普通测试服务器；当请求 `h5App.js` 时，由 `serve.js` 动态返回 Kotlin modules loader。
+2. **启动测试服务器：** CLI 自动启动或复用普通测试服务器；当请求 `h5App.js` 时，由 `serve.cjs` 动态返回 Kotlin modules loader。
 3. **运行时收集：** 浏览器执行测试时，fixture 为每个 page 启动 Playwright V8 coverage。
 4. **自动导出：** `test-base.ts` fixture teardown 自动停止 coverage，并将每个测试的原始数据写入 `.v8_output/`。
 5. **生成 Kotlin 覆盖率报告：** `coverage-report.mjs` 基于 `.v8_output/`、`distFile` 和 source map 生成 HTML/text-summary/lcov/json/json-summary 报告到 `reports/coverage/`。
 6. **阈值检查：** `coverage-report.mjs --check` 读取生成后的 `coverage-summary.json` totals，并按 `config/coverage.cjs` 执行门禁检查。
-7. **调试视角：** `coverage-js-no-sourcemap-report.mjs` 可基于同一份 `.v8_output/` 生成不走 sourcemap 的 JS 覆盖率 HTML 报告。
 
 ### 12.6 输出约定
 
 - `npm run coverage` 与 CLI 覆盖率步骤的目标指向 Monocart 生成的 Kotlin 覆盖率报告。
-- `npm run coverage:js-no-sourcemap` 生成编译后 JS 视角的调试报告，不影响正式门禁。
-- 文档、CI 报表、Skill 输出中的“覆盖率”默认均指修正后的 Kotlin 覆盖率结果，不再混用“JS 摘要”“原始 V8 汇总”“调试报告”三套说法。
+- 文档、CI 报表、Skill 输出中的”覆盖率”默认均指修正后的 Kotlin 覆盖率结果，不再混用”JS 摘要””原始 V8 汇总””调试报告”三套说法。
 
 ---
 
@@ -1380,7 +1376,7 @@ CLI 闭环入口
 - [x] 初始化 `package.json`、`playwright.config.js`、`tsconfig.json`
 - [x] 实现 `KuiklyPage` Fixture 核心方法（goto, waitForRenderComplete, component）
 - [x] 编写 1 个 static 冒烟测试验证流程打通
-- [x] 额外完成：创建本地测试服务器（当前主入口为 `web-autotest/scripts/serve.js`）
+- [x] 额外完成：创建本地测试服务器（当前主入口为 `web-autotest/scripts/serve.cjs`）
 - [x] 额外完成：编写快速启动指南（`web-e2e/QUICKSTART.md`）
 
 **验证步骤：** 见 [web-e2e/QUICKSTART.md](./web-e2e/QUICKSTART.md)
@@ -1422,11 +1418,11 @@ CLI 闭环入口
 ### Phase 6：覆盖率与 CLI ✅ **已完成**
 
 - [x] 实现 V8 覆盖率采集流程（`fixtures/coverage.ts`，通过 Playwright coverage API 导出 `.v8_output/`）
-- [x] 改造测试服务器（`scripts/serve.js`，支持 `h5App.js` Kotlin modules loader 与 `/kotlin-modules/*` 路由）
+- [x] 改造测试服务器（`scripts/serve.cjs`，支持 `h5App.js` Kotlin modules loader 与 `/kotlin-modules/*` 路由）
 - [x] 配置覆盖率阈值与 V8 参数（`config/coverage.cjs`：lines/functions ≥ 70%，branches ≥ 55%）
 - [x] 统一覆盖率方案口径：以修正后的 Kotlin 文件覆盖率结果（Monocart 报告 + 阈值检查）作为唯一门禁与对外展示结果
 - [x] 实现 `kuikly-test.mjs` CLI 脚本（支持 `--full / --level / --coverage-only` 等参数，并作为本地一键闭环标准入口）
-- [x] 补充 `package.json` 脚本（`coverage` / `coverage:check` / `coverage:js-no-sourcemap` / `kuikly-test` 等）
+- [x] 补充 `package.json` 脚本（`coverage` / `coverage:check` / `kuikly-test` 等）
 - [x] 同步 `package.json` 语义脚本入口（`test:static / test:functional / test:visual / test:hybrid / test:smoke / test:modules`）
 
 ### Phase 7：CI/CD 与 Skill（收口中）
@@ -1446,7 +1442,7 @@ CLI 闭环入口
 | 方案 | 手段 | 说明 |
 |------|------|------|
 | 方案一 | Chrome 启动参数 | `--font-render-hinting=none`、`--disable-font-subpixel-positioning`、`--force-device-scale-factor=1`，禁用字体 Hinting 和次像素定位，减少大部分字体像素差异 |
-| 方案二 | 内嵌 Web Font | serve.js 向 index.html 注入 NotoSansSC WOFF2 字体，将文字渲染与系统字体解耦；`npm run setup` 下载字体文件（约 1 分钟，只需一次） |
+| 方案二 | 内嵌 Web Font | serve.cjs 向 index.html 注入 NotoSansSC WOFF2 字体，将文字渲染与系统字体解耦；`npm run setup` 下载字体文件（约 1 分钟，只需一次） |
 
 **落地文件：**
 
@@ -1454,7 +1450,7 @@ CLI 闭环入口
 |------|------|
 | `web-autotest/playwright.config.js` | `launchOptions.args` 注入 3 个 Chrome 参数；`maxDiffPixelRatio` 调整为 `0.02` |
 | `web-autotest/scripts/setup-fonts.mjs` | 下载 Noto Sans SC WOFF2 到 `fonts/` 目录 |
-| `web-autotest/scripts/serve.js` | 向 HTML 注入字体 CSS；新增 `/fonts/*` 路由，并支持 Kotlin modules loader |
+| `web-autotest/scripts/serve.cjs` | 向 HTML 注入字体 CSS；新增 `/fonts/*` 路由，并支持 Kotlin modules loader |
 
 **工作流：**
 

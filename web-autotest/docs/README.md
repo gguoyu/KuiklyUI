@@ -61,10 +61,8 @@ web-autotest/
 │   └── visual/                 # visual：依赖截图结论的视觉回归与动画终态验证
 ├── scripts/
 │   ├── kuikly-test.mjs         # CLI 统一入口
-│   ├── serve.js                # 测试服务器（port 8080，支持 Kotlin modules loader）
+│   ├── serve.cjs                # 测试服务器（port 8080，支持 Kotlin modules loader）
 │   ├── coverage-report.mjs     # 基于 V8 data 生成 Monocart Kotlin 覆盖率报告
-│   └── coverage-js-no-sourcemap-report.mjs # 基于 V8 data 生成 JS 调试报告
-├── config/coverage.cjs         # 覆盖率阈值 / 水位线 / V8 参数配置
 ├── playwright.config.js        # Playwright 配置（viewport: 375×812，Chromium）
 └── package.json
 ```
@@ -227,13 +225,9 @@ npm run coverage
 
 # 仅检查是否达到阈值（基于 .v8_output 重新生成 summary）
 npm run coverage:check
-
-# 生成不走 sourcemap 的 JS 调试报告
-npm run coverage:js-no-sourcemap
 ```
 
 Kotlin 报告路径：`reports/coverage/index.html`
-JS 调试报告路径：`reports/coverage-js-no-sourcemap-html/index.html`
 产物还包含：`reports/coverage/coverage-final.json`、`reports/coverage/lcov.info`、`reports/coverage/coverage-summary.json`
 
 ### 覆盖率阈值（`config/coverage.cjs`）

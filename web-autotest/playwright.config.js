@@ -55,7 +55,7 @@ module.exports = defineConfig({
   webServer: skipWebServer
     ? undefined
     : {
-        command: 'node scripts/serve.js',
+        command: 'node scripts/serve.cjs',
         port,
         reuseExistingServer: true,
         timeout: runtime.webServerTimeoutMs,

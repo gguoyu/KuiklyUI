@@ -4,8 +4,8 @@
   "description": "Kuikly Web E2E Testing with Playwright",
   "scripts": {
     "setup": "node scripts/setup-fonts.mjs",
-    "serve": "node scripts/serve.js",
-    "serve:dev": "BUILD_TYPE=developmentExecutable node scripts/serve.js",
+    "serve": "node scripts/serve.cjs",
+    "serve:dev": "BUILD_TYPE=developmentExecutable node scripts/serve.cjs",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
@@ -22,7 +22,6 @@
     "install:browsers": "playwright install",
     "coverage": "node scripts/coverage-report.mjs",
     "coverage:check": "node scripts/coverage-report.mjs --check",
-    "coverage:js-no-sourcemap": "node scripts/coverage-js-no-sourcemap-report.mjs",
     "kuikly-test": "node scripts/kuikly-test.mjs"
   },
   "keywords": [
