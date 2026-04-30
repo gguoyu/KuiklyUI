@@ -136,6 +136,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 | `applyCoveredConstructorDelegationContinuations` | 构造器委托 (`constructor(...) : this(...)`) 的后续行继承起始行计数 |
 | `applyConstructorInitializerFallback` | 主构造器中的运行时初始化属性继承构造器的函数计数 |
 | `applyClassBodyRuntimePropertyFallback` | 类体中的运行时初始化属性，若被某已覆盖语句跨行覆盖，则继承最大计数 |
+| `getPromotedCoveredPropertyDeclarationStatus` | 类体属性声明即使被 structural neutral 归类，只要同一行有可信 direct statement 覆盖证据，就在 neutral 之前优先显示为 `yes` |
 | `promoteInitBlockBodyLines` | `init {}` 顶层可执行语句（如 listener 注册）在构造/对象初始化已执行时继承同一 class/object 中已覆盖运行时初始化属性的计数 |
 | `propagateCoveredBranchBodyLines` | 分支体内仅一行时，该行继承分支计数 |
 | `promoteDirectCoveredBranchBodyLines` | 分支体内 ≤4 行时，无直接语句计数的行继承分支/跨行语句计数 |
@@ -274,16 +275,17 @@ Branch 数据: loc[0] L15-L17 count=0 (true 分支), loc[1] undefined count=3135
 ## 6. 行状态判定优先级 (`deriveLineStatus`)
 
 1. **function-entry / multiline-expression 特判** → 先尝试 `promoteFunctionEntryGapLines` / `promoteMultilineExpressionBodyContinuationLines` 对应的 status promote，避免被 structural neutral 误吞
-2. **structural neutral** → `neutral`
-3. **单行空块函数** → 根据函数计数 `yes` 或 `no`
-4. **有 direct statement count > 0** → 直接 `yes`（例如 listener 注册行）
-5. **有 V8 行计数 > 0** → 检查未调用函数 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm 等 suppress guard → `yes` 或 `no`
-6. **有 V8 行计数 = 0** → 先尝试 control-header 的早期 fallback（已覆盖 body / partial branch）；若成立直接 `yes`/`partial`。否则再检查未覆盖 catch 块 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm → `no`; 再走 promote 链
+2. **pre-neutral property override / declaration guard** → 若属性声明行存在可信 direct statement 覆盖证据，则先显示 `yes`；多行函数声明头起始行这类纯声明行，先固定为 `neutral`
+3. **structural neutral** → `neutral`
+4. **单行空块函数** → 根据函数计数 `yes` 或 `no`
+5. **有 direct statement count > 0** → 直接 `yes`（例如 listener 注册行）
+6. **有 V8 行计数 > 0** → 检查未调用函数 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm 等 suppress guard → `yes` 或 `no`
+7. **有 V8 行计数 = 0** → 先尝试 control-header 的早期 fallback（已覆盖 body / partial branch）；若成立直接 `yes`/`partial`。否则再检查未覆盖 catch 块 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm → `no`; 再走 promote 链
    - when arm 头 → expression-bodied 函数 → expression-bodied accessor → data class 头 → covered 控制头 → 多行控制条件续行 → covered 函数内语句 → **已调用函数内简单语句** → 多行初始化属性头 → block 函数头 → 多行控制头 → 控制行
    - promote 成功 → `yes` 或 `partial`
    - 全部失败 → `no`
-7. **无 V8 行计数** → 先检查未覆盖 catch 块 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm → `no`; 否则同样尝试 promote 链
-8. **最终回退** → 如果是可执行行且在函数体内 → `no`; 否则检查 branchStats: 部分覆盖 → `partial`, 未覆盖 → `no`, 全覆盖 → `yes`, 否则 → `neutral`
+8. **无 V8 行计数** → 先检查未覆盖 catch 块 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm → `no`; 否则同样尝试 promote 链
+9. **最终回退** → 如果是可执行行且在函数体内 → `no`; 否则检查 branchStats: 部分覆盖 → `partial`, 未覆盖 → `no`, 全覆盖 → `yes`, 否则 → `neutral`
 
 ### 6.1 新增规则说明
 
@@ -298,6 +300,11 @@ Branch 数据: loc[0] L15-L17 count=0 (true 分支), loc[1] undefined count=3135
 - **条件**: 行位于多行表达式体函数中，包含它的函数 count > 0
 - **防护**: 排除未覆盖分支臂、未覆盖 catch、zero-count lambda
 - **结果**: 例如 `isNullOrUndefined` 这类多行表达式体函数，头行和续行都会正确显示为 `yes`
+
+#### `getPromotedCoveredPropertyDeclarationStatus` (有 direct coverage 证据的属性声明优先显示 yes)
+- **场景**: 某些类体属性声明（包括 `= null`）被 `structural neutral` 归类，但 `coverage-final.json` 在同一行其实已经有可信的 direct statement 覆盖证据
+- **逻辑**: 在 `isForceNeutralLine()` 之前，若该行是属性声明且 `getDirectStatementCountOnLine(...) > 0`，直接返回 `yes`
+- **结果**: 修复 `KuiklyRenderView.kt:44`、`KRPerformanceManager.kt:37` 这类“声明行看似 neutral，但实际已被构造/初始化路径执行”的问题，同时不影响没有 direct statement 证据的纯 neutral `= null` 声明
 
 #### `promoteInitBlockBodyLines` (init 块顶层语句提升)
 - **场景**: `object` / `class` 的 `init {}` 中，顶层 listener 注册语句实际执行了，但由于回调 lambda 是 zero-count 且 sourcemap 没给注册行 direct statement，HTML 显示为 `no`
@@ -334,10 +341,16 @@ Branch 数据: loc[0] L15-L17 count=0 (true 分支), loc[1] undefined count=3135
 - **逻辑**: 识别包含 `->`、`=`、`.`、`(`、控制关键字等的行为可执行行
 - **目的**: 对于无 Istanbul 行映射但明确可执行的行（如 when 臂体），返回 `no` 而非 `neutral`
 
+#### `getExplicitDeclarationNeutralStatus` (声明行 neutral guard)
+- **用于**: `deriveLineStatus` 的 pre-neutral guard
+- **逻辑**: 对多行函数声明头的起始行（如 `override fun foo(`）在进入 `lineCount==0` / fallback 判定前直接固定为 `neutral`
+- **结果**: 修复 `KuiklyRenderView.kt:555` 这类纯声明行被误显示为 `no` 的问题
+
 #### `isNullInitializedPropertyDeclaration` (纯 null 初始化属性 neutral)
 - **用于**: `buildStructuralNeutralLineSet` / 属性分类
 - **逻辑**: 将 `var foo: T? = null` 视为非运行时初始化属性，不再当作应执行但未覆盖的行
-- **结果**: 像 `EventProcessor.kt:34` 这类纯 `= null` 属性显示为 `neutral` 而不是 `no`
+- **补充**: 若同一行后来又拿到了可信的 direct statement 覆盖证据，则由 `getPromotedCoveredPropertyDeclarationStatus` 在 neutral 之前优先改判为 `yes`
+- **结果**: 像 `EventProcessor.kt:34` 这类纯 `= null` 属性仍可保持 `neutral`，而 `KuiklyRenderView.kt:44` / `KRPerformanceManager.kt:37` 这类已有 direct coverage 证据的属性声明会显示为 `yes`
 
 #### `isMisclassifiedExecutableFunctionBodyLine` (structural neutral 误判修正)
 - **用于**: `isForceNeutralLine`

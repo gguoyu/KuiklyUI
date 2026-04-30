@@ -4108,6 +4108,25 @@ function getPromotedInitializedPropertyHeaderStatus(fileCoverage, filePath, sour
     : null;
 }
 
+function getPromotedCoveredPropertyDeclarationStatus(fileCoverage, sourceLines, lineNumber) {
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+  if (!propertyDeclarationLinePattern.test(lineText) || /\bfun\b/u.test(lineText)) {
+    return null;
+  }
+
+  const directCoveredStatementCount = getDirectStatementCountOnLine(fileCoverage, lineNumber);
+  return directCoveredStatementCount != null && directCoveredStatementCount > 0
+    ? 'yes'
+    : null;
+}
+
+function getExplicitDeclarationNeutralStatus(sourceLines, lineNumber) {
+  const lineText = getLineText(sourceLines, lineNumber).trim();
+  return isMultilineFunctionHeaderStartLine(lineText)
+    ? 'neutral'
+    : null;
+}
+
 function getPromotedBlockFunctionHeaderStatus(fileCoverage, filePath, sourceLines, lineNumber) {
   const lineText = getLineText(sourceLines, lineNumber).trim();
   if (!isBlockFunctionHeaderLine(lineText)) {
@@ -4146,6 +4165,16 @@ function deriveLineStatus(fileCoverage, filePath, sourceLines, lineNumber, branc
   const preNeutralExpressionBodiedFunctionStatus = getPromotedExpressionBodiedFunctionStatus(fileCoverage, sourceLines, lineNumber);
   if (preNeutralExpressionBodiedFunctionStatus) {
     return preNeutralExpressionBodiedFunctionStatus;
+  }
+
+  const preNeutralCoveredPropertyDeclarationStatus = getPromotedCoveredPropertyDeclarationStatus(fileCoverage, sourceLines, lineNumber);
+  if (preNeutralCoveredPropertyDeclarationStatus) {
+    return preNeutralCoveredPropertyDeclarationStatus;
+  }
+
+  const explicitDeclarationNeutralStatus = getExplicitDeclarationNeutralStatus(sourceLines, lineNumber);
+  if (explicitDeclarationNeutralStatus) {
+    return explicitDeclarationNeutralStatus;
   }
 
   if (isForceNeutralLine(filePath, sourceLines, lineNumber)) {
@@ -5179,6 +5208,7 @@ function getCoverageOptions() {
     outputDir: reportDir,
     baseDir: projectRoot,
     clean: !checkOnly,
+    cleanCache: true,
     logging: 'off',
     v8Ignore: true,
     watermarks: coverageConfig.watermarks,
