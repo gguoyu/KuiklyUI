@@ -51,6 +51,9 @@ internal class CSSTransitionTestPage : Pager() {
     private var animEndCount by observable(0)
     private var animToggled by observable(false)
     private var springToggled by observable(false)
+    private var opacityToggled by observable(false)
+    private var bgColorToggled by observable(false)
+    private var frameToggled by observable(false)
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -415,6 +418,124 @@ internal class CSSTransitionTestPage : Pager() {
                         src("https://vfiles.gtimg.cn/wuji_dashboard/xy/componenthub/Dfnp7Q9F.png")
                         resizeCover()
                         maskLinearGradient(Direction.TO_RIGHT, ColorStop(Color.BLACK, 1f), ColorStop(Color.BLACK, 0f))
+                    }
+                }
+
+                // === Section 10: Opacity Animation (exercises OPACITY branch in KRCSSPlainAnimationHandler) ===
+                Text {
+                    attr {
+                        text("10. Opacity Animation")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, top = 8f)
+                        size(80f, 80f)
+                        backgroundColor(Color(0xFFFF5722))
+                        borderRadius(8f)
+                        animation(Animation.linear(durationS = 0.3f), ctx.opacityToggled)
+                        opacity(if (ctx.opacityToggled) 0.3f else 1.0f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.opacityToggled = !ctx.opacityToggled
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("opacity-anim")
+                            fontSize(12f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // === Section 11: BgColor Animation (exercises BACKGROUND_COLOR branch) ===
+                Text {
+                    attr {
+                        text("11. BgColor Animation")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, top = 8f)
+                        size(80f, 80f)
+                        backgroundColor(if (ctx.bgColorToggled) Color(0xFF4CAF50) else Color(0xFFE91E63))
+                        borderRadius(8f)
+                        animation(Animation.easeInOut(durationS = 0.3f), ctx.bgColorToggled)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.bgColorToggled = !ctx.bgColorToggled
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("bgcolor-anim")
+                            fontSize(12f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // === Section 12: Frame Animation (exercises FRAME branch) ===
+                Text {
+                    attr {
+                        text("12. Frame Animation")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, top = 8f)
+                        height(80f)
+                    }
+                    View {
+                        attr {
+                            absolutePosition(
+                                left = if (ctx.frameToggled) 100f else 0f,
+                                top = 0f
+                            )
+                            size(if (ctx.frameToggled) 120f else 60f, 60f)
+                            backgroundColor(Color(0xFF1565C0))
+                            borderRadius(8f)
+                            animation(Animation.linear(durationS = 0.3f), ctx.frameToggled)
+                            allCenter()
+                        }
+                        event {
+                            click {
+                                ctx.frameToggled = !ctx.frameToggled
+                            }
+                        }
+                        Text {
+                            attr {
+                                text("frame-anim")
+                                fontSize(12f)
+                                color(Color.WHITE)
+                                fontWeightBold()
+                            }
+                        }
                     }
                 }
 

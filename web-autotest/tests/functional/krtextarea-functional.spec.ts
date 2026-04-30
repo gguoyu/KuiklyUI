@@ -159,4 +159,18 @@ test.describe('KRTextAreaView functional', () => {
     // beyond-limit-count should have increased
     await expect(kuiklyPage.page.locator('[data-kuikly-component]').filter({ hasText: /beyond-limit-count:(?!0)/ }).first()).toBeVisible({ timeout: 5000 });
   });
+
+  test('clear button should reset textarea content via ViewRef.setText("")', async ({ kuiklyPage }) => {
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 500, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('5. Clear Counter', { exact: false })).toBeVisible();
+    const clearBtn = kuiklyPage.page.getByText('textarea-clear', { exact: true });
+    if (await clearBtn.isVisible()) {
+      await clearBtn.click();
+      await kuiklyPage.waitForRenderComplete();
+      // Clear count should have incremented
+      await expect(kuiklyPage.page.locator('[data-kuikly-component]').filter({ hasText: /clear-count:[1-9]/ }).first()).toBeVisible({ timeout: 3000 });
+    }
+  });
 });

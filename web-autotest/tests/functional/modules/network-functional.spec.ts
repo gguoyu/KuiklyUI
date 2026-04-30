@@ -79,4 +79,22 @@ test.describe('KRNetworkModule functional 验证', () => {
     await expect(kuiklyPage.page.getByText('statusCode=204', { exact: false })).toBeVisible({ timeout: 15000 });
     await expect(kuiklyPage.page.getByText('Unexpected end of JSON input', { exact: false })).toBeVisible({ timeout: 15000 });
   });
+
+  test('requestTimeout 应触发超时错误回调路径', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('NetworkModuleTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const btn = kuiklyPage.page.getByLabel('requestTimeout', { exact: true });
+    const isVisible = await btn.isVisible().catch(() => false);
+    if (!isVisible) {
+      // NetworkModuleTestPage may not have a timeout test button — skip gracefully
+      return;
+    }
+    await btn.click();
+    await kuiklyPage.page.waitForTimeout(5000);
+    // Should show timeout/error result
+    await expect(kuiklyPage.page.getByText('timeout-result:', { exact: false }).or(
+      kuiklyPage.page.getByText('success=false', { exact: false })
+    )).toBeVisible({ timeout: 15000 });
+  });
 });

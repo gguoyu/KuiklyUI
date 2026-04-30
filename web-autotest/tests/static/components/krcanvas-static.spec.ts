@@ -30,4 +30,18 @@ test.describe('KRCanvasView static 验证', () => {
     const canvasCount = await kuiklyPage.page.locator('canvas').count();
     expect(canvasCount).toBeGreaterThan(0);
   });
+
+  test('Clip section should render (Section 8)', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRCanvasViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 800, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('8. Clip', { exact: false })).toBeVisible();
+    // Canvas components should still be functional after clip operations
+    const canvases = kuiklyPage.page.locator('canvas');
+    const count = await canvases.count();
+    expect(count).toBeGreaterThan(7);
+  });
 });

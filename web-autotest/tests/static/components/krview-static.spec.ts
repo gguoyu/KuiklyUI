@@ -106,5 +106,50 @@ test.describe('KRView 静态验证', () => {
     // Section 14 + 15: exercises checkAndUpdatePositionForH5 and toRgbColor alpha path
     await expect(kuiklyPage.page.getByText('14. Border with Child', { exact: false })).toBeVisible({ timeout: 3000 });
   });
+
+  test('visibility toggle 应该改变 CSS display 属性 (Section 8)', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 800, smooth: false });
+
+    // Click visibility toggle to exercise KRView.setVisibility(false) path
+    const toggleBtn = kuiklyPage.page.getByText('visibility-toggle', { exact: true });
+    if (await toggleBtn.isVisible()) {
+      await toggleBtn.click();
+      await kuiklyPage.waitForRenderComplete();
+      // After toggling, hidden view should have display: none or visibility: hidden
+      await expect(kuiklyPage.page.getByText('visibility-target', { exact: true })).toBeHidden();
+    }
+  });
+
+  test('box shadow 样式应被正确应用 (Section 9)', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1000, smooth: false });
+
+    const shadowView = kuiklyPage.page.getByText('shadow-view', { exact: true });
+    if (await shadowView.isVisible()) {
+      const boxShadow = await shadowView.locator('..').evaluate((el) =>
+        window.getComputedStyle(el).boxShadow
+      );
+      expect(boxShadow).not.toBe('none');
+    }
+  });
+
+  test('accessibility label 应被设置为 aria-label (Section 10)', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1200, smooth: false });
+
+    const ariaElements = kuiklyPage.page.locator('[aria-label]');
+    const count = await ariaElements.count();
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
 });
 

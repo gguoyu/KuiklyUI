@@ -442,6 +442,51 @@ internal class KRCanvasViewTestPage : Pager() {
                     }
                 }
 
+                // === Section 8: Clip (exercises CLIP branch in KRCanvasView.call) ===
+                Text {
+                    attr {
+                        text("8. Clip")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(12f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+                View {
+                    attr {
+                        margin(left = 16f, top = 8f, right = 16f)
+                        height(120f)
+                    }
+                    Canvas({
+                        attr {
+                            absolutePosition(0f, 0f, 0f, 0f)
+                            backgroundColor(0xFFF5F5F5)
+                        }
+                    }) { context, width, height ->
+                        // Clip a rectangular region — exercises CLIP branch
+                        context.beginPath()
+                        context.moveTo(20f, 20f)
+                        context.lineTo(width - 20f, 20f)
+                        context.lineTo(width - 20f, height - 20f)
+                        context.lineTo(20f, height - 20f)
+                        context.closePath()
+                        context.clip()
+
+                        // Draw a large circle — only portion inside clip region visible
+                        context.beginPath()
+                        context.fillStyle(Color(0xFF2196F3))
+                        context.arc(width / 2f, height / 2f, 60f, 0f, 2 * PI.toFloat(), false)
+                        context.fill()
+
+                        // Draw text inside clip — exercises multiple call branches
+                        context.font(16f)
+                        context.fillStyle(Color.WHITE)
+                        context.textAlign(com.tencent.kuikly.core.views.TextAlign.CENTER)
+                        context.fillText("Clipped", width / 2f, height / 2f + 5f)
+                    }
+                }
+
                 // 底部间距
                 View {
                     attr {

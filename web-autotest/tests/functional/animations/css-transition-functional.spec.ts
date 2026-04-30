@@ -183,4 +183,101 @@ test.describe('CSS Transition 功能验证', () => {
 
     await expect(kuiklyPage.page.getByText('9. Mask Gradient', { exact: false })).toBeVisible();
   });
+
+  test('Animation cancel+restart: 快速双击应正确处理动画中断', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const trigger = kuiklyPage.page.getByText('Click Me', { exact: false });
+    // Click to start animation
+    await trigger.click();
+    await kuiklyPage.page.waitForTimeout(50); // mid-animation
+    // Click again immediately to cancel + reverse — exercises cancel() path
+    await trigger.click();
+    await kuiklyPage.page.waitForTimeout(600);
+
+    // Should return to original state without crash
+    await expect(kuiklyPage.page.getByText('未展开 (100x100)', { exact: false })).toBeVisible();
+  });
+
+  test('Combo animation 应同时变化多个属性', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const comboBtn = kuiklyPage.page.getByText('Combo Animation', { exact: false });
+    await expect(comboBtn).toBeVisible();
+
+    const metricsBefore = await getClosestViewMetrics(comboBtn);
+    const colorBefore = await getClosestViewBackgroundColor(comboBtn);
+
+    await comboBtn.click();
+    await kuiklyPage.waitForTransitionEnd(comboBtn.locator('..'));
+    await kuiklyPage.waitForRenderComplete();
+
+    const metricsAfter = await getClosestViewMetrics(comboBtn);
+    const colorAfter = await getClosestViewBackgroundColor(comboBtn);
+
+    // Both size and color should have changed
+    if (metricsBefore && metricsAfter) {
+      expect(metricsAfter.width).toBeGreaterThan(metricsBefore.width);
+    }
+    expect(colorAfter).not.toBe(colorBefore);
+  });
+
+  test('Opacity Animation: click should trigger opacity transition', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1600, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('10. Opacity Animation', { exact: false })).toBeVisible();
+    const opacityBtn = kuiklyPage.page.getByText('opacity-anim', { exact: true });
+    await expect(opacityBtn).toBeVisible();
+
+    await opacityBtn.click();
+    await kuiklyPage.page.waitForTimeout(500);
+    // opacity should have changed
+    const parent = opacityBtn.locator('..');
+    const opacity = await parent.evaluate((el) => window.getComputedStyle(el).opacity);
+    expect(parseFloat(opacity)).toBeLessThan(1.0);
+  });
+
+  test('BgColor Animation: click should trigger background-color transition', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1800, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('11. BgColor Animation', { exact: false })).toBeVisible();
+    const bgBtn = kuiklyPage.page.getByText('bgcolor-anim', { exact: true });
+    await expect(bgBtn).toBeVisible();
+
+    const colorBefore = await getClosestViewBackgroundColor(bgBtn);
+    await bgBtn.click();
+    await kuiklyPage.waitForTransitionEnd(bgBtn.locator('..'));
+    const colorAfter = await getClosestViewBackgroundColor(bgBtn);
+    expect(colorAfter).not.toBe(colorBefore);
+  });
+
+  test('Frame Animation: click should trigger position/size transition', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 2000, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('12. Frame Animation', { exact: false })).toBeVisible();
+    const frameBtn = kuiklyPage.page.getByText('frame-anim', { exact: true });
+    await expect(frameBtn).toBeVisible();
+
+    const sizeBefore = await getClosestViewMetrics(frameBtn);
+    await frameBtn.click();
+    await kuiklyPage.page.waitForTimeout(500);
+    const sizeAfter = await getClosestViewMetrics(frameBtn);
+    if (sizeBefore && sizeAfter) {
+      expect(sizeAfter.width).toBeGreaterThan(sizeBefore.width);
+    }
+  });
 });
