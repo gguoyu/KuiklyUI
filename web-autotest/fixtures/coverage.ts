@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { createWriteStream, existsSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 
 const webE2EConfig = require('../config/index.cjs');
@@ -70,6 +70,28 @@ export async function startV8Coverage(page: any): Promise<V8CoverageSession | nu
   }
 }
 
+async function writeCoveragePayload(
+  outputPath: string,
+  entries: any[],
+  meta: { testTitle: string | null; collectedAt: string; pageIndex: number }
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const stream = createWriteStream(outputPath, { encoding: 'utf8' });
+    stream.on('error', reject);
+    stream.on('finish', resolve);
+
+    stream.write('{"result":[');
+    entries.forEach((entry, index) => {
+      if (index > 0) {
+        stream.write(',');
+      }
+      stream.write(JSON.stringify(entry));
+    });
+    stream.write(`],"meta":${JSON.stringify(meta)}}\n`);
+    stream.end();
+  });
+}
+
 export async function stopV8Coverage(
   session: V8CoverageSession | null,
   testTitle?: string
@@ -81,47 +103,56 @@ export async function stopV8Coverage(
   try {
     session.context?.off?.('page', session.pageListener);
 
-    const result = [] as any[];
+    if (!existsSync(V8_OUTPUT_DIR)) {
+      mkdirSync(V8_OUTPUT_DIR, { recursive: true });
+    }
+
+    const safeTitle = getSafeTitle(testTitle);
+    const collectedAt = new Date().toISOString();
+    const timestamp = Date.now();
+    let totalEntries = 0;
+    let fileCount = 0;
+
+    let pageIndex = 0;
     for (const page of session.trackedPages) {
       if (!page?.coverage) {
+        pageIndex += 1;
         continue;
       }
 
       if (typeof page.isClosed === 'function' && page.isClosed()) {
+        pageIndex += 1;
         continue;
       }
 
       try {
         const entries = await page.coverage.stopJSCoverage();
-        result.push(...entries);
+        if (!entries.length) {
+          pageIndex += 1;
+          continue;
+        }
+
+        const filename = `${safeTitle}-${timestamp}-${pageIndex}.json`;
+        const outputPath = join(V8_OUTPUT_DIR, filename);
+        await writeCoveragePayload(outputPath, entries, {
+          testTitle: testTitle || null,
+          collectedAt,
+          pageIndex,
+        });
+        totalEntries += entries.length;
+        fileCount += 1;
       } catch (error) {
         console.warn('[coverage] Failed to stop V8 coverage:', (error as Error).message);
       }
+
+      pageIndex += 1;
     }
 
-    if (!result.length) {
+    if (!totalEntries) {
       return;
     }
 
-    if (!existsSync(V8_OUTPUT_DIR)) {
-      mkdirSync(V8_OUTPUT_DIR, { recursive: true });
-    }
-
-    const filename = `${getSafeTitle(testTitle)}-${Date.now()}.json`;
-    const outputPath = join(V8_OUTPUT_DIR, filename);
-    writeFileSync(
-      outputPath,
-      `${JSON.stringify({
-        result,
-        meta: {
-          testTitle: testTitle || null,
-          collectedAt: new Date().toISOString(),
-        },
-      }, null, 2)}\n`,
-      'utf8'
-    );
-
-    console.log(`[coverage] Saved V8 coverage: ${filename} (${result.length} entries)`);
+    console.log(`[coverage] Saved V8 coverage: ${safeTitle}-${timestamp}-*.json (${totalEntries} entries across ${fileCount} files)`);
   } catch (error) {
     console.warn('[coverage] Failed to persist V8 coverage:', (error as Error).message);
   }
