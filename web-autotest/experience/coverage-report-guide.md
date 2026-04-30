@@ -136,6 +136,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 | `applyCoveredConstructorDelegationContinuations` | 构造器委托 (`constructor(...) : this(...)`) 的后续行继承起始行计数 |
 | `applyConstructorInitializerFallback` | 主构造器中的运行时初始化属性继承构造器的函数计数 |
 | `applyClassBodyRuntimePropertyFallback` | 类体中的运行时初始化属性，若被某已覆盖语句跨行覆盖，则继承最大计数 |
+| `promoteInitBlockBodyLines` | `init {}` 顶层可执行语句（如 listener 注册）在构造/对象初始化已执行时继承同一 class/object 中已覆盖运行时初始化属性的计数 |
 | `propagateCoveredBranchBodyLines` | 分支体内仅一行时，该行继承分支计数 |
 | `promoteDirectCoveredBranchBodyLines` | 分支体内 ≤4 行时，无直接语句计数的行继承分支/跨行语句计数 |
 | `applySimpleFunctionBodyFallback` | 函数体 ≤3 行且无复杂控制流时，未覆盖行继承已覆盖行计数 |
@@ -163,7 +164,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 
 | 规则 | 逻辑 |
 |------|------|
-| `suppressFalseCoveredLinesInUncoveredBranches` | 未覆盖分支臂内的行，若无直接语句计数且无可靠执行证据，则设为 0 |
+| `suppressFalseCoveredLinesInUncoveredBranches` | 未覆盖分支臂内的行，若无直接语句计数且无可靠执行证据，则设为 0；但若该行同时落在已覆盖 arm 中、是 arm/header 起始行、或是同一行 ConditionalExpression arm，则不按“可靠未覆盖 arm”处理 |
 | `suppressFalseCoveredLinesInUncoveredFunctions` | 未调用函数体内的行，若无局部执行证据，则设为 0。关键细节: (1) Lambda/匿名函数使用自身 loc 范围做 suppress，不向上扩展到外层函数 — 扩展会错误包含兄弟 lambda 的覆盖语句; (2) 使用 `locEndLine` 代替 `findBlockEndLine` 确定 suppress 范围 — 后者在包含嵌套 lambda/class 的方法中可能过早结束; (3) 当 `hasLocalCoveredExecution=false` 时无条件 suppress 所有覆盖行 — 函数从未被调用时，范围内的 statement 覆盖都来自外层 spanning statement |
 | `suppressFalseCoveredWhenElseTailLines` | `when` 中 `else ->` 行，若仅有一个已覆盖的非 else 分支且计数相同，则 else 设为 0 (源映射伪影) |
 | `suppressFalseCoveredLinesInUncoveredWhenArms` | 未覆盖 when 臂体内的行，若无局部执行证据则设为 0 |
@@ -175,7 +176,7 @@ node web-autotest/scripts/coverage-report.mjs --check
 | `suppressSuspiciousPropertyDeclarationHeadLineCounts` | 无初始化器的属性声明行有覆盖计数但无直接语句时，删除 |
 | `suppressSuspiciousInitializedPropertyHeaderLineCounts` | 多行初始化属性头行有覆盖计数但无直接语句时，删除 |
 | `suppressPromotedLinesInUncoveredCatchBlocks` | 未覆盖 catch 块内被中间 promote 规则错误推断为覆盖的行 (无 direct statement coverage)，重置为 0。作为 source 层预防之后的安全网 |
-| `hardSuppressZeroCountLambdaListenerBodies` | 对 count=0 的 listener/lambda，若体内无 direct statement 且无独立已覆盖嵌套函数，则将体内 promote 出来的假覆盖强制清零；保留注册调用所在头行 |
+| `hardSuppressZeroCountLambdaListenerBodies` | 对 count=0 的 listener/lambda，若体内无 direct statement 且无独立已覆盖嵌套函数，则将体内 promote 出来的假覆盖强制清零；保留 `addEventListener` / `setTimeout` 等注册调用所在头行 |
 | `applyFunctionCoverageFallback` | 当 stmtMap 为空 (MCR sourcemap remap 未生成语句映射) 但 fnMap 有已覆盖函数时，从函数 loc 范围推导行覆盖。处理如 object 内表达式体函数仅生成 fnMap 但无 stmtMap 的情况 |
 
 #### 4.2.5 未调用函数体内假覆盖 Suppress 细节
@@ -243,7 +244,10 @@ Kotlin/JS 编译器为同一 lambda 生成多个 fnMap 条目 (如 `lambda` 和 
 
 **问题**: `if (condition) { stmt }` 结构中，若 condition 始终为 false，则 `stmt` 行从未执行 (`fc.l=0`)，但 promote 规则 (`getPromotedCoveredFunctionStatementStatus`) 可能因为 `stmt` 行在已覆盖函数内且有 spanning statement 覆盖，将其推断为 `yes`。
 
-**根因**: `isLineInReliablyUncoveredBranchArm` 用于在 promote 前检查行是否在未覆盖分支臂内。旧实现要求 covered branch arm 的 location 有有效的 `start.line` 和 `end.line`，但 Kotlin/JS 编译器生成的 sourcemap 中，if-else 的 else 分支 location 经常是 undefined (仅有 count > 0，无坐标)。
+**根因**: `isLineInReliablyUncoveredBranchArm` 用于在 promote 前检查行是否在未覆盖分支臂内。旧实现要求 covered branch arm 的 location 有有效的 `start.line` 和 `end.line`，但 Kotlin/JS 编译器生成的 sourcemap 中，if-else 的 else 分支 location 经常是 undefined (仅有 count > 0，无坐标)。第二轮修复后，该函数还增加了三层保护：
+- 行若同时落在已覆盖 arm 与未覆盖 arm 的重叠边界中，不再按“可靠未覆盖”处理（修复 `val ... = if (...)` 边界行误杀）
+- 分支 arm 起始/header 行不直接按未覆盖 body 行 suppress（条件本身可能已执行）
+- 同一行 `ConditionalExpression` arm 不按未覆盖分支 suppress（如 `touch?.clientX` 这类 Elvis/可空表达式）
 
 **示例** (Log.kt L15-L16):
 ```
@@ -274,7 +278,7 @@ Branch 数据: loc[0] L15-L17 count=0 (true 分支), loc[1] undefined count=3135
 3. **单行空块函数** → 根据函数计数 `yes` 或 `no`
 4. **有 direct statement count > 0** → 直接 `yes`（例如 listener 注册行）
 5. **有 V8 行计数 > 0** → 检查未调用函数 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm 等 suppress guard → `yes` 或 `no`
-6. **有 V8 行计数 = 0** → 先检查未覆盖 catch 块 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm → `no`; 否则尝试 promote:
+6. **有 V8 行计数 = 0** → 先尝试 control-header 的早期 fallback（已覆盖 body / partial branch）；若成立直接 `yes`/`partial`。否则再检查未覆盖 catch 块 / 未覆盖分支臂 / zero-count lambda / 未选中 inline when arm → `no`; 再走 promote 链
    - when arm 头 → expression-bodied 函数 → expression-bodied accessor → data class 头 → covered 控制头 → 多行控制条件续行 → covered 函数内语句 → **已调用函数内简单语句** → 多行初始化属性头 → block 函数头 → 多行控制头 → 控制行
    - promote 成功 → `yes` 或 `partial`
    - 全部失败 → `no`
@@ -294,6 +298,16 @@ Branch 数据: loc[0] L15-L17 count=0 (true 分支), loc[1] undefined count=3135
 - **条件**: 行位于多行表达式体函数中，包含它的函数 count > 0
 - **防护**: 排除未覆盖分支臂、未覆盖 catch、zero-count lambda
 - **结果**: 例如 `isNullOrUndefined` 这类多行表达式体函数，头行和续行都会正确显示为 `yes`
+
+#### `promoteInitBlockBodyLines` (init 块顶层语句提升)
+- **场景**: `object` / `class` 的 `init {}` 中，顶层 listener 注册语句实际执行了，但由于回调 lambda 是 zero-count 且 sourcemap 没给注册行 direct statement，HTML 显示为 `no`
+- **条件**: 所在 class/object 范围内已有已覆盖的运行时初始化属性，可证明初始化上下文执行；仅提升 `init {}` 顶层可执行语句，不提升嵌套 lambda 体
+- **结果**: 如 `EventProcessor.kt` 中 `PCPanEventHandler.init` 的 `addEventListener` 注册行能稳定显示为 `yes`
+
+#### 控制头早期 fallback (`deriveLineStatus` lineCount==0 path)
+- **场景**: `if (...) {` 条件本身执行了，但 branch/sourcemap 把 header 计成 `0`，只有 body 或 branchStats 反映出执行证据
+- **逻辑**: 在进入未覆盖分支 arm suppress 之前，优先检查 control header 是否已有已覆盖 body / partial branch 证据；有则直接返回 `yes` / `partial`
+- **结果**: 修复 `EventProcessor.kt:247`、`H5ListPCScrollHelper.kt:279` 这类“条件已执行但 header 显示 no”的问题
 
 #### `suppressUnselectedInlineWhenArmLines` (未命中 inline when arm 抑制)
 - **场景**: `cond -> expr` / `cond -> { ... }` 形式的 inline `when` arm，被外层 spanning statement 误染成 `yes`
@@ -319,6 +333,11 @@ Branch 数据: loc[0] L15-L17 count=0 (true 分支), loc[1] undefined count=3135
 - **用于**: `deriveLineStatus` 的 `lineCount == null` 回退路径
 - **逻辑**: 识别包含 `->`、`=`、`.`、`(`、控制关键字等的行为可执行行
 - **目的**: 对于无 Istanbul 行映射但明确可执行的行（如 when 臂体），返回 `no` 而非 `neutral`
+
+#### `isNullInitializedPropertyDeclaration` (纯 null 初始化属性 neutral)
+- **用于**: `buildStructuralNeutralLineSet` / 属性分类
+- **逻辑**: 将 `var foo: T? = null` 视为非运行时初始化属性，不再当作应执行但未覆盖的行
+- **结果**: 像 `EventProcessor.kt:34` 这类纯 `= null` 属性显示为 `neutral` 而不是 `no`
 
 #### `isMisclassifiedExecutableFunctionBodyLine` (structural neutral 误判修正)
 - **用于**: `isForceNeutralLine`
