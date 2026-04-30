@@ -698,10 +698,11 @@ fun Element.setKRAnimation(animation: String?) {
                     // commit new animation, old animation has been committed
                     v.commitAnimation(forceCommit)
                 }
-                // generate last step animation string
-                kuiklyAnimation?.step(getAnimationStepOption(commitAnimation))
-                // execute animation
-                kuiklyAnimationGroup = kuiklyAnimation?.export(this.unsafeCast<HTMLElement>())
+                // generate last step animation string and execute animation
+                kuiklyAnimation?.let { anim ->
+                    anim.step(getAnimationStepOption(commitAnimation))
+                    kuiklyAnimationGroup = anim.export(this.unsafeCast<HTMLElement>())
+                }
                 if (kuiklyAnimationGroup != null && kuiklyAnimationGroup != "") {
                     // 小程序的动画此处返回为空，因此不做 animation 属性的设置
                     // execute animation

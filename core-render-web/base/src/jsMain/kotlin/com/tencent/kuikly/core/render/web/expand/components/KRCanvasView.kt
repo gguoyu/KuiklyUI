@@ -35,12 +35,10 @@ class KRCanvasView : IKuiklyRenderViewExport {
     /**
      * get canvas context
      */
-    private val canvasContext: CanvasRenderingContext2D?
-        get() = if (_context != null) {
-            _context
-        } else {
-            _context = ele.getContext("2d").unsafeCast<CanvasRenderingContext2D?>()
-            _context
+    private val canvasContext: CanvasRenderingContext2D
+        get() = _context ?: run {
+            _context = ele.getContext("2d").unsafeCast<CanvasRenderingContext2D>()
+            _context!!
         }
 
 
@@ -71,15 +69,15 @@ class KRCanvasView : IKuiklyRenderViewExport {
 
     override fun call(method: String, params: String?, callback: KuiklyRenderCallback?): Any? {
         return when (method) {
-            BEGIN_PATH -> canvasContext?.beginPath()
+            BEGIN_PATH -> canvasContext.beginPath()
             MOVE_TO -> moveTo(params)
             LINE_TO -> lineTo(params)
             ARC -> arc(params)
-            CLOSE_PATH -> canvasContext?.closePath()
-            STROKE -> canvasContext?.stroke()
+            CLOSE_PATH -> canvasContext.closePath()
+            STROKE -> canvasContext.stroke()
             STROKE_STYLE -> setStrokeStyle(params)
             STROKE_TEXT -> setStrokeText(params)
-            FILL -> canvasContext?.fill()
+            FILL -> canvasContext.fill()
             FILL_TEXT -> setFillText(params)
             FILL_STYLE -> setFillStyle(params)
             LINE_WIDTH -> setLineWidth(params)
@@ -91,7 +89,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
             QUADRATIC_CURVE_TO -> quadraticCurveTo(params)
             BEZIER_CURVE_TO -> bezierCurveTo(params)
             RESET -> reset()
-            CLIP -> canvasContext?.clip()
+            CLIP -> canvasContext.clip()
             else -> super.call(method, params, callback)
         }
     }
@@ -103,7 +101,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
         val paramsJSON = params.toJSONObjectSafely()
         val x = paramsJSON.optDouble(KRViewConst.X)
         val y = paramsJSON.optDouble(KRViewConst.Y)
-        canvasContext?.moveTo(x, y)
+        canvasContext.moveTo(x, y)
     }
 
     /**
@@ -113,7 +111,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
         val paramsJSON = params.toJSONObjectSafely()
         val x = paramsJSON.optDouble(KRViewConst.X)
         val y = paramsJSON.optDouble(KRViewConst.Y)
-        canvasContext?.lineTo(x, y)
+        canvasContext.lineTo(x, y)
     }
 
     /**
@@ -127,7 +125,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
         val startAngle = paramsJSON.optDouble(START_ANGLE)
         val endAngle = paramsJSON.optDouble(END_ANGLE)
         val counterclockwise = paramsJSON.optInt(COUNTER_CLOCKWISE) == TYPE_COUNTER_CLOCKWISE
-        canvasContext?.arc(cx, cy, radius, startAngle, endAngle, counterclockwise)
+        canvasContext.arc(cx, cy, radius, startAngle, endAngle, counterclockwise)
     }
 
     /**
@@ -136,7 +134,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
     private fun setStrokeStyle(params: String?) {
         val paramsJSON = params.toJSONObjectSafely()
         val style = paramsJSON.optString(STYLE)
-        canvasContext?.strokeStyle = tryParseGradient(style) ?: style.toRgbColor()
+        canvasContext.strokeStyle = tryParseGradient(style) ?: style.toRgbColor()
     }
 
     /**
@@ -144,7 +142,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
      */
     private fun setStrokeText(params: String?) {
         val paramsJSON = params.toJSONObjectSafely()
-        canvasContext?.strokeText(
+        canvasContext.strokeText(
             paramsJSON.optString(TEXT),
             paramsJSON.optDouble(KRViewConst.X),
             paramsJSON.optDouble(KRViewConst.Y))
@@ -156,7 +154,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
     private fun setFillStyle(params: String?) {
         val paramsJSON = params.toJSONObjectSafely()
         val style = paramsJSON.optString(STYLE)
-        canvasContext?.fillStyle = tryParseGradient(style) ?: style.toRgbColor()
+        canvasContext.fillStyle = tryParseGradient(style) ?: style.toRgbColor()
     }
 
     /**
@@ -164,7 +162,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
      */
     private fun setFillText(params: String?) {
         val paramsJSON = params.toJSONObjectSafely()
-        canvasContext?.fillText(
+        canvasContext.fillText(
             paramsJSON.optString(TEXT),
             paramsJSON.optDouble(KRViewConst.X),
             paramsJSON.optDouble(KRViewConst.Y))
@@ -175,7 +173,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
      */
     private fun setLineWidth(params: String?) {
         val paramsJSON = params.toJSONObjectSafely()
-        canvasContext?.lineWidth = paramsJSON.optDouble(KRViewConst.WIDTH)
+        canvasContext.lineWidth = paramsJSON.optDouble(KRViewConst.WIDTH)
     }
 
     /**
@@ -191,7 +189,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
         // we need to process it separately
         val colorStops = paramsJSON.optString("colorStops")
         val colors = splitCanvasColorDefinitions(colorStops)
-        val gradient = canvasContext?.createLinearGradient(leftX, leftY, rightX, rightY)
+        val gradient = canvasContext.createLinearGradient(leftX, leftY, rightX, rightY)
         colors.forEach { item ->
             val colorAndPosition = item.split(" ")
             gradient?.addColorStop(colorAndPosition[1].toDouble(), colorAndPosition[0].toRgbColor())
@@ -217,7 +215,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
      */
     private fun setLineCap(params: String?) {
         val paramsJSON = params.toJSONObjectSafely()
-        canvasContext?.lineCap = when (paramsJSON.optString(STYLE)) {
+        canvasContext.lineCap = when (paramsJSON.optString(STYLE)) {
             "butt" -> CanvasLineCap.BUTT
             "round" -> CanvasLineCap.ROUND
             else -> CanvasLineCap.SQUARE
@@ -232,13 +230,13 @@ class KRCanvasView : IKuiklyRenderViewExport {
         val jsonArray = json.optJSONArray("intervals")
         if (jsonArray == null) {
             // no segments, clear dash
-            canvasContext?.setLineDash(arrayOf())
+            canvasContext.setLineDash(arrayOf())
         } else {
             val intervals: Array<Double> = arrayOf()
             for (i in 0 until jsonArray.length()) {
                 intervals[i] = jsonArray.optDouble(i)
             }
-            canvasContext?.setLineDash(intervals)
+            canvasContext.setLineDash(intervals)
         }
     }
 
@@ -251,7 +249,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
         val cpy = json.optDouble("cpy")
         val x = json.optDouble(KRViewConst.X)
         val y = json.optDouble(KRViewConst.Y)
-        canvasContext?.quadraticCurveTo(cpx, cpy, x, y)
+        canvasContext.quadraticCurveTo(cpx, cpy, x, y)
     }
 
 
@@ -266,7 +264,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
         val cp2y = json.optDouble("cp2y")
         val x = json.optDouble(KRViewConst.X)
         val y = json.optDouble(KRViewConst.Y)
-        canvasContext?.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)
+        canvasContext.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)
     }
 
     /**
@@ -275,7 +273,7 @@ class KRCanvasView : IKuiklyRenderViewExport {
     private fun reset() {
         // because canvasRenderingContext2D's reset method support degree too low,
         // so use clearRect to implement, clear the whole canvas
-        canvasContext?.clearRect(0.0, 0.0, ele.width.toDouble(), ele.height.toDouble())
+        canvasContext.clearRect(0.0, 0.0, ele.width.toDouble(), ele.height.toDouble())
     }
 
     companion object {

@@ -72,30 +72,32 @@ class KRCSSPlainAnimationHandler(
     private fun applyFinalValue() {
         // After each animation ends, assign the animation final value to the corresponding property of the element
         finalValue?.let { value ->
-            when (property) {
-                KRCssConst.TRANSFORM -> {
-                    getCSSTransform(value).let {
-                        target?.style?.transform = it["transform"]!!
+            target?.let { t ->
+                when (property) {
+                    KRCssConst.TRANSFORM -> {
+                        getCSSTransform(value).let {
+                            t.style.transform = it["transform"]!!
+                        }
                     }
-                }
 
-                KRCssConst.OPACITY -> {
-                    target?.style?.opacity = value.unsafeCast<Number>().toString()
-                }
+                    KRCssConst.OPACITY -> {
+                        t.style.opacity = value.unsafeCast<Number>().toString()
+                    }
 
-                KRCssConst.BACKGROUND_COLOR -> {
-                    target?.style?.backgroundColor = value.unsafeCast<String>().toRgbColor()
-                }
+                    KRCssConst.BACKGROUND_COLOR -> {
+                        t.style.backgroundColor = value.unsafeCast<String>().toRgbColor()
+                    }
 
-                KRCssConst.FRAME -> {
-                    val frameValue = value.unsafeCast<Frame>()
-                    target?.style?.left = "${frameValue.x}px"
-                    target?.style?.top = "${frameValue.y}px"
-                    target?.style?.width = "${frameValue.width}px"
-                    target?.style?.height = "${frameValue.height}px"
-                }
+                    KRCssConst.FRAME -> {
+                        val frameValue = value.unsafeCast<Frame>()
+                        t.style.left = "${frameValue.x}px"
+                        t.style.top = "${frameValue.y}px"
+                        t.style.width = "${frameValue.width}px"
+                        t.style.height = "${frameValue.height}px"
+                    }
 
-                else -> {}
+                    else -> {}
+                }
             }
         }
     }
@@ -106,8 +108,8 @@ class KRCSSPlainAnimationHandler(
     private fun getCSSTransform(value: Any): JsMap<String, String> {
         val transformSpilt = value.unsafeCast<String>().split("|")
         // Get element's own width and height (if parameter is %, convert to px)
-        val width = target?.style?.width?.removeSuffix("px")?.toDoubleOrNull() ?: 0.0
-        val height = target?.style?.height?.removeSuffix("px")?.toDoubleOrNull() ?: 0.0
+        val width = target?.let { it.style.width.removeSuffix("px").toDoubleOrNull() } ?: 0.0
+        val height = target?.let { it.style.height.removeSuffix("px").toDoubleOrNull() } ?: 0.0
 
         val anchorSpilt = transformSpilt[3].split(" ")
         val anchorX = anchorSpilt[0].toPercentage()
@@ -209,36 +211,38 @@ class KRCSSPlainAnimationHandler(
         property: String,
         operateValueMap: Map<String, String>
     ) {
-        when (property) {
-            KRCssConst.TRANSFORM -> {
-                val translateX = operateValueMap["translateX"] ?: "0"
-                val translateY = operateValueMap["translateY"] ?: "0"
-                val rotate = operateValueMap["rotate"] ?: "0"
-                val scaleX = operateValueMap["scaleX"] ?: "1.0"
-                val scaleY = operateValueMap["scaleY"] ?: "1.0"
-                val skewX = operateValueMap["skewX"] ?: "0"
-                val skewY = operateValueMap["skewY"] ?: "0"
+        target.kuiklyAnimation?.let { animation ->
+            when (property) {
+                KRCssConst.TRANSFORM -> {
+                    val translateX = operateValueMap["translateX"] ?: "0"
+                    val translateY = operateValueMap["translateY"] ?: "0"
+                    val rotate = operateValueMap["rotate"] ?: "0"
+                    val scaleX = operateValueMap["scaleX"] ?: "1.0"
+                    val scaleY = operateValueMap["scaleY"] ?: "1.0"
+                    val skewX = operateValueMap["skewX"] ?: "0"
+                    val skewY = operateValueMap["skewY"] ?: "0"
 
-                // set transform values
-                target.kuiklyAnimation?.translate(translateX, translateY)
-                target.kuiklyAnimation?.rotate(rotate)
-                target.kuiklyAnimation?.scale(scaleX, scaleY)
-                target.kuiklyAnimation?.skew(skewX, skewY)
-            }
+                    // set transform values
+                    animation.translate(translateX, translateY)
+                    animation.rotate(rotate)
+                    animation.scale(scaleX, scaleY)
+                    animation.skew(skewX, skewY)
+                }
 
-            KRCssConst.OPACITY -> {
-                target.kuiklyAnimation?.opacity(operateValueMap["opacity"]!!)
-            }
+                KRCssConst.OPACITY -> {
+                    animation.opacity(operateValueMap["opacity"]!!)
+                }
 
-            KRCssConst.BACKGROUND_COLOR -> {
-                target.kuiklyAnimation?.backgroundColor(operateValueMap["backgroundColor"]!!)
-            }
+                KRCssConst.BACKGROUND_COLOR -> {
+                    animation.backgroundColor(operateValueMap["backgroundColor"]!!)
+                }
 
-            KRCssConst.FRAME -> {
-                target.kuiklyAnimation?.left(operateValueMap["left"]!!)
-                target.kuiklyAnimation?.top(operateValueMap["top"]!!)
-                target.kuiklyAnimation?.width(operateValueMap["width"]!!)
-                target.kuiklyAnimation?.height(operateValueMap["height"]!!)
+                KRCssConst.FRAME -> {
+                    animation.left(operateValueMap["left"]!!)
+                    animation.top(operateValueMap["top"]!!)
+                    animation.width(operateValueMap["width"]!!)
+                    animation.height(operateValueMap["height"]!!)
+                }
             }
         }
     }
