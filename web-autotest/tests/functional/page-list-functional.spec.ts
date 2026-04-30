@@ -269,6 +269,26 @@ test.describe('PageList functional 验证', () => {
     expect(await getLeft(page3Item)).toBeGreaterThan(300);
   });
 
+  test('clicking no-anim should delay the page jump and then switch without animation', async ({ kuiklyPage }) => {
+    const page0Item = kuiklyPage.page.getByText(PAGE_ZERO_ITEM, { exact: true });
+    const page1Item = kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true });
+    const trigger = kuiklyPage.page.getByText('no-anim:0', { exact: true });
+
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+
+    await kuiklyPage.page.waitForTimeout(100);
+    await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+    expect(await getLeft(page0Item)).toBeGreaterThanOrEqual(0);
+    expect(await getLeft(page1Item)).toBeGreaterThan(300);
+
+    await kuiklyPage.page.waitForTimeout(350);
+    await expect(kuiklyPage.page.getByText('no-anim:1', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+    expect(await getLeft(page1Item)).toBeGreaterThanOrEqual(0);
+    expect(await getLeft(page0Item)).toBeLessThan(0);
+  });
+
   test('wheel scrolling should page forward and stop at the last page boundary', async ({ kuiklyPage }) => {
     const pageList = kuiklyPage.component('KRListView').first();
     const page3Item = kuiklyPage.page.getByText(PAGE_THREE_ITEM, { exact: true });

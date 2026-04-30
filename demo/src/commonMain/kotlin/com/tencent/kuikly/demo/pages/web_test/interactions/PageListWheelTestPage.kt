@@ -3,10 +3,12 @@ package com.tencent.kuikly.demo.pages.web_test.interactions
 import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ViewBuilder
+import com.tencent.kuikly.core.base.ViewRef
 import com.tencent.kuikly.core.pager.Pager
 import com.tencent.kuikly.core.reactive.handler.observable
 import com.tencent.kuikly.core.views.List
 import com.tencent.kuikly.core.views.PageList
+import com.tencent.kuikly.core.views.PageListView
 import com.tencent.kuikly.core.views.Text
 import com.tencent.kuikly.core.views.View
 import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
@@ -25,6 +27,8 @@ import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
 internal class PageListWheelTestPage : Pager() {
     private var currentIndex by observable(0)
     private var wheelEventCount by observable(0)
+    private var nestedPageIndex by observable(0)
+    private var nestedPageListRef: ViewRef<PageListView<*, *>>? = null
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -106,20 +110,100 @@ internal class PageListWheelTestPage : Pager() {
                             fontWeightBold()
                         }
                     }
-                    for (i in 0 until 10) {
-                        View {
+                    Text {
+                        attr {
+                            text("Nested host page")
+                            color(0xCCFFFFFF)
+                            marginTop(4f)
+                            marginLeft(16f)
+                            fontSize(12f)
+                        }
+                    }
+                    View {
+                        attr {
+                            height(36f)
+                            margin(left = 16f, right = 16f, top = 12f)
+                            backgroundColor(0x33FFFFFF)
+                            borderRadius(8f)
+                            allCenter()
+                        }
+                        event {
+                            click {
+                                val targetIndex = if (ctx.nestedPageIndex == 0) 1 else 0
+                                ctx.nestedPageIndex = targetIndex
+                                ctx.nestedPageListRef?.view?.setContentOffset((ctx.pageData.pageViewWidth - 32f) * targetIndex, 0f, false)
+                            }
+                        }
+                        Text {
                             attr {
-                                height(48f)
-                                margin(left = 16f, right = 16f, top = 8f)
-                                backgroundColor(0x33FFFFFF)
-                                allCenter()
+                                text("nested:${ctx.nestedPageIndex}")
+                                color(Color.WHITE)
+                                fontSize(13f)
+                                fontWeightBold()
+                            }
+                        }
+                    }
+                    PageList {
+                        ref {
+                            ctx.nestedPageListRef = it
+                        }
+                        attr {
+                            height(220f)
+                            margin(left = 16f, right = 16f, top = 12f)
+                            pageDirection(true)
+                            pageItemWidth(ctx.pageData.pageViewWidth - 32f)
+                            pageItemHeight(220f)
+                            showScrollerIndicator(false)
+                            bouncesEnable(true)
+                            keepItemAlive(true)
+                        }
+                        List {
+                            attr { backgroundColor(Color(0xFF1E88E5)) }
+                            Text {
+                                attr {
+                                    text("Nested Page 0")
+                                    color(Color.WHITE)
+                                    marginTop(18f)
+                                    marginLeft(16f)
+                                    fontSize(18f)
+                                    fontWeightBold()
+                                }
                             }
                             Text {
                                 attr {
-                                    text("Item $i")
+                                    text("Nested item A0")
                                     color(Color.WHITE)
+                                    marginTop(12f)
+                                    marginLeft(16f)
                                     fontSize(14f)
                                 }
+                            }
+                        }
+                        List {
+                            attr { backgroundColor(Color(0xFF0D47A1)) }
+                            Text {
+                                attr {
+                                    text("Nested Page 1")
+                                    color(Color.WHITE)
+                                    marginTop(18f)
+                                    marginLeft(16f)
+                                    fontSize(18f)
+                                    fontWeightBold()
+                                }
+                            }
+                            Text {
+                                attr {
+                                    text("Nested item B1")
+                                    color(Color.WHITE)
+                                    marginTop(12f)
+                                    marginLeft(16f)
+                                    fontSize(14f)
+                                }
+                            }
+                        }
+                        event {
+                            pageIndexDidChanged { params ->
+                                ctx.nestedPageIndex = (params as JSONObject).optInt("index")
                             }
                         }
                     }

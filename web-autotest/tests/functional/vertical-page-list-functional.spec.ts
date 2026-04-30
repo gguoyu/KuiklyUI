@@ -96,4 +96,55 @@ test.describe('Vertical PageList functional 验证', () => {
 
     await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
   });
+
+  test('small vertical wheel delta should not trigger a page switch', async ({ kuiklyPage }) => {
+    const pageList = kuiklyPage.component('KRListView').first();
+    await wheelVerticalPageList(kuiklyPage.page, pageList, 0, 10, 250);
+
+    await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+    await expect(kuiklyPage.page.getByText('pageIndex:0 listIndex:0', { exact: true })).toBeVisible();
+  });
+
+  test('repeated vertical wheel should stop at the last page boundary', async ({ kuiklyPage }) => {
+    const pageList = kuiklyPage.component('KRListView').first();
+
+    for (let i = 0; i < 6; i += 1) {
+      await wheelVerticalPageList(kuiklyPage.page, pageList, 0, 80, 320);
+    }
+
+    await expect(kuiklyPage.page.getByText('tab3', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+    await expect(kuiklyPage.page.getByText('pageIndex:3 listIndex:0', { exact: true })).toBeVisible();
+  });
+
+  test('vertical wheel should navigate back to the first page and stop at the top boundary', async ({ kuiklyPage }) => {
+    const pageList = kuiklyPage.component('KRListView').first();
+
+    for (let i = 0; i < 3; i += 1) {
+      await wheelVerticalPageList(kuiklyPage.page, pageList, 0, 80, 320);
+    }
+    await expect(kuiklyPage.page.getByText('tab3', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+
+    for (let i = 0; i < 5; i += 1) {
+      await wheelVerticalPageList(kuiklyPage.page, pageList, 0, -80, 320);
+    }
+
+    await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+    await expect(kuiklyPage.page.getByText('pageIndex:0 listIndex:0', { exact: true })).toBeVisible();
+  });
+
+  test('wheel lock should allow only one page switch until the reset timeout elapses', async ({ kuiklyPage }) => {
+    const pageList = kuiklyPage.component('KRListView').first();
+
+    await wheelVerticalPageList(kuiklyPage.page, pageList, 0, 80, 0);
+    await kuiklyPage.page.waitForTimeout(40);
+    await wheelVerticalPageList(kuiklyPage.page, pageList, 0, 120, 260);
+
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+    await expect(kuiklyPage.page.getByText('tab2', { exact: true })).toHaveCSS('color', INACTIVE_COLOR);
+
+    await kuiklyPage.page.waitForTimeout(220);
+    await wheelVerticalPageList(kuiklyPage.page, pageList, 0, 120, 320);
+
+    await expect(kuiklyPage.page.getByText('tab2', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+  });
 });

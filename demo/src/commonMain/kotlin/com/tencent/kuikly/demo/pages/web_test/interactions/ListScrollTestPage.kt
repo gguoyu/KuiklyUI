@@ -60,6 +60,8 @@ internal class ListScrollTestPage : Pager() {
     private var scrollEndCount by observable(0)
     private var scrollToCount by observable(0)
     private var scrollToAnimatedCount by observable(0)
+    private var indicatorVisible by observable(true)
+    private var bounceEnabledState by observable(true)
     private var listRef: ViewRef<ListView<*, *>>? = null
 
     override fun body(): ViewBuilder {
@@ -173,6 +175,50 @@ internal class ListScrollTestPage : Pager() {
                         Text {
                             attr {
                                 text(if (ctx.scrollToAnimatedCount == 0) "scroll-anim-idle" else "scroll-anim: ${ctx.scrollToAnimatedCount}")
+                                fontSize(9f)
+                                color(Color.WHITE)
+                            }
+                        }
+                    }
+                    View {
+                        attr {
+                            height(22f)
+                            backgroundColor(Color(0x44FFFFFF))
+                            borderRadius(4f)
+                            allCenter()
+                            marginTop(2f)
+                        }
+                        event {
+                            click {
+                                ctx.indicatorVisible = !ctx.indicatorVisible
+                                ctx.listRef?.view?.getViewAttr()?.showScrollerIndicator(ctx.indicatorVisible)
+                            }
+                        }
+                        Text {
+                            attr {
+                                text(if (ctx.indicatorVisible) "indicator:shown" else "indicator:hidden")
+                                fontSize(9f)
+                                color(Color.WHITE)
+                            }
+                        }
+                    }
+                    View {
+                        attr {
+                            height(22f)
+                            backgroundColor(Color(0x44FFFFFF))
+                            borderRadius(4f)
+                            allCenter()
+                            marginTop(2f)
+                        }
+                        event {
+                            click {
+                                ctx.bounceEnabledState = !ctx.bounceEnabledState
+                                ctx.listRef?.view?.getViewAttr()?.bouncesEnable(ctx.bounceEnabledState)
+                            }
+                        }
+                        Text {
+                            attr {
+                                text(if (ctx.bounceEnabledState) "bounce:on" else "bounce:off")
                                 fontSize(9f)
                                 color(Color.WHITE)
                             }

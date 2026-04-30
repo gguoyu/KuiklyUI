@@ -351,6 +351,28 @@ test.describe('list scroll 功能验证', () => {
     await expect(kuiklyPage.component('KRListView').first()).toBeVisible();
   });
 
+  test('navigating away with active click and wheel timers should still clean up safely', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const listContainer = kuiklyPage.component('KRListView').first();
+    const box = await listContainer.boundingBox();
+    expect(box).toBeTruthy();
+
+    await kuiklyPage.page.getByText('列表项 2', { exact: true }).click();
+    await kuiklyPage.page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await kuiklyPage.page.mouse.wheel(0, 240);
+    await kuiklyPage.page.waitForTimeout(40);
+
+    await kuiklyPage.goto('SmokeTestPage');
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
+
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.component('KRListView').first()).toBeVisible();
+  });
+
   test('scroll events should fire dragBegin and scroll callbacks when dragging', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('ListScrollTestPage');
     await kuiklyPage.waitForRenderComplete();
@@ -402,6 +424,41 @@ test.describe('list scroll 功能验证', () => {
       return el?.textContent || '';
     });
     expect(scrollToText).toMatch(/scroll-to-top/);
+  });
+
+  test('indicator toggle should add and remove the no-scrollbar class', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const listContainer = kuiklyPage.component('KRListView').first();
+    const toggle = kuiklyPage.page.getByText('indicator:shown', { exact: true });
+    await expect(toggle).toBeVisible();
+
+    await toggle.evaluate((node) => (node.parentElement as HTMLElement | null)?.click());
+    await kuiklyPage.page.waitForTimeout(300);
+    await expect(kuiklyPage.page.getByText('indicator:hidden', { exact: true })).toBeVisible();
+    expect(await listContainer.evaluate((el) => el.classList.contains('list-no-scrollbar'))).toBe(true);
+
+    await kuiklyPage.page.getByText('indicator:hidden', { exact: true }).evaluate((node) => (node.parentElement as HTMLElement | null)?.click());
+    await kuiklyPage.page.waitForTimeout(300);
+    await expect(kuiklyPage.page.getByText('indicator:shown', { exact: true })).toBeVisible();
+    expect(await listContainer.evaluate((el) => el.classList.contains('list-no-scrollbar'))).toBe(false);
+  });
+
+  test('bounce toggle should switch between on and off labels', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const toggle = kuiklyPage.page.getByText('bounce:on', { exact: true });
+    await expect(toggle).toBeVisible();
+
+    await toggle.evaluate((node) => (node.parentElement as HTMLElement | null)?.click());
+    await kuiklyPage.page.waitForTimeout(300);
+    await expect(kuiklyPage.page.getByText('bounce:off', { exact: true })).toBeVisible();
+
+    await kuiklyPage.page.getByText('bounce:off', { exact: true }).evaluate((node) => (node.parentElement as HTMLElement | null)?.click());
+    await kuiklyPage.page.waitForTimeout(300);
+    await expect(kuiklyPage.page.getByText('bounce:on', { exact: true })).toBeVisible();
   });
 
   test('rapid consecutive wheel scrolls should not crash', async ({ kuiklyPage }) => {
