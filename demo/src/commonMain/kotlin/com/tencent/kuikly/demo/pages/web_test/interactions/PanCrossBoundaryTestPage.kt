@@ -22,6 +22,7 @@ import com.tencent.kuikly.core.views.View
 internal class PanCrossBoundaryTestPage : Pager() {
     private var panState by observable("pan-idle")
     private var eventProcessorPanState by observable("event-processor-pan-idle")
+    private var eventProcessorPanTrace by observable("event-processor-pan-trace:idle")
     private var longPressCount by observable(0)
     private var panCount by observable(0)
     private var eventProcessorPanCount by observable(0)
@@ -109,10 +110,24 @@ internal class PanCrossBoundaryTestPage : Pager() {
                         pan { params ->
                             val state = params.state
                             ctx.eventProcessorPanState = "event-processor-pan-$state"
+                            ctx.eventProcessorPanTrace = if (ctx.eventProcessorPanTrace == "event-processor-pan-trace:idle") {
+                                "event-processor-pan-trace:$state"
+                            } else {
+                                "${ctx.eventProcessorPanTrace}>$state"
+                            }
                             if (state == "start") {
                                 ctx.eventProcessorPanCount += 1
                             }
                         }
+                    }
+                }
+
+                Text {
+                    attr {
+                        margin(left = 16f, top = 6f)
+                        text(ctx.eventProcessorPanTrace)
+                        fontSize(12f)
+                        color(Color(0xFF6A1B9A))
                     }
                 }
 
