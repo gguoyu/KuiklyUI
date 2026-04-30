@@ -20,4 +20,14 @@ test.describe('KRCodecModule functional', () => {
     // sha256 — should be 64 hex chars
     await expect(kuiklyPage.page.getByText(/sha256:[a-f0-9]{64}/, { exact: false })).toBeVisible();
   });
+
+  test('should work with is_dev=1 param (exercises Log.trace isDev branch)', async ({ kuiklyPage }) => {
+    // Adding is_dev=1 triggers KuiklyProcessor.isDev=true and Log.trace coverage
+    await kuiklyPage.goto('?page_name=CodecModuleTestPage&is_dev=1');
+    await kuiklyPage.waitForRenderComplete();
+
+    // Page should still render correctly in dev mode
+    await expect(kuiklyPage.page.getByText('urlEncode:hello%20kuikly', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(/sha256:[a-f0-9]{64}/, { exact: false })).toBeVisible();
+  });
 });
