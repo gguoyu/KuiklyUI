@@ -7,6 +7,43 @@ description: Run and maintain the KuiklyUI web automated test closed loop. Use w
 
 Use this skill from the repository root.
 
+## Environment prerequisites
+
+Before running any skill command, the environment must satisfy the following requirements.
+If any check fails, follow the fix command to resolve it automatically.
+
+### Required tools
+
+| Tool | Required version | Check command | Fix command |
+|------|-----------------|---------------|-------------|
+| Node.js | >= 20.x | `node -v` | Install from https://nodejs.org/ or use nvm |
+| JDK | 11+ | `java -version` | Install JDK 11+ and ensure `JAVA_HOME` is set |
+| npm dependencies | (from package.json) | `ls web-autotest/node_modules/.package-lock.json` | `cd web-autotest && npm install` |
+| Playwright browser | chromium | `npx playwright install --dry-run` | `cd web-autotest && npx playwright install chromium` |
+
+### Auto-fix rules for AI
+
+When a command fails with one of these errors, apply the fix immediately without asking the user:
+
+| Error pattern | Fix |
+|---------------|-----|
+| `Cannot find module` or `ERR_MODULE_NOT_FOUND` in web-autotest | `cd web-autotest && npm install` then retry |
+| `browserType.launch: Executable doesn't exist` | `cd web-autotest && npx playwright install chromium` then retry |
+| `JAVA_HOME is not set` or `No java installation found` | Stop and report — user must install JDK manually |
+| `BUILD FAILED` with `compileKotlinJs` error | Read the error, fix the `.kt` syntax issue, then retry build |
+| `EADDRINUSE` or `Port 8080 already in use` | Find and kill the occupying process: `lsof -i :8080` / `netstat -ano \| findstr 8080`, or set `KUIKLY_PORT=8081` |
+
+### First-run sequence
+
+On a fresh clone or new environment, run these commands in order:
+
+```bash
+cd web-autotest
+npm install
+npx playwright install chromium
+node scripts/kuikly-test.mjs --full    # includes Gradle build + test + coverage
+```
+
 ## Core rule
 
 Treat `web-autotest/scripts/kuikly-test.mjs --full` as the canonical execution entrypoint for the current repo. Do not recreate the build, test server, Playwright, and V8 coverage pipeline manually unless you are debugging the pipeline itself.
