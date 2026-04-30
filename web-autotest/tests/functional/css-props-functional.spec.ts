@@ -183,4 +183,42 @@ test.describe('CSSPropsTestPage functional', () => {
     );
     expect(overflow).toBe('hidden');
   });
+
+  test('RichTextView with textShadow should have text-shadow in computed style', async ({ kuiklyPage }) => {
+    // Section 1 has text shadow — verify at least one RichTextView has text-shadow applied
+    await expect(kuiklyPage.page.getByText('1. Text Shadow', { exact: false })).toBeVisible();
+    const richTexts = kuiklyPage.page.locator('[data-kuikly-component="KRRichTextView"]');
+    const count = await richTexts.count();
+    let hasShadow = false;
+    for (let i = 0; i < Math.min(count, 10); i++) {
+      const shadow = await richTexts.nth(i).evaluate((el) =>
+        window.getComputedStyle(el).textShadow
+      );
+      if (shadow && shadow !== 'none') { hasShadow = true; break; }
+    }
+    // textShadow may be on a child span — check deeper
+    if (!hasShadow) {
+      const spans = kuiklyPage.page.locator('[data-kuikly-component="KRRichTextView"] span');
+      const spanCount = await spans.count();
+      for (let i = 0; i < Math.min(spanCount, 10); i++) {
+        const shadow = await spans.nth(i).evaluate((el) =>
+          window.getComputedStyle(el).textShadow
+        );
+        if (shadow && shadow !== 'none') { hasShadow = true; break; }
+      }
+    }
+    expect(hasShadow).toBe(true);
+  });
+
+  test('stroke text should have webkitTextStroke in computed style', async ({ kuiklyPage }) => {
+    // Section 2 has stroke text — verify stroke is applied
+    const strokeText = kuiklyPage.page.getByText('stroke-text-thin', { exact: true });
+    if (await strokeText.isVisible()) {
+      const stroke = await strokeText.locator('..').evaluate((el) => {
+        const style = window.getComputedStyle(el);
+        return (style as Record<string, unknown>).webkitTextStroke || style.getPropertyValue('-webkit-text-stroke') || '';
+      });
+      expect(String(stroke)).not.toBe('');
+    }
+  });
 });

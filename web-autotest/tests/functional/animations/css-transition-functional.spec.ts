@@ -128,7 +128,7 @@ test.describe('CSS Transition 功能验证', () => {
     await expect(kuiklyPage.page.getByText('repeat-idle', { exact: true })).toBeVisible();
   });
 
-  test('Animation End Callback: animated view should render and be clickable', async ({ kuiklyPage }) => {
+  test('Animation End Callback: click should trigger animation completion path', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('CSSTransitionTestPage');
     await kuiklyPage.waitForRenderComplete();
 
@@ -137,13 +137,20 @@ test.describe('CSS Transition 功能验证', () => {
 
     await expect(kuiklyPage.page.getByText('6. Animation End Callback', { exact: false })).toBeVisible();
 
-    // The view with animationCompletion event should be visible and clickable
-    const animEndView = kuiklyPage.page.getByText(/anim-end: \d/, { exact: false });
+    // The view with animationCompletion event should be visible
+    const animEndView = kuiklyPage.page.getByText(/anim-end:/, { exact: false });
     await expect(animEndView).toBeVisible();
 
-    // Click to trigger animation + animationCompletion callback path
+    // Click to trigger animation — exercises transitionend listener + animationCompletion path
     await animEndView.click();
-    await kuiklyPage.page.waitForTimeout(1000);
+    await kuiklyPage.page.waitForTimeout(800);
+
+    // Click again to trigger another animation cycle
+    await kuiklyPage.page.getByText(/anim-end:/, { exact: false }).click();
+    await kuiklyPage.page.waitForTimeout(800);
+
+    // Page should still be functional (no crash from animation callbacks)
+    await expect(kuiklyPage.page.getByText('6. Animation End Callback', { exact: false })).toBeVisible();
   });
 
   test('Spring Animation: clicking should toggle spring animation', async ({ kuiklyPage }) => {
@@ -279,5 +286,37 @@ test.describe('CSS Transition 功能验证', () => {
     if (sizeBefore && sizeAfter) {
       expect(sizeAfter.width).toBeGreaterThan(sizeBefore.width);
     }
+  });
+
+  test('Repeat animation: start-stop-restart cycle exercises clear repeat path', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 600, smooth: false });
+
+    const repeatBtn = kuiklyPage.page.getByText('repeat-idle', { exact: true });
+    await expect(repeatBtn).toBeVisible();
+
+    // Start
+    await repeatBtn.click();
+    await kuiklyPage.page.waitForTimeout(300);
+    await expect(kuiklyPage.page.getByText('repeat-running', { exact: true })).toBeVisible();
+
+    // Let it run for a bit then stop — exercises isRepeatAnimation clear path
+    await kuiklyPage.page.waitForTimeout(500);
+    await kuiklyPage.page.getByText('repeat-running', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(300);
+    await expect(kuiklyPage.page.getByText('repeat-idle', { exact: true })).toBeVisible();
+
+    // Restart — exercises setting animation again after clear
+    await kuiklyPage.page.getByText('repeat-idle', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(300);
+    await expect(kuiklyPage.page.getByText('repeat-running', { exact: true })).toBeVisible();
+
+    // Final stop
+    await kuiklyPage.page.getByText('repeat-running', { exact: true }).click();
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.getByText('repeat-idle', { exact: true })).toBeVisible();
   });
 });

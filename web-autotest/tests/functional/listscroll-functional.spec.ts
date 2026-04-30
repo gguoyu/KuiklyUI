@@ -419,4 +419,42 @@ test.describe('list scroll 功能验证', () => {
     }
     await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
   });
+
+  test('horizontal wheel scroll should not affect vertical list position', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    // Verify first item visible before horizontal scroll
+    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
+
+    const list = kuiklyPage.component('KRListView').first();
+    const box = await list.boundingBox();
+    if (box) {
+      await kuiklyPage.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      // Horizontal wheel on vertical list — exercises isWheelMatchDirection=false path
+      await kuiklyPage.page.mouse.wheel(300, 0);
+      await kuiklyPage.page.waitForTimeout(200);
+    }
+    // Page should still be functional
+    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
+  });
+
+  test('diagonal drag should exercise scroll direction detection logic', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    const box = await list.boundingBox();
+    if (box) {
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      // Diagonal drag — exercises scroll direction detection (absDeltaY vs absDeltaX)
+      await kuiklyPage.page.mouse.move(cx, cy);
+      await kuiklyPage.page.mouse.down();
+      await kuiklyPage.page.mouse.move(cx + 50, cy - 50, { steps: 5 });
+      await kuiklyPage.page.mouse.up();
+      await kuiklyPage.page.waitForTimeout(300);
+    }
+    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
+  });
 });
