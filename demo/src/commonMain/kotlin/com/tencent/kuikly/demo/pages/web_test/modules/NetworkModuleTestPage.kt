@@ -139,6 +139,26 @@ internal class NetworkModuleTestPage : BasePager() {
                         }
                     }
                 }
+                Button {
+                    attr {
+                        size(150f, 40f)
+                        borderRadius(20f)
+                        marginLeft(10f)
+                        marginTop(5f)
+                        backgroundColor(Color(0x6200ee, 1f))
+                        titleAttr {
+                            text("status500")
+                            color(Color.WHITE)
+                        }
+                        highlightBackgroundColor(Color.GRAY)
+                    }
+                    event {
+                        click {
+                            ctx.output = "status500..."
+                            ctx.requestStatus500()
+                        }
+                    }
+                }
             }
             View {
                 attr {
@@ -231,6 +251,22 @@ internal class NetworkModuleTestPage : BasePager() {
     private fun requestStatus204() {
         acquireModule<NetworkModule>(NetworkModule.MODULE_NAME).requestGet(
             localUrl("/api/network/status/204"),
+            JSONObject(),
+        ) { data, success, errorMsg, response ->
+            output = """Get request completed:
+                |success=$success,
+                |
+                |data=$data,
+                |
+                |errorMsg=$errorMsg,
+                |
+                |statusCode=${response.statusCode}""".trimMargin()
+        }
+    }
+
+    private fun requestStatus500() {
+        acquireModule<NetworkModule>(NetworkModule.MODULE_NAME).requestGet(
+            localUrl("/api/network/status/500"),
             JSONObject(),
         ) { data, success, errorMsg, response ->
             output = """Get request completed:

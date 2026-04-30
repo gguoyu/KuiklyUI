@@ -150,6 +150,16 @@ function handleNetworkMock(req, res, requestPath, port) {
     return true;
   }
 
+  if (requestPath === '/api/network/status/500') {
+    sendJson(res, 500, { error: 'Internal Server Error' });
+    return true;
+  }
+
+  if (requestPath === '/api/network/status/404') {
+    sendJson(res, 404, { error: 'Not Found' });
+    return true;
+  }
+
   return false;
 }
 

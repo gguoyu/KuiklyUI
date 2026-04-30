@@ -97,4 +97,14 @@ test.describe('KRNetworkModule functional 验证', () => {
       kuiklyPage.page.getByText('success=false', { exact: false })
     )).toBeVisible({ timeout: 15000 });
   });
+
+  test('status500 应返回 500 并触发 !response.ok 错误路径', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('NetworkModuleTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    await kuiklyPage.page.getByLabel('status500', { exact: true }).click();
+
+    await waitForResult(kuiklyPage.page, 'Get request completed:');
+    await expect(kuiklyPage.page.getByText('statusCode=500', { exact: false })).toBeVisible({ timeout: 15000 });
+  });
 });

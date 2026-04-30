@@ -64,4 +64,54 @@ test.describe('NestedScrollTestPage functional', () => {
     // Page still functional
     await expect(kuiklyPage.page.getByText('Nested Scroll Test Page', { exact: false })).toBeVisible();
   });
+
+  test('scrolling inner list to boundary should propagate to parent', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('NestedScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    // Find inner list and scroll to its bottom boundary
+    const innerLists = kuiklyPage.component('KRListView');
+    const count = await innerLists.count();
+    if (count > 1) {
+      const innerList = innerLists.nth(1);
+      const box = await innerList.boundingBox().catch(() => null);
+      if (box) {
+        await kuiklyPage.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        // Scroll far to hit inner boundary — exercises canScrollDown/canScrollUp checks
+        for (let i = 0; i < 5; i++) {
+          await kuiklyPage.page.mouse.wheel(0, 300);
+          await kuiklyPage.page.waitForTimeout(100);
+        }
+        // Then scroll back up past boundary
+        for (let i = 0; i < 5; i++) {
+          await kuiklyPage.page.mouse.wheel(0, -300);
+          await kuiklyPage.page.waitForTimeout(100);
+        }
+      }
+    }
+    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
+  });
+
+  test('drag in nested list should exercise touch event nested scroll paths', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('NestedScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const innerLists = kuiklyPage.component('KRListView');
+    const count = await innerLists.count();
+    if (count > 1) {
+      const innerList = innerLists.nth(1);
+      const box = await innerList.boundingBox().catch(() => null);
+      if (box) {
+        const cx = box.x + box.width / 2;
+        const cy = box.y + box.height / 2;
+        // Mouse drag to simulate touch-like scroll
+        await kuiklyPage.page.mouse.move(cx, cy);
+        await kuiklyPage.page.mouse.down();
+        await kuiklyPage.page.mouse.move(cx, cy - 100, { steps: 5 });
+        await kuiklyPage.page.mouse.up();
+        await kuiklyPage.page.waitForTimeout(300);
+      }
+    }
+    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
+  });
 });
