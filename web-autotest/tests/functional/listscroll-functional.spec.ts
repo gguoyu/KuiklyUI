@@ -403,4 +403,20 @@ test.describe('list scroll 功能验证', () => {
     });
     expect(scrollToText).toMatch(/scroll-to-top/);
   });
+
+  test('rapid consecutive wheel scrolls should not crash', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    const box = await list.boundingBox();
+    if (box) {
+      await kuiklyPage.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      for (let i = 0; i < 10; i++) {
+        await kuiklyPage.page.mouse.wheel(0, 100);
+      }
+      await kuiklyPage.page.waitForTimeout(300);
+    }
+    await expect(kuiklyPage.page.locator('[data-kuikly-component]').first()).toBeVisible();
+  });
 });

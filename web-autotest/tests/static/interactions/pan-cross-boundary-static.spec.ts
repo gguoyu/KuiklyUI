@@ -7,16 +7,17 @@ test.describe('PanCrossBoundaryTestPage static', () => {
 
     await expect(kuiklyPage.page.getByText('Pan & LongPress Test', { exact: false })).toBeVisible();
     await expect(kuiklyPage.page.getByText('1. Pan Area (drag outside)', { exact: false })).toBeVisible();
-    await expect(kuiklyPage.page.getByText('2. LongPress Area', { exact: false })).toBeVisible();
-    await expect(kuiklyPage.page.getByText('3. Pan in ListView', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('2. EventProcessor Pan Area', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('3. LongPress Area', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('4. Pan in ListView', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('event-processor-pan-idle count:0', { exact: true })).toBeVisible();
   });
 
   test('should trigger pan events on drag', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('PanCrossBoundaryTestPage');
     await kuiklyPage.waitForRenderComplete();
 
-    // Find the pan area by looking for the blue view with text containing "pan-"
-    const panArea = kuiklyPage.page.getByText(/pan-idle/, { exact: false }).first();
+    const panArea = kuiklyPage.page.getByText('pan-idle count:0', { exact: true });
     await expect(panArea).toBeVisible();
 
     const box = await panArea.boundingBox();
@@ -28,7 +29,6 @@ test.describe('PanCrossBoundaryTestPage static', () => {
     }
 
     await kuiklyPage.page.waitForTimeout(300);
-    // After pan, state should change from idle
-    await expect(kuiklyPage.page.getByText(/pan-.*count:/, { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(/^pan-(?:start|move|end) count:[1-9]\d*$/, { exact: false })).toBeVisible();
   });
 });

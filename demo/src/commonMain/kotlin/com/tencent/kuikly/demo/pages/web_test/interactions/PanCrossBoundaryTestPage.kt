@@ -12,16 +12,19 @@ import com.tencent.kuikly.core.views.View
 /**
  * Pan cross-boundary and mouse longPress test page
  *
- * Covers EventProcessor PC paths:
- * - Pan initiated on element, mouse moves outside (PCPanEventHandler)
+ * Covers desktop pan/longPress paths:
+ * - KRView pan path on View
+ * - EventProcessor + TouchEventHandlers.PanHandler path on non-KRView Text
  * - Mouse-based longPress (mousedown -> timer -> mouseup/leave)
  * - KRView bindMouseEvents for pan inside ListView
  */
 @Page("PanCrossBoundaryTestPage")
 internal class PanCrossBoundaryTestPage : Pager() {
     private var panState by observable("pan-idle")
+    private var eventProcessorPanState by observable("event-processor-pan-idle")
     private var longPressCount by observable(0)
     private var panCount by observable(0)
+    private var eventProcessorPanCount by observable(0)
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -80,10 +83,43 @@ internal class PanCrossBoundaryTestPage : Pager() {
                     }
                 }
 
-                // Section 2: LongPress area
+                // Section 2: EventProcessor pan area (non-KRView component)
                 Text {
                     attr {
-                        text("2. LongPress Area")
+                        text("2. EventProcessor Pan Area")
+                        fontSize(14f)
+                        fontWeightBold()
+                        marginTop(20f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                Text {
+                    attr {
+                        margin(left = 16f, top = 8f)
+                        size(300f, 80f)
+                        backgroundColor(Color(0xFF6A1B9A))
+                        borderRadius(8f)
+                        color(Color.WHITE)
+                        fontSize(14f)
+                        text("${ctx.eventProcessorPanState} count:${ctx.eventProcessorPanCount}")
+                    }
+                    event {
+                        pan { params ->
+                            val state = params.state
+                            ctx.eventProcessorPanState = "event-processor-pan-$state"
+                            if (state == "start") {
+                                ctx.eventProcessorPanCount += 1
+                            }
+                        }
+                    }
+                }
+
+                // Section 3: LongPress area
+                Text {
+                    attr {
+                        text("3. LongPress Area")
                         fontSize(14f)
                         fontWeightBold()
                         marginTop(20f)
@@ -114,10 +150,10 @@ internal class PanCrossBoundaryTestPage : Pager() {
                     }
                 }
 
-                // Section 3: Pan inside ListView (scroll conflict)
+                // Section 4: Pan inside ListView (scroll conflict)
                 Text {
                     attr {
-                        text("3. Pan in ListView")
+                        text("4. Pan in ListView")
                         fontSize(14f)
                         fontWeightBold()
                         marginTop(20f)

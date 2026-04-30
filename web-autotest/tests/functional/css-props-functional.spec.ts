@@ -154,4 +154,33 @@ test.describe('CSSPropsTestPage functional', () => {
     const zIndex = await parentView.evaluate((el) => window.getComputedStyle(el).zIndex);
     expect(Number(zIndex)).toBeGreaterThanOrEqual(1);
   });
+
+  test('gradient backgrounds should have correct linear-gradient in computed style', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 400, smooth: false });
+
+    const views = kuiklyPage.page.locator('[data-kuikly-component=KRView]');
+    const count = await views.count();
+    let hasGradient = false;
+    for (let i = 0; i < Math.min(count, 30); i++) {
+      const bg = await views.nth(i).evaluate((el) => window.getComputedStyle(el).backgroundImage);
+      if (bg.includes('linear-gradient')) {
+        hasGradient = true;
+        break;
+      }
+    }
+    expect(hasGradient).toBe(true);
+  });
+
+  test('overflow hidden section should have overflow:hidden in computed style', async ({ kuiklyPage }) => {
+    const hiddenView = kuiklyPage.page.getByText('overflow-hidden', { exact: false });
+    await expect(hiddenView).toBeVisible();
+    const overflow = await hiddenView.locator('..').evaluate((el) =>
+      window.getComputedStyle(el).overflow
+    );
+    expect(overflow).toBe('hidden');
+  });
 });
