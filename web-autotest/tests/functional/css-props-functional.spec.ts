@@ -90,10 +90,11 @@ test.describe('CSSPropsTestPage functional', () => {
   });
 
   test('long press should update long-press count', async ({ kuiklyPage }) => {
-    // [KNOWN: Long press via mouse.down/up in headless Chromium is unreliable
-    // because the web longPress handler uses touch events (coarse-pointer only)
-    // and has a 700ms timer that may not fire consistently under synthetic mouse.]
-    test.skip(true, '[KNOWN: longPress mouse simulation unreliable in headless]');
+    // The longPress handler is on a View inside a KRListView. The list's own
+    // mousedown handler sets isClickEvent=true and starts a click detection timer,
+    // which interferes with the longPress timer — the list consumes the mouseup
+    // before the longPress threshold (700ms) is reached.
+    test.skip(true, '[KNOWN: longPress inside KRListView — list mouse handler interferes with long press timer]');
 
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 1500, smooth: false });
@@ -102,7 +103,14 @@ test.describe('CSSPropsTestPage functional', () => {
     const target = kuiklyPage.page.getByText('long-press-count: 0', { exact: false });
     await expect(target).toBeVisible();
 
-    const box = await target.boundingBox();
+    // The longPress handler is on the parent View, not the Text itself.
+    // Use the parent element's bounding box for the mouse interaction.
+    const box = await target.evaluate((el) => {
+      const parent = el.closest('[data-kuikly-component="KRView"]') as HTMLElement | null;
+      if (!parent) return null;
+      const rect = parent.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    });
     expect(box).toBeTruthy();
     await kuiklyPage.page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
     await kuiklyPage.page.mouse.down();

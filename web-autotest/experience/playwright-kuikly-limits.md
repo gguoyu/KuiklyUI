@@ -5,7 +5,7 @@
 
 ---
 
-## 1. Input / TextArea 事件不触发 ✅ 已解决
+## 1. Input / TextArea 事件不触发 ✅ 部分解决
 
 **现象**：`page.fill()` / `page.type()` 填充输入框后，Kuikly 响应式状态不更新，
 `textDidChange`、`focus`、`blur` 回调不被调用。
@@ -26,6 +26,11 @@ await input.fill('hello');
 await kuiklyPage.fillInput(input, 'hello');
 ```
 
+**验证状态（2026-05）**：
+- ✅ `fillInput()` 在多数场景下触发 `textDidChange` 回调
+- ❌ 清空输入（`fillInput(locator, '')`）不可靠触发验证回调 — 部分 Kuikly 表单逻辑对空字符串输入事件不响应
+- ⚠️ `keyboard.type()` 对于逐字符触发 `beforeinput`/`input` 更可靠（如 maxLength 测试）
+
 ---
 
 ## 2. Kuikly Modal 组件不在 headless 下渲染
@@ -33,9 +38,11 @@ await kuiklyPage.fillInput(input, 'hello');
 **现象**：点击触发 `if (ctx.showModal) { Modal { ... } }` 的按钮后，Modal 内容完全不出现。
 
 **根因**：Kuikly 的 `Modal` DSL 通过特定渲染机制挂载到页面层级之上，
-此机制在 headless Chromium 下不工作。
+此机制在 headless Chromium 下不工作。AlertDialog 和 ActionSheet 可以正常弹出（它们使用浏览器原生的 `confirm()`/`prompt()` API），但自定义 Modal 组件内容不渲染。
 
-**受影响场景**：所有使用 `Modal { }` 的载体页面（如 `ModalTestPage`）
+**验证状态（2026-05）**：已重新验证，自定义 Modal 仍然无法在 headless 下渲染，AlertDialog 系列正常。
+
+**受影响场景**：所有使用 `Modal { }` 的载体页面（如 `ModalTestPage` 的 "show-custom-modal"）
 
 **处理方式**：
 ```typescript
@@ -169,3 +176,42 @@ cd web-autotest && npx playwright test tests/visual/<page>-visual.spec.ts --upda
 
 **规则**：不要为 H5ListPagingHelper / H5ListView 的 touch 路径编写 CDP 断言测试。
 如确实需要记录这个限制，用 `test.skip(true, '[KNOWN: H5ListPagingHelper touch paths only available on coarse-pointer devices]')` 标记。
+
+---
+
+## 9. LongPress 在特定布局中不触发
+
+**现象**：对 KRView 注册的 `longPress` 事件，在 `KRViewTouchTestPage` 中可正常触发，但在以下场景失败：
+- `CSSPropsTestPage`：longPress View 在 KRListView 内部
+- `EventCaptureTestPage`：longPress View 使用 `absolutePosition`
+
+**根本原因**：EventProcessor 的 `LongPressHandler` 通过 mousedown 启动 700ms 定时器，mouseup 时取消。但当 longPress View 位于 **KRListView 内部**时，List 自身的 mousedown/mousemove 处理逻辑会与 longPress 竞争事件：
+- KRListView 的 `setScrollEvent()` 在 PC 模式下通过 `H5ListPCScrollHelper` 注册了全局 mousedown/mousemove/mouseup 监听
+- List 的 mousemove 处理会判断为"拖拽"（而非"点击"），导致事件流异常
+- `mouseleave` 事件在某些绝对定位布局中因元素重叠而提前触发，取消了 longPress 定时器
+
+**验证状态（2026-05）**：
+- ✅ `KRViewTouchTestPage` longPress 正常工作（View 不在 List 内）
+- ❌ `CSSPropsTestPage` / `EventCaptureTestPage` longPress 不触发
+
+**处理方式**：
+```typescript
+test.skip(true, '[KNOWN: longPress inside KRListView — list mouse handler interferes with long press timer]');
+```
+
+---
+
+## 10. PropertyAnimTestPage 在 headless 下页面崩溃
+
+**现象**：点击"播放平移"按钮触发 RAF (requestAnimationFrame) 属性动画后，页面崩溃（`Target page, context or browser has been closed`）。即使增加 timeout 到 120s 也无法恢复。
+
+**根本原因**：PropertyAnimTestPage 使用 `requestAnimationFrame` 循环驱动属性动画，在 headless Chromium 中 RAF 回调与 Kuikly 渲染管线冲突导致页面进程崩溃。这不是超时问题，而是真实的 renderer crash。
+
+**受影响场景**：PropertyAnimTestPage 的多步动画交互（单步 load 正常，连续点击触发动画后崩溃）
+
+**验证状态（2026-05）**：已用 120s timeout 验证，确认是真实的 page crash，非 timeout。
+
+**处理方式**：
+```typescript
+test.skip(true, '[KNOWN: PropertyAnimTestPage page crash during RAF animation in headless mode]');
+```

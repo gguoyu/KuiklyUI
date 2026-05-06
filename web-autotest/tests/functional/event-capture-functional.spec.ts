@@ -85,10 +85,10 @@ test.describe('事件捕获 functional 验证', () => {
   });
 
   test('long press 应更新 long-press 状态文本', async ({ kuiklyPage }) => {
-    // [KNOWN: Long press via mouse.down/up in headless Chromium is unreliable
-    // because the web longPress handler uses touch events (coarse-pointer only)
-    // and has a 700ms timer that may not fire consistently under synthetic mouse.]
-    test.skip(true, '[KNOWN: longPress mouse simulation unreliable in headless]');
+    // The longPress handler's mouseleave listener fires prematurely in certain
+    // absolute-positioned layouts, cancelling the press timer before 700ms.
+    // KRViewTouchTestPage works because its longPress View is in normal flow.
+    test.skip(true, '[KNOWN: longPress in absolute-positioned View — mouseleave fires prematurely]');
 
     await kuiklyPage.goto('EventCaptureTestPage');
     await kuiklyPage.waitForRenderComplete();
