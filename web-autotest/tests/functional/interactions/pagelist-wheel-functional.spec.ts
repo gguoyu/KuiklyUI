@@ -104,4 +104,23 @@ test.describe('PageListWheelTestPage functional', () => {
     await expect(kuiklyPage.page.getByText('nested:1', { exact: true })).toBeVisible();
     await expect(kuiklyPage.page.getByText('Nested item B1', { exact: true })).toBeVisible();
   });
+
+  test('mouse drag on pagelist should exercise drag callback null paths', async ({ kuiklyPage }) => {
+    // PageListWheelTestPage does NOT register dragBegin/dragEnd/scroll callbacks,
+    // so dragging exercises the callback?.invoke() null branch paths
+    const pageList = kuiklyPage.component('KRListView').first();
+    const box = await pageList.boundingBox();
+    if (box) {
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      // Horizontal drag to simulate page switch attempt
+      await kuiklyPage.page.mouse.move(cx, cy);
+      await kuiklyPage.page.mouse.down();
+      await kuiklyPage.page.mouse.move(cx - 150, cy, { steps: 8 });
+      await kuiklyPage.page.mouse.up();
+      await kuiklyPage.page.waitForTimeout(400);
+    }
+    // Page should still be functional
+    await expect(kuiklyPage.page.getByText('PageList Wheel Test', { exact: false })).toBeVisible();
+  });
 });
