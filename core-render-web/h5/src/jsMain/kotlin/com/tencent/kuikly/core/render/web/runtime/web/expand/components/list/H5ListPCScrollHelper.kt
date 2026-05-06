@@ -159,7 +159,7 @@ object PCListScrollHandler {
     fun filterScrollElementIds() {
         val validElementIds = mouseDownEleIds.filter { id ->
             val ele = kuiklyDocument.getElementById(id)
-            ele?.classList?.contains(KRListConst.IS_LIST) == true
+            ele?.let { it.classList.contains(KRListConst.IS_LIST) } == true
         }
         scrollEleIds = validElementIds
     }
@@ -178,7 +178,7 @@ object PCListScrollHandler {
     private fun getListView(index: Int): H5ListView? {
         val id = scrollEleIds[index]
         val ele = kuiklyDocument.getElementById(id)
-        return ele?.asDynamic()?.listView?.unsafeCast<H5ListView>()
+        return ele?.let { it.asDynamic().listView?.unsafeCast<H5ListView>() }
     }
 
     /**

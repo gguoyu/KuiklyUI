@@ -280,10 +280,10 @@ class KuiklyRenderLayerHandler : IKuiklyRenderLayerHandler {
      */
     private fun prepareForReuse(viewExport: IKuiklyRenderViewExport) {
         // Remove associated data
-        renderView?.kuiklyRenderContext?.removeViewData<MutableSet<String>>(
+        renderView?.let { rv -> rv.kuiklyRenderContext.removeViewData<MutableSet<String>>(
             viewExport.ele,
             KR_SET_PROP_OPERATION
-        )?.also {
+        ) }?.also {
             for (propKey in it) {
                 // Reset properties
                 viewExport.resetProp(propKey)

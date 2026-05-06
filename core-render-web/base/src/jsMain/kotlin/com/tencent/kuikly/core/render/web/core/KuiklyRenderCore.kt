@@ -331,8 +331,8 @@ class KuiklyRenderCore : IKuiklyRenderCore {
             SizeF(args.thirdArg().unsafeCast<Float>(), args.fourthArg().unsafeCast<Float>()),
         )
         // Data compatibility processing, exception takes 0
-        val width = size?.width?.asDynamic().toFixed(2) ?: "0.00"
-        val height = size?.height?.asDynamic().toFixed(2) ?: "0.00"
+        val width = size?.let { it.width.asDynamic().toFixed(2) as String } ?: "0.00"
+        val height = size?.let { it.height.asDynamic().toFixed(2) as String } ?: "0.00"
         // Return size information
         return "$width|$height"
     }

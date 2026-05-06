@@ -338,10 +338,11 @@ class KuiklyRenderViewDelegator(private val delegate: KuiklyRenderViewDelegatorD
      * Register modules and render views, etc.
      */
     private fun registerKuiklyRenderExport(kuiklyRenderView: KuiklyRenderView?) {
-        kuiklyRenderView?.kuiklyRenderExport?.also {
-            registerModule(it) // Register module
-            registerRenderView(it) // Register View
-            registerViewExternalPropHandler(it) // Register custom property handler
+        kuiklyRenderView?.let { rv ->
+            val export = rv.kuiklyRenderExport
+            registerModule(export) // Register module
+            registerRenderView(export) // Register View
+            registerViewExternalPropHandler(export) // Register custom property handler
         }
     }
 
