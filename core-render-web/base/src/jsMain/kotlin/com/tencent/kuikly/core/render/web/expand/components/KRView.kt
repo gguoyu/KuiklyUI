@@ -31,10 +31,10 @@ import kotlin.js.json
  * Convert Touch parameters to specified format
  */
 fun getTouchParams(params: Touch?): MutableMap<String, Any> {
-    val touchX = params?.clientX?.toFloat() ?: 0f
-    val touchY = params?.clientY?.toFloat() ?: 0f
-    val pageX = params?.pageX?.toFloat() ?: 0f
-    val pageY = params?.pageY?.toFloat() ?: 0f
+    val touchX = params?.let { it.clientX.toFloat() } ?: 0f
+    val touchY = params?.let { it.clientY.toFloat() } ?: 0f
+    val pageX = params?.let { it.pageX.toFloat() } ?: 0f
+    val pageY = params?.let { it.pageY.toFloat() } ?: 0f
 
     return fastMutableMapOf<String, Any>().apply {
         fastMap = json(

@@ -101,16 +101,16 @@ class KuiklyRenderLayerHandler : IKuiklyRenderLayerHandler {
      * Set rendering View properties
      */
     override fun setProp(tag: Int, propKey: String, propValue: Any) {
-        getRenderViewHandler(tag)?.viewExport?.also {
-            var process = it.setProp(propKey, propValue)
+        getRenderViewHandler(tag)?.viewExport?.also { viewExport ->
+            var process = viewExport.setProp(propKey, propValue)
             if (!process) {
-                process = renderView?.kuiklyRenderExport?.setViewExternalProp(it,
-                    propKey,
-                    propValue) ?: false
+                process = renderView?.let { rv ->
+                    rv.kuiklyRenderExport.setViewExternalProp(viewExport, propKey, propValue)
+                } ?: false
             }
-            if (it.reusable && process) {
+            if (viewExport.reusable && process) {
                 // If element is reusable and operation successful, record the operation, web currently has no reusable elements
-                recordSetPropOperation(it.ele, propKey)
+                recordSetPropOperation(viewExport.ele, propKey)
             }
         }
     }
@@ -250,11 +250,13 @@ class KuiklyRenderLayerHandler : IKuiklyRenderLayerHandler {
         var moduleHandler = moduleRegistry[moduleName]
         if (moduleHandler == null) {
             // If not found in cache, create module handler
-            moduleHandler = renderView?.kuiklyRenderExport?.createModule(moduleName)?.apply {
-                // Set module rendering context
-                kuiklyRenderContext = renderView?.kuiklyRenderContext
-                // Cache module
-                moduleRegistry[moduleName] = this
+            moduleHandler = renderView?.let { rv ->
+                rv.kuiklyRenderExport.createModule(moduleName)?.apply {
+                    // Set module rendering context
+                    kuiklyRenderContext = rv.kuiklyRenderContext
+                    // Cache module
+                    moduleRegistry[moduleName] = this
+                }
             }
         }
         return moduleHandler
@@ -383,14 +385,15 @@ class KuiklyRenderLayerHandler : IKuiklyRenderLayerHandler {
      */
     private fun innerRemoveRenderView(tag: Int) {
         val renderViewHandler = getRenderViewHandler(tag)
-        renderViewHandler?.viewExport?.also {
+        renderViewHandler?.let { handler ->
+            val viewExport = handler.viewExport
             // Insert view into reuse queue
             // fixme Currently web has no reusable views, enabling reuse queue requires completing reset prop, reset shadow related methods, otherwise reuse will have issues
             pushRenderViewHandlerToReuseQueue(renderViewHandler.viewName, renderViewHandler)
             // Remove child node DOM from parent node's real DOM
-            it.removeFromParent()
+            viewExport.removeFromParent()
             // Execute destroy node callback
-            it.onDestroy()
+            viewExport.onDestroy()
         }
         // Remove kotlin cached view
         renderViewRegistry.remove(tag)

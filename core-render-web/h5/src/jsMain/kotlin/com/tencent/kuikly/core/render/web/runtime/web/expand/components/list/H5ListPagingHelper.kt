@@ -432,14 +432,15 @@ class H5ListPagingHelper(private val ele: HTMLElement, private var listElement: 
      * The current page's nested PageList should be visible, others should be hidden.
      */
     private fun updateNestedPageListVisibility() {
-        val length = ele.firstElementChild?.children?.length ?: return
+        val firstChild = ele.firstElementChild ?: return
+        val length = firstChild.children.length
         val currentOffset = if (scrollDirection == KRListConst.SCROLL_DIRECTION_ROW) {
             abs(currentTranslateX)
         } else {
             abs(currentTranslateY)
         }
         for (i in 0 until length) {
-            val element = ele.firstElementChild?.children?.get(i) as HTMLElement
+            val element = firstChild.children.get(i) as HTMLElement
             val elementOffset = if (scrollDirection == KRListConst.SCROLL_DIRECTION_ROW) {
                 element.offsetLeft.toFloat()
             } else {
@@ -528,10 +529,11 @@ class H5ListPagingHelper(private val ele: HTMLElement, private var listElement: 
         // This is to handle nested PageLists. After sliding the inner PageList,
         // clicking the outer PageList needs to hide the overflow position of the inner node
         // Implementation is not very elegant, pending refactoring with reference to swiper logic
-        val length = ele.firstElementChild?.children?.length
-        if (length != null) {
+        val container = ele.firstElementChild
+        if (container != null) {
+            val length = container.children.length
             for (i in 0 until length) {
-                val element = ele.firstElementChild?.children?.get(i) as HTMLElement
+                val element = container.children.get(i) as HTMLElement
                 if (element.offsetLeft.toFloat() == offsetX) {
                     modifyOverflowIfPageList(element, true)
                 } else {
