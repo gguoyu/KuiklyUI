@@ -4647,6 +4647,37 @@ function postProcessKotlinCoverage(coverageData) {
       }
 
       if (!shouldRemove) {
+        // Remove individual branch locations whose start position is empty (no line number)
+        // AND whose count is 0. These are compiler-generated implicit else paths for
+        // IfStatements without explicit else clauses. They appear as {"start":{},"end":{}}
+        // in the branchMap and inflate the branch denominator with unreachable paths.
+        // Only remove zero-count empty locations to avoid affecting covered branch stats.
+        const locations = branchCoverage.locations || [];
+        const counts = Array.isArray(fileCoverage.b?.[branchId]) ? fileCoverage.b[branchId] : [];
+        let removedEmpty = false;
+        for (let i = locations.length - 1; i >= 0; i--) {
+          const loc = locations[i];
+          const count = Number(counts[i] || 0);
+          if (count === 0 && loc && (!loc.start || !loc.start.line)) {
+            // Remove this specific zero-count empty location
+            locations.splice(i, 1);
+            counts.splice(i, 1);
+            removedEmpty = true;
+          }
+        }
+        if (removedEmpty) {
+          if (locations.length === 0) {
+            shouldRemove = true;
+          } else {
+            // Update the branch data with pruned locations
+            branchCoverage.locations = locations;
+            fileCoverage.b[branchId] = counts;
+          }
+          stats.removedBranches += 1;
+        }
+      }
+
+      if (!shouldRemove) {
         continue;
       }
 
