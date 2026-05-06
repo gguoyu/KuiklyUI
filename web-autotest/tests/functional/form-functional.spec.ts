@@ -102,12 +102,15 @@ test.describe('FormTestPage functional', () => {
   // fillInput dispatches DOM 'input' event, but Kuikly's Input component
   // may not process it identically to real user input. The textDidChange
   // callback does not fire reliably with synthetic events.
-  test.skip('clearing email input should show email-is-required error [KNOWN: Input textDidChange not firing reliably with synthetic clear events]', async ({ kuiklyPage }) => {
+  test.skip('clearing email input should show email-is-required error [KNOWN: Kuikly form validation does not trigger on field clear]', async ({ kuiklyPage }) => {
     const emailInput = kuiklyPage.page.getByPlaceholder('enter email');
     await kuiklyPage.fillInput(emailInput, 'a@b.com');
     await kuiklyPage.waitForRenderComplete();
 
-    await kuiklyPage.fillInput(emailInput, '');
+    // Use triple-click to select all then Backspace to clear
+    await emailInput.click({ clickCount: 3 });
+    await kuiklyPage.page.keyboard.press('Backspace');
+    await kuiklyPage.page.waitForTimeout(300);
 
     await expect(kuiklyPage.page.getByText('email is required', { exact: false })).toBeVisible({ timeout: 5000 });
   });
