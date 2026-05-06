@@ -319,4 +319,25 @@ test.describe('CSS Transition 功能验证', () => {
     await kuiklyPage.waitForRenderComplete();
     await expect(kuiklyPage.page.getByText('repeat-idle', { exact: true })).toBeVisible();
   });
+
+  test('Multiple animation cycles should exercise transitionend and animation queue paths', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const trigger = kuiklyPage.page.getByText('Click Me', { exact: false });
+    // Cycle 1: expand
+    await trigger.click();
+    await kuiklyPage.waitForTransitionEnd(trigger.locator('..'));
+    await expect(kuiklyPage.page.getByText('已展开 (200x200)', { exact: false })).toBeVisible();
+
+    // Cycle 2: collapse
+    await trigger.click();
+    await kuiklyPage.waitForTransitionEnd(trigger.locator('..'));
+    await expect(kuiklyPage.page.getByText('未展开 (100x100)', { exact: false })).toBeVisible();
+
+    // Cycle 3: expand again — exercises animation queue reuse
+    await trigger.click();
+    await kuiklyPage.waitForTransitionEnd(trigger.locator('..'));
+    await expect(kuiklyPage.page.getByText('已展开 (200x200)', { exact: false })).toBeVisible();
+  });
 });

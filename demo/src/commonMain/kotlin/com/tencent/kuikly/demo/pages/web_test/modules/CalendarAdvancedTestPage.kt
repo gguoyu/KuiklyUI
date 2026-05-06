@@ -29,6 +29,7 @@ internal class CalendarAdvancedTestPage : Pager() {
     private var timeInMillisResult by observable("tim:pending")
     private var parseErrorResult by observable("parseErr:pending")
     private var quoteFormatResult by observable("quote:pending")
+    private var parseFullResult by observable("parseFull:pending")
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -161,6 +162,28 @@ internal class CalendarAdvancedTestPage : Pager() {
                     }
                 }
                 Text { attr { text(ctx.quoteFormatResult); margin(left = 16f, top = 8f) } }
+
+                // parseFormattedTime with full format (HH:mm:ss.SSS) to cover hour/minute/second/millisecond branches
+                Button {
+                    attr {
+                        titleAttr { text("parseFull format") }
+                        size(width = 240f, height = 48f)
+                        margin(left = 16f, top = 16f)
+                        backgroundColor(0xFF00897B)
+                    }
+                    event {
+                        click {
+                            val m = ctx.acquireModule<CalendarModule>(CalendarModule.MODULE_NAME)
+                            val result = try {
+                                m.parseFormattedTime("2024-10-01 08:30:15.100", "yyyy-MM-dd HH:mm:ss.SSS")
+                            } catch (e: Throwable) {
+                                -1L
+                            }
+                            ctx.parseFullResult = "parseFull:$result"
+                        }
+                    }
+                }
+                Text { attr { text(ctx.parseFullResult); margin(left = 16f, top = 8f) } }
             }
         }
     }

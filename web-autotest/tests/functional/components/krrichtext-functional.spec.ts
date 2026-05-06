@@ -74,4 +74,24 @@ test.describe('RichTextProcessor canvas measure branch', () => {
     const count = await richTextViews.count();
     expect(count).toBeGreaterThan(0);
   });
+
+  test('single-line rich text should measure correctly with canvas', async ({ kuiklyPage }) => {
+    // Single-line mode exercises the lines==1 branch in RichTextProcessor.measureTextSize
+    await kuiklyPage.goto('?page_name=KRRichTextViewTestPage&use_canvas_measure=1');
+    await kuiklyPage.waitForRenderComplete();
+
+    // First section has multi-color spans — some may be single-line
+    await expect(kuiklyPage.page.getByText('1. 多色多样式Span', { exact: false })).toBeVisible();
+
+    // Verify all RichTextView components rendered without layout errors
+    const richTextViews = kuiklyPage.page.locator('[data-kuikly-component="KRRichTextView"]');
+    const count = await richTextViews.count();
+    expect(count).toBeGreaterThan(5);
+
+    // Verify text is actually visible (not zero-height due to measurement failure)
+    const firstRichText = richTextViews.first();
+    const box = await firstRichText.boundingBox();
+    expect(box).toBeTruthy();
+    expect(box!.height).toBeGreaterThan(0);
+  });
 });

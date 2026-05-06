@@ -116,5 +116,10 @@ test.describe('KRCalendarModule functional', () => {
     await kuiklyPage.page.getByText('format quotes', { exact: false }).click();
     await kuiklyPage.page.waitForTimeout(300);
     await expect(kuiklyPage.page.getByText(/q:/, { exact: false })).toBeVisible();
+
+    // parseFull format — exercises hour/minute/second/millisecond branches in parseTimeStringToTimestamp
+    await kuiklyPage.page.getByText('parseFull format', { exact: false }).click();
+    await kuiklyPage.page.waitForTimeout(300);
+    await expect(kuiklyPage.page.getByText(/parseFull:\d+/, { exact: false })).toBeVisible();
   });
 });
