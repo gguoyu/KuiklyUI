@@ -54,6 +54,7 @@ internal class CSSTransitionTestPage : Pager() {
     private var opacityToggled by observable(false)
     private var bgColorToggled by observable(false)
     private var frameToggled by observable(false)
+    private var animClearState by observable(0) // 0=initial, 1=animated, 2=cleared, 3=re-animated
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -542,6 +543,96 @@ internal class CSSTransitionTestPage : Pager() {
                 View {
                     attr {
                         height(50f)
+                    }
+                }
+
+                // === Section 13: Animation Clear (exercises animation null/clear path in KuiklyRenderCSSKTX) ===
+                Text {
+                    attr {
+                        text("13. Animation Clear")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, top = 8f)
+                        size(
+                            if (ctx.animClearState == 1 || ctx.animClearState == 3) 120f else 60f,
+                            60f
+                        )
+                        backgroundColor(Color(0xFF00BCD4))
+                        borderRadius(8f)
+                        // Only apply animation when state is 1 or 3 (animated states)
+                        if (ctx.animClearState == 1 || ctx.animClearState == 3) {
+                            animation(Animation.linear(durationS = 0.3f), true)
+                        }
+                        allCenter()
+                    }
+                    Text {
+                        attr {
+                            text("clear-target")
+                            fontSize(12f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // Buttons to control animation clear cycle
+                View {
+                    attr {
+                        flexDirectionRow()
+                        margin(left = 16f, top = 8f)
+                    }
+                    Text {
+                        attr {
+                            text("anim-set")
+                            fontSize(14f)
+                            color(Color(0xFF1976D2))
+                            margin(right = 16f)
+                            backgroundColor(Color(0xFFE3F2FD))
+                            borderRadius(4f)
+                        }
+                        event {
+                            click {
+                                // Set animation (state 0→1 or 2→3)
+                                ctx.animClearState = if (ctx.animClearState <= 1) 1 else 3
+                            }
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("anim-clear")
+                            fontSize(14f)
+                            color(Color(0xFFD32F2F))
+                            margin(right = 16f)
+                            backgroundColor(Color(0xFFFFEBEE))
+                            borderRadius(4f)
+                        }
+                        event {
+                            click {
+                                // Clear animation (remove it)
+                                ctx.animClearState = 2
+                            }
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("anim-state:${ctx.animClearState}")
+                            fontSize(14f)
+                            color(Color.BLACK)
+                        }
+                    }
+                }
+
+                View {
+                    attr {
+                        height(80f)
                     }
                 }
             }

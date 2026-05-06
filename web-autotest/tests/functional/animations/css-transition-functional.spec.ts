@@ -340,4 +340,69 @@ test.describe('CSS Transition 功能验证', () => {
     await kuiklyPage.waitForTransitionEnd(trigger.locator('..'));
     await expect(kuiklyPage.page.getByText('已展开 (200x200)', { exact: false })).toBeVisible();
   });
+
+  test('Animation Clear: set → clear → re-set should exercise animation null/clear path', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 2400, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('13. Animation Clear', { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('anim-state:0', { exact: false })).toBeVisible();
+
+    // Step 1: Set animation
+    await kuiklyPage.page.getByText('anim-set', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(500);
+    await expect(kuiklyPage.page.getByText('anim-state:1', { exact: false })).toBeVisible();
+
+    // Step 2: Clear animation — exercises animation clear/null path in KuiklyRenderCSSKTX
+    await kuiklyPage.page.getByText('anim-clear', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(300);
+    await expect(kuiklyPage.page.getByText('anim-state:2', { exact: false })).toBeVisible();
+
+    // Step 3: Re-set animation — exercises setting animation after it was cleared
+    await kuiklyPage.page.getByText('anim-set', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(500);
+    await expect(kuiklyPage.page.getByText('anim-state:3', { exact: false })).toBeVisible();
+  });
+
+  test('Animation Clear target element should maintain correct size through states', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CSSTransitionTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 2400, smooth: false });
+
+    await expect(kuiklyPage.page.getByText('clear-target', { exact: true })).toBeVisible();
+
+    const clearTarget = kuiklyPage.page.getByText('clear-target', { exact: true });
+
+    // Initial size should be small (60px)
+    const sizeBefore = await clearTarget.evaluate((el) => {
+      const parent = el.closest('[data-kuikly-component="KRView"]') as HTMLElement | null;
+      return parent ? parent.offsetWidth : 0;
+    });
+    expect(sizeBefore).toBeLessThanOrEqual(80);
+
+    // Set animation → should expand to 120px
+    await kuiklyPage.page.getByText('anim-set', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(500);
+
+    const sizeAfterSet = await clearTarget.evaluate((el) => {
+      const parent = el.closest('[data-kuikly-component="KRView"]') as HTMLElement | null;
+      return parent ? parent.offsetWidth : 0;
+    });
+    expect(sizeAfterSet).toBeGreaterThan(sizeBefore);
+
+    // Clear animation → should collapse back
+    await kuiklyPage.page.getByText('anim-clear', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(300);
+
+    const sizeAfterClear = await clearTarget.evaluate((el) => {
+      const parent = el.closest('[data-kuikly-component="KRView"]') as HTMLElement | null;
+      return parent ? parent.offsetWidth : 0;
+    });
+    expect(sizeAfterClear).toBeLessThanOrEqual(80);
+  });
 });

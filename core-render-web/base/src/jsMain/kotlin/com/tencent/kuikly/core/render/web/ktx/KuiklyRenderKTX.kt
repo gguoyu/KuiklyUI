@@ -274,9 +274,10 @@ fun String.toRgbColor(): String {
     }
 
     // handle by color adapter if exists
-    var color = if (KuiklyRenderAdapterManager.krColorParseAdapter != null) {
+    val adapter = KuiklyRenderAdapterManager.krColorParseAdapter
+    var color = if (adapter != null) {
         // handle by adapter
-        KuiklyRenderAdapterManager.krColorParseAdapter?.toColor(this)
+        adapter.toColor(this)
     } else {
         toLongOrNull()
     }
@@ -302,5 +303,7 @@ fun String.isAllDigits(): Boolean = this.all { it.isDigit() }
 /**
  * get string to double or default
  */
-fun String?.toDoubleOrDefault(default: Double): Double =
-    this?.takeIf { it.isNotEmpty() }?.toDoubleOrNull() ?: default
+fun String?.toDoubleOrDefault(default: Double): Double {
+    val str = this?.takeIf { it.isNotEmpty() } ?: return default
+    return str.toDoubleOrNull() ?: default
+}

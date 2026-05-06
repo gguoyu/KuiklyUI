@@ -114,30 +114,28 @@ class TouchEventHandlers {
          */
         private fun handleTap(event: TouchEvent) {
             if (event.touches.length == 1) {
-                val touch = event.touches[0]
+                val touch = event.touches[0] ?: return
                 val currentTime = Date.now()
-                val x = touch?.clientX
-                val y = touch?.clientY
+                val x = touch.clientX
+                val y = touch.clientY
 
-                if (x != null && y != null) {
-                    if (currentTime - lastTapTime < doubleTapDelay
-                        && abs(x - lastTapX) < moveTolerance
-                        && abs(y - lastTapY) < moveTolerance
-                    ) {
-                        // Double tap triggered
-                        event.preventDefault()
-                        event.stopPropagation()
-                        event.touchOffsetX = x - element.getBoundingClientRect().left.toInt() - element.clientLeft
-                        event.touchOffsetY = y - element.getBoundingClientRect().top.toInt() - element.clientTop
-                        onDoubleTap(event)
-                        // Reset timer to prevent continuous triggering
-                        lastTapTime = 0.0
-                    } else {
-                        // Record first click
-                        lastTapTime = currentTime
-                        lastTapX = x
-                        lastTapY = y
-                    }
+                if (currentTime - lastTapTime < doubleTapDelay
+                    && abs(x - lastTapX) < moveTolerance
+                    && abs(y - lastTapY) < moveTolerance
+                ) {
+                    // Double tap triggered
+                    event.preventDefault()
+                    event.stopPropagation()
+                    event.touchOffsetX = x - element.getBoundingClientRect().left.toInt() - element.clientLeft
+                    event.touchOffsetY = y - element.getBoundingClientRect().top.toInt() - element.clientTop
+                    onDoubleTap(event)
+                    // Reset timer to prevent continuous triggering
+                    lastTapTime = 0.0
+                } else {
+                    // Record first click
+                    lastTapTime = currentTime
+                    lastTapX = x
+                    lastTapY = y
                 }
             }
         }
@@ -481,21 +479,19 @@ object EventProcessor : IEventProcessor {
                 event.unsafeCast<TouchEvent>().changedTouches[0]
             } else {
                 event.unsafeCast<TouchEvent>().touches[0]
-            }
-            touch?.let {
-                val touchEvent = H5Event(
-                    screenX = touch.screenX,
-                    screenY = touch.screenY,
-                    clientX = touch.clientX,
-                    clientY = touch.clientY,
-                    offsetX = event.touchOffsetX ?: touch.clientX,
-                    offsetY = event.touchOffsetY ?: touch.clientY,
-                    pageX = touch.pageX,
-                    pageY = touch.pageY
-                )
-                touchEvent.state = event.state
-                callback(touchEvent)
-            }
+            } ?: return
+            val touchEvent = H5Event(
+                screenX = touch.screenX,
+                screenY = touch.screenY,
+                clientX = touch.clientX,
+                clientY = touch.clientY,
+                offsetX = event.touchOffsetX ?: touch.clientX,
+                offsetY = event.touchOffsetY ?: touch.clientY,
+                pageX = touch.pageX,
+                pageY = touch.pageY
+            )
+            touchEvent.state = event.state
+            callback(touchEvent)
         } else if (event is MouseEvent) {
             val mouse = H5Event(
                 screenX = event.screenX,

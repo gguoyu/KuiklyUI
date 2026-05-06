@@ -744,11 +744,12 @@ fun Element.setKRAnimation(animation: String?) {
                     // clear animation timeout when finished all animations all cancelled
                     clearAnimationTimeout()
                 }
-            if (hrAnimation != null && hrAnimation?.hasAnimations() == true) {
+            val currentAnimation = hrAnimation
+            if (currentAnimation != null && currentAnimation.hasAnimations()) {
                 // commit animation when has animations
-                hrAnimation?.commitAnimation()
+                currentAnimation.commitAnimation()
                 // generate current step animation string
-                kuiklyAnimation?.step(getAnimationStepOption(hrAnimation))
+                kuiklyAnimation?.step(getAnimationStepOption(currentAnimation))
             }
             hrAnimation = newAnimation
             // Add animation to queue

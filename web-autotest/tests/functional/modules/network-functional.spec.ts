@@ -85,17 +85,12 @@ test.describe('KRNetworkModule functional 验证', () => {
     await kuiklyPage.waitForRenderComplete();
 
     const btn = kuiklyPage.page.getByLabel('requestTimeout', { exact: true });
-    const isVisible = await btn.isVisible().catch(() => false);
-    if (!isVisible) {
-      // NetworkModuleTestPage may not have a timeout test button — skip gracefully
-      return;
-    }
+    await expect(btn).toBeVisible();
     await btn.click();
-    await kuiklyPage.page.waitForTimeout(5000);
-    // Should show timeout/error result
-    await expect(kuiklyPage.page.getByText('timeout-result:', { exact: false }).or(
-      kuiklyPage.page.getByText('success=false', { exact: false })
-    )).toBeVisible({ timeout: 15000 });
+
+    // Timeout is set to 2 seconds, server delays 10 seconds — client should time out
+    await waitForResult(kuiklyPage.page, 'timeout-result:');
+    await expect(kuiklyPage.page.getByText('success=false', { exact: false })).toBeVisible({ timeout: 15000 });
   });
 
   test('status500 应返回 500 并触发 !response.ok 错误路径', async ({ kuiklyPage }) => {

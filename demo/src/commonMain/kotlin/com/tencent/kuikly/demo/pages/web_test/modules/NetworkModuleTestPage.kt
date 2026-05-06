@@ -160,6 +160,28 @@ internal class NetworkModuleTestPage : BasePager() {
                     }
                 }
             }
+            Row {
+                Button {
+                    attr {
+                        size(150f, 40f)
+                        borderRadius(20f)
+                        marginLeft(10f)
+                        marginTop(5f)
+                        backgroundColor(Color(0x6200ee, 1f))
+                        titleAttr {
+                            text("requestTimeout")
+                            color(Color.WHITE)
+                        }
+                        highlightBackgroundColor(Color.GRAY)
+                    }
+                    event {
+                        click {
+                            ctx.output = "requestTimeout..."
+                            ctx.requestTimeout()
+                        }
+                    }
+                }
+            }
             View {
                 attr {
                     marginLeft(10f)
@@ -270,6 +292,26 @@ internal class NetworkModuleTestPage : BasePager() {
             JSONObject(),
         ) { data, success, errorMsg, response ->
             output = """Get request completed:
+                |success=$success,
+                |
+                |data=$data,
+                |
+                |errorMsg=$errorMsg,
+                |
+                |statusCode=${response.statusCode}""".trimMargin()
+        }
+    }
+
+    private fun requestTimeout() {
+        acquireModule<NetworkModule>(NetworkModule.MODULE_NAME).httpRequest(
+            localUrl("/api/network/timeout"),
+            isPost = false,
+            param = JSONObject(),
+            headers = null,
+            cookie = null,
+            timeout = 2,
+        ) { data, success, errorMsg, response ->
+            output = """timeout-result:
                 |success=$success,
                 |
                 |data=$data,

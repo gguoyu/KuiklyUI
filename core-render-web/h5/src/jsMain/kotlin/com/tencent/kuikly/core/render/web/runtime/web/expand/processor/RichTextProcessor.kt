@@ -56,7 +56,10 @@ object RichTextProcessor : IRichTextProcessor {
     private const val HEAD_INDENT = "headIndent"
     private const val LINE_HEIGHT = "lineHeight"
     // specify to use canvas measure text size
-    private val useCanvasMeasure = kuiklyDocument.location?.let { it.href.contains("use_canvas_measure=1") } ?: false
+    private val useCanvasMeasure = run {
+        val location = kuiklyDocument.location ?: return@run false
+        location.href.contains("use_canvas_measure=1")
+    }
 
 
     init {
@@ -241,8 +244,12 @@ object RichTextProcessor : IRichTextProcessor {
         // Initialize default font
         if (defaultFontFamily == "") {
             // Record default font
-            defaultFontFamily =
-                kuiklyDocument.documentElement?.let { kuiklyWindow.getComputedStyle(it).fontFamily } ?: ""
+            val docElement = kuiklyDocument.documentElement
+            defaultFontFamily = if (docElement != null) {
+                kuiklyWindow.getComputedStyle(docElement).fontFamily
+            } else {
+                ""
+            }
         }
 
         return defaultFontFamily

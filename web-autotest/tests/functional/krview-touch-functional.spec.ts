@@ -127,4 +127,84 @@ test.describe('KRViewTouchTestPage touch event functional', () => {
     });
     expect(frameText).toMatch(/^frame-count: [1-5]$/);
   });
+
+  test('mouseLeave while dragging should exercise isMouseDown leave branch', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTouchTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const touchArea = kuiklyPage.page.getByText('touch-area', { exact: true });
+    await expect(touchArea).toBeVisible();
+
+    const box = await touchArea.boundingBox();
+    expect(box).toBeTruthy();
+
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+
+    // Mouse down inside element, then move far outside to trigger mouseleave while isMouseDown=true
+    await kuiklyPage.page.mouse.move(cx, cy);
+    await kuiklyPage.page.mouse.down();
+    await kuiklyPage.page.waitForTimeout(50);
+    // Move far outside the element boundary (exercises mouseLeave with isMouseDown=true)
+    await kuiklyPage.page.mouse.move(cx + 500, cy + 500, { steps: 5 });
+    await kuiklyPage.page.waitForTimeout(100);
+    await kuiklyPage.page.mouse.up();
+    await kuiklyPage.page.waitForTimeout(200);
+
+    // touchDown should have fired from the initial mousedown
+    await expect(kuiklyPage.page.getByText(/touch-down: [1-9]/, { exact: false })).toBeVisible();
+  });
+
+  test('windowMouseUp outside element should exercise global mouseup listener', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTouchTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const touchArea = kuiklyPage.page.getByText('touch-area', { exact: true });
+    await expect(touchArea).toBeVisible();
+
+    const box = await touchArea.boundingBox();
+    expect(box).toBeTruthy();
+
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+
+    // Mouse down inside element
+    await kuiklyPage.page.mouse.move(cx, cy);
+    await kuiklyPage.page.mouse.down();
+    await kuiklyPage.page.waitForTimeout(50);
+
+    // Move outside the element (but still within the window/page)
+    await kuiklyPage.page.mouse.move(10, 10, { steps: 3 });
+    await kuiklyPage.page.waitForTimeout(50);
+
+    // Release mouse outside the element — triggers windowMouseUpListener
+    await kuiklyPage.page.mouse.up();
+    await kuiklyPage.page.waitForTimeout(200);
+
+    // touchDown should have fired, and touchUp should also fire via window listener
+    await expect(kuiklyPage.page.getByText(/touch-down: [1-9]/, { exact: false })).toBeVisible();
+    await expect(kuiklyPage.page.getByText(/touch-up: [1-9]/, { exact: false })).toBeVisible();
+  });
+
+  test('mouse move without button pressed should not trigger touch events', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('KRViewTouchTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const touchArea = kuiklyPage.page.getByText('touch-area', { exact: true });
+    await expect(touchArea).toBeVisible();
+
+    const box = await touchArea.boundingBox();
+    expect(box).toBeTruthy();
+
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+
+    // Just move over the element without pressing — exercises isMouseDown=false in mousemove
+    await kuiklyPage.page.mouse.move(cx - 20, cy);
+    await kuiklyPage.page.mouse.move(cx + 20, cy, { steps: 5 });
+    await kuiklyPage.page.waitForTimeout(100);
+
+    // touch-down should remain at 0
+    await expect(kuiklyPage.page.getByText('touch-down: 0', { exact: true })).toBeVisible();
+  });
 });

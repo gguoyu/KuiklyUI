@@ -160,6 +160,14 @@ function handleNetworkMock(req, res, requestPath, port) {
     return true;
   }
 
+  if (requestPath === '/api/network/timeout') {
+    // Delay 10 seconds before responding — used to test client-side timeout handling
+    setTimeout(() => {
+      sendJson(res, 200, { success: true, delayed: true });
+    }, 10000);
+    return true;
+  }
+
   return false;
 }
 

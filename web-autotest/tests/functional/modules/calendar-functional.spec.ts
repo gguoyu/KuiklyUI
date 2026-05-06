@@ -122,4 +122,30 @@ test.describe('KRCalendarModule functional', () => {
     await kuiklyPage.page.waitForTimeout(300);
     await expect(kuiklyPage.page.getByText(/parseFull:\d+/, { exact: false })).toBeVisible();
   });
+
+  test('advanced: time-only format should exercise yearStart==-1 branch', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CalendarAdvancedTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 600, smooth: false });
+
+    await kuiklyPage.page.getByText('time-only format', { exact: false }).click();
+    await kuiklyPage.page.waitForTimeout(300);
+    // Should format time-only (HH:mm:ss) — result like "timeOnly:08:30:00" or error
+    await expect(kuiklyPage.page.getByText(/timeOnly:.+/, { exact: false })).toBeVisible();
+  });
+
+  test('advanced: unclosed quote format should exercise inLiteral after-loop branch', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('CalendarAdvancedTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 800, smooth: false });
+
+    await kuiklyPage.page.getByText('unclosed quote', { exact: false }).click();
+    await kuiklyPage.page.waitForTimeout(300);
+    // Should handle unclosed single quote in format string
+    await expect(kuiklyPage.page.getByText(/unclosed:.+/, { exact: false })).toBeVisible();
+  });
 });

@@ -30,6 +30,8 @@ internal class CalendarAdvancedTestPage : Pager() {
     private var parseErrorResult by observable("parseErr:pending")
     private var quoteFormatResult by observable("quote:pending")
     private var parseFullResult by observable("parseFull:pending")
+    private var timeOnlyResult by observable("timeOnly:pending")
+    private var unclosedQuoteResult by observable("unclosed:pending")
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -184,6 +186,50 @@ internal class CalendarAdvancedTestPage : Pager() {
                     }
                 }
                 Text { attr { text(ctx.parseFullResult); margin(left = 16f, top = 8f) } }
+
+                // time-only format (no year/month/day) — exercises yearStart==-1 branch
+                Button {
+                    attr {
+                        titleAttr { text("time-only format") }
+                        size(width = 240f, height = 48f)
+                        margin(left = 16f, top = 16f)
+                        backgroundColor(0xFFFF6F00)
+                    }
+                    event {
+                        click {
+                            val m = ctx.acquireModule<CalendarModule>(CalendarModule.MODULE_NAME)
+                            val result = try {
+                                m.formatTime(ctx.sampleTimestamp, "HH:mm:ss")
+                            } catch (e: Throwable) {
+                                "error:${e.message}"
+                            }
+                            ctx.timeOnlyResult = "timeOnly:$result"
+                        }
+                    }
+                }
+                Text { attr { text(ctx.timeOnlyResult); margin(left = 16f, top = 8f) } }
+
+                // unclosed quote format — exercises inLiteral after-loop branch
+                Button {
+                    attr {
+                        titleAttr { text("unclosed quote") }
+                        size(width = 240f, height = 48f)
+                        margin(left = 16f, top = 16f)
+                        backgroundColor(0xFFD84315)
+                    }
+                    event {
+                        click {
+                            val m = ctx.acquireModule<CalendarModule>(CalendarModule.MODULE_NAME)
+                            val result = try {
+                                m.formatTime(ctx.sampleTimestamp, "yyyy-MM-dd'unclosed")
+                            } catch (e: Throwable) {
+                                "error:${e.message}"
+                            }
+                            ctx.unclosedQuoteResult = "unclosed:$result"
+                        }
+                    }
+                }
+                Text { attr { text(ctx.unclosedQuoteResult); margin(left = 16f, top = 8f) } }
             }
         }
     }
