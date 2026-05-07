@@ -1055,7 +1055,7 @@ fun setPlaceholderColor(el: HTMLElement, color: String) {
     val style = kuiklyDocument.createElement("style")
     style.setAttribute("type", "text/css")
     style.appendChild(kuiklyDocument.createTextNode(css))
-    kuiklyDocument.head?.appendChild(style)
+    kuiklyDocument.head!!.appendChild(style)
 }
 
 /**

@@ -44,7 +44,7 @@ class KRModalView : IKuiklyRenderViewExport {
                 return
             }
             parent.removeChild(ele)
-            kuiklyDocument.body?.appendChild(ele)
+            kuiklyDocument.body!!.appendChild(ele)
         }
     }
 

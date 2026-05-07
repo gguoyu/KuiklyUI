@@ -31,10 +31,10 @@ class StyleSheet {
     private fun appendStyleSheet() {
         val style = this.style
         if (style != null) {
-            val head = kuiklyDocument.getElementsByTagName("head")[0]
+            val head = kuiklyDocument.head!!
             style.setAttribute("type", "text/css")
             style.setAttribute("data-type", "kuikly")
-            head?.appendChild(style)
+            head.appendChild(style)
             this.sheet = style.sheet.unsafeCast<CSSStyleSheet>()
         }
     }

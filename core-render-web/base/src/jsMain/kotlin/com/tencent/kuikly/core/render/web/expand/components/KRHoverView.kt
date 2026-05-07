@@ -73,13 +73,13 @@ class KRHoverView : IKuiklyRenderViewExport {
         // Actual scroll view needs to get grandparent node
         if (parent.parentElement !== null) {
             // Save scroll grandparent node
-            val grandParent = parent.parentElement.unsafeCast<HTMLElement?>()
+            val grandParent = parent.parentElement!!.unsafeCast<HTMLElement>()
             val totalTop = getTotalTop(grandParent)
             // Save current component's top value
             top = ele.style.top.pxToFloat()
             // Listen to grandparent scroll node change event, handle hover state,
             // if scroll distance is greater than top value, set to fixed, otherwise restore
-            grandParent?.addEventListener("scroll", {
+            grandParent.addEventListener("scroll", {
                 val contentOffsetTop = grandParent.scrollTop
                 if (contentOffsetTop > top - hoverViewMarginTop) {
                     // Scroll distance is greater than hover component's top value, set to scroll top value

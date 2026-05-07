@@ -171,7 +171,7 @@ object RichTextProcessor : IRichTextProcessor {
         // No truncation or ellipsis when calculating actual size
         newEle.style.whiteSpace = "pre-wrap"
         // Insert the node into the page to complete rendering, used to get the actual size of the node
-        kuiklyDocument.body?.appendChild(newEle)
+        kuiklyDocument.body!!.appendChild(newEle)
         // Element width
         var w = newEle.offsetWidth
         // Element height
@@ -206,7 +206,7 @@ object RichTextProcessor : IRichTextProcessor {
         }
 
         // After getting the size, remove the node from the page
-        kuiklyDocument.body?.removeChild(newEle)
+        kuiklyDocument.body!!.removeChild(newEle)
         Log.trace("calculate size by dom, size: ", w, h)
         // Actual width
         val realWidth = if (w < constraintSize.width) w + 0.5f else constraintSize.width
