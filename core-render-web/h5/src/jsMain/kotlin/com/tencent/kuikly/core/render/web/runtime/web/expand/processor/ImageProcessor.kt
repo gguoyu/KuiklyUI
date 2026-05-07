@@ -45,7 +45,7 @@ object ImageProcessor : IImageProcessor {
                 setAttribute("width", "0")
                 setAttribute("height", "0")
                 setAttribute("style", "position: absolute; visibility: hidden;")
-                document.body?.appendChild(this)
+                document.body!!.appendChild(this)
             }
         }
     }
