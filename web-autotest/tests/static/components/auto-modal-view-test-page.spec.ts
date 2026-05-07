@@ -276,12 +276,6 @@ async function waitForAnimationStrategy(kuiklyPage, locator = null) {
   await kuiklyPage.page.waitForTimeout(ANIMATION_HINTS.fallbackWaitMs || 900);
 }
 
-function hasUsableInteractionHints() {
-  return (Array.isArray(INTERACTION_HINTS.actionScripts) && INTERACTION_HINTS.actionScripts.length > 0)
-    || ACTION_LABELS.length > 0
-    || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
-}
-
 test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   test('loads ' + PAGE_NAME, async ({ kuiklyPage }) => {
     await kuiklyPage.goto("ModalViewTestPage");
@@ -291,8 +285,6 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   });
 
   test('executes rule-driven interactions on ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    test.skip(!hasUsableInteractionHints(), 'No usable interaction hints were resolved for this page.');
-
     await kuiklyPage.goto("ModalViewTestPage");
     await kuiklyPage.waitForRenderComplete();
     await expectPageReady(kuiklyPage);

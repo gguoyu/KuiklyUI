@@ -84,6 +84,25 @@ Text { attr { text(if (ctx.count == 0) "clear-idle" else "cleared: ${ctx.count}"
 // actionScript: { "targetLabel": "clear-idle", "expectLabel": "cleared: 1" }
 ```
 
+**下游影响（生成 spec 侧）**：当动态模板字符串被提取进生成的 spec 的 `ACTION_LABELS` 时，有两个连锁问题：
+
+1. `clickVisibleLabels()` 永远无法匹配，交互路径实际不执行——测试**静默通过**但未做任何有意义的点击
+2. 如果 spec 里同时保留了旧版模板的 `hasUsableInteractionHints()` 守卫（见 §8），因为 `ACTION_LABELS.length > 0`，守卫返回 `true`，`test.skip` 成为 no-op，进一步掩盖了失效
+
+**修复方式**（无需重新生成载体页面，直接修改 spec）：
+```typescript
+// ❌ 生成的 spec 里出现字面量 ${...}
+const ACTION_LABELS = [
+  "touch-target-clicks: ${ctx.clickCount}"
+];
+
+// ✅ 清空错误标签；确保 actionScripts 覆盖实际交互
+const ACTION_LABELS: string[] = [];
+// actionScripts 保持正确的 { "kind": "click", "targetLabel": "...", "expectLabel": "..." }
+```
+
+**已修复案例（2026-05）**：`auto-cssprops-test-page.spec.ts` 的 `ACTION_LABELS` 曾包含 `"touch-target-clicks: ${ctx.clickCount}"`，已清空；交互覆盖由 `actionScripts` 里的 `touch-enabled`/`touch-disabled` toggle 对承担。
+
 ---
 
 ## 4. TextArea / Input 事件在 Playwright 中用 fill() 不触发 ✅ 已解决
@@ -151,3 +170,50 @@ node web-autotest/scripts/loop/run-autotest-loop.mjs --max-rounds 1
 # Step 2: build 已完成，用 skip-build 让 loop 生成 spec
 node web-autotest/scripts/loop/run-autotest-loop.mjs --skip-build --max-rounds 3
 ```
+
+---
+
+## 8. `hasUsableInteractionHints()` 是旧模板遗留的死代码
+
+**问题**：在早期版本的 `generate-carrier-page.mjs` 模板中，生成的 `auto-*.spec.ts` 文件里包含了如下守卫函数：
+
+```typescript
+function hasUsableInteractionHints() {
+  return (Array.isArray(INTERACTION_HINTS.actionScripts) && INTERACTION_HINTS.actionScripts.length > 0)
+    || ACTION_LABELS.length > 0
+    || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
+}
+
+// 在测试里
+test('executes rule-driven interactions on ...', async ({ kuiklyPage }) => {
+  test.skip(!hasUsableInteractionHints(), 'No usable interaction hints were resolved for this page.');
+  // ...
+});
+```
+
+**根因**：这个守卫的设计意图是跳过"没有任何可执行交互"的页面——但对于任何由 loop 实际生成的非空 spec，以下三个条件至少满足一个：
+- `actionScripts.length > 0`（页面有 actionScripts）
+- `ACTION_LABELS.length > 0`（页面有标签列表，即使标签可能是错误的动态模板字符串——见 §3）
+- `actions` 里包含 `'scroll-first-list'` 或 `'fill-first-input'` 等非 `click-visible-labels` 项
+
+因此 `hasUsableInteractionHints()` **结构性地永远返回 `true`**，`test.skip` 是永远不生效的 no-op 死代码。
+
+**影响**：这些 spec 的"executes rule-driven interactions"测试表面上未被 skip（因为 `test.skip(false, ...)` 是 no-op），但在扫描 `test.skip` 列表时会产生误报，让人误以为它们是"因为缺少交互提示而被跳过的"。
+
+**已修复（2026-05）**：以下 6 个生成的 spec 中的 `hasUsableInteractionHints()` 函数和对应的 `test.skip` 行均已删除：
+
+| Spec 文件 | 修复内容 |
+|-----------|---------|
+| `tests/static/styles/auto-cssprops-test-page.spec.ts` | 删除函数 + skip 行；同时清空了错误的 `ACTION_LABELS`（见 §3） |
+| `tests/functional/animations/auto-paganim-test-page.spec.ts` | 删除函数 + skip 行 |
+| `tests/static/components/auto-krtext-area-view-test-page.spec.ts` | 删除函数 + skip 行 |
+| `tests/static/components/auto-krtext-field-view-test-page.spec.ts` | 删除函数 + skip 行 |
+| `tests/static/components/auto-modal-view-test-page.spec.ts` | 删除函数 + skip 行 |
+| `tests/static/components/auto-krvideo-view-test-page.spec.ts` | 删除函数 + skip 行 |
+
+`tests/functional/animations/auto-property-anim-test-page.spec.ts` 的 `hasUsableInteractionHints()` 函数定义也已删除（该函数在此文件中已无任何调用，属于孤立死代码）。
+
+**规则**：
+- 新生成的 `auto-*.spec.ts` 不应包含 `hasUsableInteractionHints()` 函数（当前模板版本已移除）。
+- 如果在现有 managed spec 中发现此函数，直接删除函数体和调用它的 `test.skip` 行，无需其他改动。
+- **不要**将此类 skip 归类为框架限制（见 `playwright-kuikly-limits.md`）——它不是 headless 问题，只是模板生成的死代码。

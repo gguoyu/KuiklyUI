@@ -270,12 +270,6 @@ async function waitForAnimationStrategy(kuiklyPage, locator = null) {
   await kuiklyPage.page.waitForTimeout(ANIMATION_HINTS.fallbackWaitMs || 900);
 }
 
-function hasUsableInteractionHints() {
-  return (Array.isArray(INTERACTION_HINTS.actionScripts) && INTERACTION_HINTS.actionScripts.length > 0)
-    || ACTION_LABELS.length > 0
-    || (INTERACTION_HINTS.actions || []).some((action) => action !== 'click-visible-labels');
-}
-
 const SECTION_TITLE = "1. Linear 平移动画";
 const PLAY_TRANSLATE = "播放平移";
 const RESTORE_POSITION = "还原位置";

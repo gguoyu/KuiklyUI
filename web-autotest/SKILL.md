@@ -320,6 +320,30 @@ Some Kotlin source paths are permanently unreachable under Playwright headless C
 
 When a coverage gap falls into one of the above patterns and the loop has already attempted at least 2 rounds without improvement, stop and escalate rather than continuing.
 
+### Not a headless limit: `hasUsableInteractionHints()` dead-code skips
+
+A separate category of `test.skip` is **not** a headless limit — it was a code generation artifact from an earlier template version. Some older managed `auto-*.spec.ts` files contain:
+
+```typescript
+function hasUsableInteractionHints() { ... }
+test('executes rule-driven interactions ...', async ({ kuiklyPage }) => {
+  test.skip(!hasUsableInteractionHints(), 'No usable interaction hints were resolved for this page.');
+  ...
+});
+```
+
+Because `hasUsableInteractionHints()` structurally always returns `true` for any non-trivial page, the `test.skip` is a permanent no-op. **This is dead code, not a real skip.**
+
+**Action**: If found in an existing managed spec, delete the `hasUsableInteractionHints()` function body and the `test.skip` line that calls it. No other changes needed. These 6 files were already cleaned up (2026-05):
+- `tests/static/styles/auto-cssprops-test-page.spec.ts`
+- `tests/functional/animations/auto-paganim-test-page.spec.ts`
+- `tests/static/components/auto-krtext-area-view-test-page.spec.ts`
+- `tests/static/components/auto-krtext-field-view-test-page.spec.ts`
+- `tests/static/components/auto-modal-view-test-page.spec.ts`
+- `tests/static/components/auto-krvideo-view-test-page.spec.ts`
+
+The current spec generation template no longer emits this function. See `experience/carrier-page-pitfalls.md` §8 for full details.
+
 ## Decision rules
 
 - If a failure is caused by stale assertions, stale locators, or missing waits, fix the test.
