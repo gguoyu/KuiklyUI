@@ -1092,19 +1092,19 @@ node web-autotest/scripts/kuikly-test.mjs --level static --dry-run --print-resol
 
 ### 12.3 覆盖率配置
 
-覆盖率阈值、水位线、作用域与 V8 参数统一配置在 `web-e2e/config/coverage.cjs`：
+覆盖率阈值、水位线、作用域与 V8 参数统一配置在 `kuikly.autotest.config.cjs`（`config/coverage.cjs` 是其代理）：
 
 ```js
 module.exports = {
   thresholds: {
-    lines: 70,
-    functions: 70,
-    branches: 55,
+    lines: 80,
+    functions: 80,
+    branches: 70,
   },
   watermarks: {
-    lines: [70, 80],
-    functions: [70, 80],
-    branches: [55, 75],
+    lines: [80, 90],
+    functions: [80, 90],
+    branches: [70, 85],
   },
   scopeRoots: [
     'core-render-web/base/src/jsMain/kotlin',
@@ -1127,15 +1127,13 @@ module.exports = {
 
 ### 12.4 覆盖率阈值
 
-当前统一门禁阈值：
+当前统一门禁阈值（以 `kuikly.autotest.config.cjs` 实际配置为准）：
 
 | 指标 | 阈值 |
 | ---- | ---- |
-| lines | 70% |
-| functions | 70% |
-| branches | 55% |
-
-长期目标：在核心渲染路径上继续提高阈值，但文档中的正式门禁口径以当前 `config/coverage.cjs` 实际配置为准。
+| lines | 80% |
+| functions | 80% |
+| branches | 70% |
 
 ### 12.5 覆盖率收集流程
 

@@ -166,49 +166,14 @@ test.describe('KRListView 列表滚动测试', () => {
 
 ## 🔧 KuiklyPage Fixture API
 
-### 导航与等待
+> 完整 API 签名与使用示例见 [SKILL.md §9 — 核心 Fixture：KuiklyPage](../SKILL.md)。
 
-```typescript
-await kuiklyPage.goto('TestPageName');
-// 等价于 page.goto('?page_name=TestPageName')
+主要方法分组：
 
-await kuiklyPage.waitForRenderComplete();
-// 等待网络 idle + 100ms 渲染稳定，默认 timeout 30s
-```
-
-### 组件定位
-
-```typescript
-// 通过 data-kuikly-component 定位（返回 Locator，可链式调用）
-const list  = kuiklyPage.component('KRListView').first();
-const input = kuiklyPage.component('KRInputView').nth(1);
-
-// 获取所有同类型组件（返回 Locator[]）
-const allViews = await kuiklyPage.components('KRView');
-
-// 获取组件树（调试用）
-const tree = await kuiklyPage.getComponentTree();
-```
-
-### 滚动 / 手势
-
-```typescript
-await kuiklyPage.scrollInContainer(locator, { deltaX?, deltaY?, smooth? });
-await kuiklyPage.swipeInContainer(locator, { direction: 'up'|'down'|'left'|'right', distance });
-```
-
-### 动画
-
-```typescript
-const frames = await kuiklyPage.captureAnimationFrames({ interval: 100, maxDuration: 2000 });
-await kuiklyPage.waitForAnimationEnd();
-await kuiklyPage.waitForTransitionEnd(locator);
-const styles = await kuiklyPage.getComputedStyles(locator, ['opacity', 'transform']);
-
-// 帧差异分析
-kuiklyPage.framesDiffer(frameA, frameB, { threshold? });   // boolean
-kuiklyPage.countFrameDiffs(frames, { threshold? });         // number
-```
+- **导航与等待**：`goto(pageName)` / `waitForRenderComplete()`
+- **组件定位**：`component(type)` / `components(type)` / `getComponentTree()`
+- **滚动 / 手势**：`scrollInContainer(locator, opts)` / `swipeInContainer(locator, opts)` / `fillInput(locator, text)`
+- **动画**：`waitForAnimationEnd()` / `waitForTransitionEnd(locator)` / `captureAnimationFrames(opts)` / `getComputedStyles(locator, props)` / `framesDiffer(a, b)` / `countFrameDiffs(frames)`
 
 ---
 
@@ -232,10 +197,12 @@ Kotlin 报告路径：`reports/coverage/index.html`
 
 ### 覆盖率阈值（`config/coverage.cjs`）
 
+> 以 `config/coverage.cjs`（实际读取 `kuikly.autotest.config.cjs`）为准。
+
 | 指标 | 阈值 |
 |------|------|
-| lines / functions | ≥ 70% |
-| branches | ≥ 55% |
+| lines / functions | ≥ 80% |
+| branches | ≥ 70% |
 
 ---
 

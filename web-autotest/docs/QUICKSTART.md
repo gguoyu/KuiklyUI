@@ -109,34 +109,9 @@ node web-autotest/scripts/run-autotest-loop.mjs \
 node web-autotest/scripts/kuikly-test.mjs --skip-build --test <spec>
 ```
 
-### 主要输出文件
+闭环输出的机器可读报告位于 `web-autotest/reports/autotest/loop-report.json`（关注 `finalStatus`、`warnings`、`mutations`）。
 
-`web-autotest/reports/autotest/loop-report.json` 是机器可读的闭环报告，关注以下字段：
-
-| 字段 | 含义 |
-|------|------|
-| `scan.summary` | 页面/spec 完整性状态 |
-| `attempts[*].summary` | 每轮测试和覆盖率结果 |
-| `mutations` | 本次自动编辑内容 |
-| `warnings` | 阻塞项或需要回滚的信号 |
-| `finalStatus` | 最终结论 |
-
-### AI 自动修复范围
-
-- ✅ 为缺失的 `web_test` 页面创建 managed spec
-- ✅ 刷新失败的 managed spec（定位器/断言过时）
-- ✅ 修复确定性的页面映射（`kuiklyPage.goto()` 重映射）
-- ✅ 在有明确模式时添加最小化 `web_test` 页面
-- ❌ 不重写 handwritten 非 managed spec（仅限上述确定性修复规则）
-
-### 需要人工介入的场景
-
-- spec 目标为 `orphanSpecTarget`（页面不在 `web_test` 下）
-- 产品行为存在歧义，无法判断是预期变更还是回归
-- 页面被外部 SDK 或产品能力阻塞
-- 低覆盖率文件没有合适的 `web_test` 载体页
-- 某页面已有 handwritten spec 且全部为 skipped/pending 状态（视为阻塞项）
-- 新 `web_test` 页面仅能是占位标题页而不能真正验证缺失能力
+AI 自动修复边界、需要人工介入的场景等详细规范见 [SKILL.md](../SKILL.md)。
 
 ---
 
