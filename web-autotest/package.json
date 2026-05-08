@@ -29,6 +29,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "npm run build",
+    "release": "node scripts/release.mjs patch",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major",
     "setup": "node scripts/setup-fonts.mjs",
     "serve": "node scripts/serve.cjs",
     "serve:dev": "BUILD_TYPE=developmentExecutable node scripts/serve.cjs",
