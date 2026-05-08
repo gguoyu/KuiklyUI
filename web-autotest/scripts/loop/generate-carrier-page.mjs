@@ -20,12 +20,14 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { basename, dirname, join, relative } from 'path';
 import { createRequire } from 'module';
-import { repoRoot, webTestRoot } from '../lib/paths.mjs';
+import { repoRoot, packageRoot, autotestDir, webTestRoot } from '../lib/paths.mjs';
 import { toPosix } from '../lib/fs-utils.mjs';
 
 const require = createRequire(import.meta.url);
-const autotestConfig = require(join(repoRoot, 'web-autotest', 'kuikly.autotest.config.cjs'));
-const INTERACTION_PROTOCOL_PATH = join(repoRoot, 'web-autotest', 'rules', 'interaction-protocol.json');
+const configPath = process.env.KUIKLY_AUTOTEST_CONFIG
+  || join(autotestDir, 'kuikly.autotest.config.cjs');
+const autotestConfig = require(configPath);
+const INTERACTION_PROTOCOL_PATH = join(packageRoot, 'rules', 'interaction-protocol.json');
 
 const args = process.argv.slice(2);
 const sourceFilePath = args.find((a) => !a.startsWith('--'));

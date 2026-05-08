@@ -1,10 +1,12 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { detectClassificationUpgradeOpportunity } from './classification-policy.mjs';
-import { repoRoot } from './paths.mjs';
+import { packageRoot, autotestDir } from './paths.mjs';
 
-const rulesRoot = join(repoRoot, 'web-autotest', 'rules');
-const projectRulesRoot = join(repoRoot, 'web-autotest', 'project-rules');
+// framework rules: 在包内（templates、generic profiles）
+const rulesRoot = join(packageRoot, 'rules');
+// project rules: 在消费方 scaffold（项目专属 page profiles 等）
+const projectRulesRoot = join(autotestDir, 'project-rules');
 
 const fallbackTemplateProfiles = Object.freeze({
   categoryDefaults: Object.freeze({

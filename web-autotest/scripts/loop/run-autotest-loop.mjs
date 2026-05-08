@@ -4,7 +4,7 @@ import { spawnSync } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { basename, dirname, join, relative } from 'path';
 import { createRequire } from 'module';
-import { repoRoot, reportsDir as baseReportsDir, testsRoot, webTestRoot } from '../lib/paths.mjs';
+import { repoRoot, packageRoot, reportsDir as baseReportsDir, testsRoot, webTestRoot } from '../lib/paths.mjs';
 import { loopConfig, displayConfig, reportingConfig } from '../lib/config.mjs';
 import { toPosix, unique, walkFiles } from '../lib/fs-utils.mjs';
 import { runSiblingScriptJson, runScriptJson } from '../lib/script-runner.mjs';
@@ -28,11 +28,11 @@ import {
   scoreBackfillPriority,
 } from '../lib/rule-loader.mjs';
 
-const fixtureEntry = join(repoRoot, 'web-autotest', 'fixtures', 'test-base');
+const fixtureEntry = join(packageRoot, 'fixtures', 'test-base');
 const reportsDir = join(baseReportsDir, 'autotest');
 
 const _require = createRequire(import.meta.url);
-const { resolvePort } = _require(join(repoRoot, 'web-autotest', 'config', 'runtime.cjs'));
+const { resolvePort } = _require(join(packageRoot, 'config', 'runtime.cjs'));
 const testServerPort = resolvePort();
 
 const rawArgs = process.argv.slice(2);
@@ -135,7 +135,7 @@ function runCommand(label, command, args, { allowFailure = false } = {}) {
 }
 
 function buildCanonicalArgs() {
-  const args = ['web-autotest/scripts/kuikly-test.mjs', '--full'];
+  const args = [join(packageRoot, 'scripts', 'kuikly-test.mjs'), '--full'];
 
   if (options.skipBuild) args.push('--skip-build');
   if (options.updateSnapshots) args.push('--update-snapshots');
@@ -148,7 +148,7 @@ function buildCanonicalArgs() {
 }
 
 function runCoverageCheck() {
-  return runCommand('Check coverage thresholds', process.execPath, ['web-autotest/scripts/coverage-report.mjs', '--check'], {
+  return runCommand('Check coverage thresholds', process.execPath, [join(packageRoot, 'scripts', 'coverage-report.mjs'), '--check'], {
     allowFailure: true,
   });
 }
@@ -1465,7 +1465,7 @@ function createMutationContext(dryRun, verificationLog = []) {
 }
 
 function getTargetedTestArgs(specFile) {
-  const args = ['web-autotest/scripts/kuikly-test.mjs', '--skip-build', '--test', specFile];
+  const args = [join(packageRoot, 'scripts', 'kuikly-test.mjs'), '--skip-build', '--test', specFile];
   if (options.headed) args.push('--headed');
   if (options.debug) args.push('--debug');
   if (options.updateSnapshots) args.push('--update-snapshots');

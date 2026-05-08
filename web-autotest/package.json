@@ -1,7 +1,28 @@
 {
-  "name": "kuikly-web-autotest",
+  "name": "@tencent/kuikly-web-aitest",
   "version": "1.0.0",
-  "description": "Kuikly Web E2E Testing with Playwright",
+  "description": "Kuikly Web E2E AI automated test framework",
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "bin": {
+    "kuikly-aitest": "./bin/kuikly-aitest.mjs"
+  },
+  "files": [
+    "bin/",
+    "config/",
+    "fixtures/",
+    "scripts/",
+    "rules/",
+    "references/",
+    "index.js",
+    "index.d.ts",
+    "kuikly.autotest.config.cjs"
+  ],
   "scripts": {
     "setup": "node scripts/setup-fonts.mjs",
     "serve": "node scripts/serve.cjs",
@@ -32,6 +53,9 @@
   ],
   "author": "",
   "license": "MIT",
+  "peerDependencies": {
+    "@playwright/test": ">=1.40.0"
+  },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
     "monocart-coverage-reports": "^2.12.10",

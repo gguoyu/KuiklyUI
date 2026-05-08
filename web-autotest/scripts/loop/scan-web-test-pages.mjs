@@ -3,12 +3,14 @@
 import { readFileSync } from 'fs';
 import { basename, dirname, join, relative } from 'path';
 import { createRequire } from 'module';
-import { repoRoot, testsRoot, webTestRoot } from '../lib/paths.mjs';
+import { repoRoot, autotestDir, testsRoot, webTestRoot } from '../lib/paths.mjs';
 import { toPosix, walkFiles } from '../lib/fs-utils.mjs';
 import { extractGotoTargets } from '../lib/spec-utils.mjs';
 
 const require = createRequire(import.meta.url);
-const autotestConfig = require(join(repoRoot, 'web-autotest', 'kuikly.autotest.config.cjs'));
+const configPath = process.env.KUIKLY_AUTOTEST_CONFIG
+  || join(autotestDir, 'kuikly.autotest.config.cjs');
+const autotestConfig = require(configPath);
 
 const demoPagesRoot = dirname(webTestRoot);
 const pageFiles = walkFiles(webTestRoot, (filePath) => filePath.endsWith('.kt'));
