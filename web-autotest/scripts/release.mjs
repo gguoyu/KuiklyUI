@@ -14,9 +14,10 @@
  *
  * 流程:
  *   1. 检查 git 工作区是否干净
- *   2. npm version <bump>  →  更新 package.json + git commit + git tag
- *   3. npm publish         →  prepublishOnly 自动触发 build，然后推送到 registry
- *   4. git push --follow-tags  →  推送版本提交和 tag 到远端
+ *   2. npm version <bump> --no-git-tag-version  →  仅更新 package.json，不打 tag 不创建 commit
+ *   3. git add + git commit  →  提交版本变更
+ *   4. npm publish  →  prepublishOnly 自动触发 build，然后推送到 registry
+ *   5. git push  →  推送版本提交到远端（不含 tag）
  */
 
 import { readFileSync } from 'fs';
@@ -53,7 +54,6 @@ function run(cmd) {
 }
 
 // ── Step 0：检查工作区 ────────────────────────────────────────────────────────
-// npm version 本身也会检查，但提前检查可以给出更友好的提示
 const dirty = execSync('git status --porcelain', { cwd: pkgDir }).toString().trim();
 if (dirty) {
   console.error('\n✗ 工作区有未提交的改动，请先 commit 或 stash：');
@@ -68,19 +68,22 @@ console.log(`${'─'.repeat(50)}`);
 console.log(`当前版本  ${currentVersion}`);
 console.log(`升版类型  ${bump}`);
 
-// ── Step 1：npm version ───────────────────────────────────────────────────────
-// 自动完成：更新 package.json → git add → git commit → git tag
-run(`npm version ${bump}`);
+// ── Step 1：npm version（仅更新 package.json，不打 tag 不创建 commit）────────
+run(`npm version ${bump} --no-git-tag-version`);
 
 const newVersion = readPkg().version;
 console.log(`\n新版本    ${newVersion}`);
 
-// ── Step 2：npm publish ───────────────────────────────────────────────────────
+// ── Step 2：git commit 版本变更 ───────────────────────────────────────────────
+run(`git add "${pkgPath}"`);
+run(`git commit -m "chore: release ${newVersion}"`);
+
+// ── Step 3：npm publish ───────────────────────────────────────────────────────
 // prepublishOnly 钩子会自动执行 npm run build（tsc）
 run('npm publish');
 
-// ── Step 3：git push --follow-tags ───────────────────────────────────────────
-run('git push --follow-tags');
+// ── Step 4：git push ──────────────────────────────────────────────────────────
+run('git push');
 
 console.log(`\n${'─'.repeat(50)}`);
 console.log(`✓ 发布完成: ${name}@${newVersion}`);
