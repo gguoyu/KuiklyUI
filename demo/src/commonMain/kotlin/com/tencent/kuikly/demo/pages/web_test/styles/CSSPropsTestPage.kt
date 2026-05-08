@@ -44,6 +44,7 @@ internal class CSSPropsTestPage : Pager() {
     private var doubleClickCount by observable(0)
     private var longPressCount by observable(0)
     private var clickWithDoubleCount by observable(0)
+    private var invalidGradientEnabled by observable(false)
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -535,6 +536,63 @@ internal class CSSPropsTestPage : Pager() {
                         attr {
                             text("click-with-double: ${ctx.clickWithDoubleCount}")
                             fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                // === Section 12: Invalid Gradient Fallback ===
+                Text {
+                    attr {
+                        text("12. Invalid Gradient Fallback")
+                        fontSize(16f)
+                        fontWeightBold()
+                        marginTop(24f)
+                        marginLeft(16f)
+                        color(Color.BLACK)
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(44f)
+                        backgroundColor(Color(0xFF455A64))
+                        borderRadius(8f)
+                        allCenter()
+                    }
+                    event {
+                        click {
+                            ctx.invalidGradientEnabled = !ctx.invalidGradientEnabled
+                        }
+                    }
+                    Text {
+                        attr {
+                            text(if (ctx.invalidGradientEnabled) "invalid-gradient:on" else "invalid-gradient:off")
+                            fontSize(14f)
+                            color(Color.WHITE)
+                            fontWeightBold()
+                        }
+                    }
+                }
+
+                View {
+                    attr {
+                        margin(left = 16f, right = 16f, top = 8f)
+                        height(72f)
+                        borderRadius(8f)
+                        allCenter()
+                        "backgroundImage" with if (ctx.invalidGradientEnabled) {
+                            "linear-gradient(99,-16776961 0,-65536 1)"
+                        } else {
+                            "linear-gradient(3,-16776961 0,-65536 1)"
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("invalid-gradient-target")
+                            fontSize(13f)
                             color(Color.WHITE)
                             fontWeightBold()
                         }

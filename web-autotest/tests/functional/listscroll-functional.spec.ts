@@ -32,6 +32,7 @@ async function dragInContainer(
   await page.waitForTimeout(180);
 }
 
+
 test.describe('list scroll 功能验证', () => {
   test('should load ListScrollTestPage', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('ListScrollTestPage');
@@ -335,6 +336,34 @@ test.describe('list scroll 功能验证', () => {
     expect(after).toBeGreaterThanOrEqual(0);
   });
 
+  test('equal diagonal drag should not lock the axis until vertical movement clearly wins', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('ListScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const listContainer = kuiklyPage.component('KRListView').first();
+    const box = await listContainer.boundingBox();
+    expect(box).toBeTruthy();
+
+    const startX = box!.x + box!.width / 2;
+    const startY = box!.y + box!.height * 0.7;
+    const before = await getScrollMetrics(listContainer);
+
+    await kuiklyPage.page.mouse.move(startX, startY);
+    await kuiklyPage.page.mouse.down();
+    await kuiklyPage.page.mouse.move(startX + 9, startY - 9, { steps: 2 });
+    await kuiklyPage.page.waitForTimeout(60);
+
+    const afterTieMove = await getScrollMetrics(listContainer);
+    expect(afterTieMove.scrollTop).toBe(before.scrollTop);
+
+    await kuiklyPage.page.mouse.move(startX + 12, startY - 140, { steps: 8 });
+    await kuiklyPage.page.mouse.up();
+    await kuiklyPage.page.waitForTimeout(220);
+
+    const afterVerticalWin = await getScrollMetrics(listContainer);
+    expect(afterVerticalWin.scrollTop).toBeGreaterThan(afterTieMove.scrollTop);
+  });
+
   test('navigating away and back should trigger KuiklyRenderView lifecycle handlers', async ({ kuiklyPage }) => {
     // First navigation — triggers initial lifecycle
     await kuiklyPage.goto('ListScrollTestPage');
@@ -351,7 +380,7 @@ test.describe('list scroll 功能验证', () => {
     await expect(kuiklyPage.component('KRListView').first()).toBeVisible();
   });
 
-  test('navigating away with active click and wheel timers should still clean up safely', async ({ kuiklyPage }) => {
+  test('navigating away with active click, scroll-end, and wheel timers should still clean up safely', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('ListScrollTestPage');
     await kuiklyPage.waitForRenderComplete();
 
@@ -359,7 +388,13 @@ test.describe('list scroll 功能验证', () => {
     const box = await listContainer.boundingBox();
     expect(box).toBeTruthy();
 
+    // Click a list item to arm the click detection + delayed single-click confirmation timers.
     await kuiklyPage.page.getByText('列表项 2', { exact: true }).click();
+
+    // Trigger a real scroll so the scrollEnd timer is pending when we navigate away.
+    await kuiklyPage.scrollInContainer(listContainer, { deltaY: 260, smooth: false });
+
+    // Trigger wheel handling so the wheelStop timer is also pending.
     await kuiklyPage.page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
     await kuiklyPage.page.mouse.wheel(0, 240);
     await kuiklyPage.page.waitForTimeout(40);
@@ -371,6 +406,7 @@ test.describe('list scroll 功能验证', () => {
     await kuiklyPage.goto('ListScrollTestPage');
     await kuiklyPage.waitForRenderComplete();
     await expect(kuiklyPage.component('KRListView').first()).toBeVisible();
+    await expect(kuiklyPage.page.getByText('列表手势: 未触发', { exact: true })).toBeVisible();
   });
 
   test('scroll events should fire dragBegin and scroll callbacks when dragging', async ({ kuiklyPage }) => {

@@ -14,6 +14,19 @@ async function dragDown(page: Page, container: Locator, deltaY: number, steps = 
   await page.mouse.up();
 }
 
+async function getListStyles(list: Locator): Promise<{ transform: string; overflowY: string; overflowX: string }> {
+  return list.evaluate((el) => {
+    if (!(el instanceof HTMLElement)) {
+      return { transform: '', overflowY: '', overflowX: '' };
+    }
+    return {
+      transform: el.style.transform,
+      overflowY: el.style.overflowY,
+      overflowX: el.style.overflowX,
+    };
+  });
+}
+
 test.describe('PullToRefreshTestPage functional', () => {
   test.beforeEach(async ({ kuiklyPage }) => {
     await kuiklyPage.goto('PullToRefreshTestPage');
@@ -46,6 +59,19 @@ test.describe('PullToRefreshTestPage functional', () => {
 
     // Page should remain functional regardless of whether PULLING was triggered
     await expect(kuiklyPage.page.getByText('Begin Refresh', { exact: true })).toBeVisible();
+    await expect(kuiklyPage.page.getByText('Item 1', { exact: true })).toBeVisible();
+  });
+
+  test('short pull below the refresh threshold should rebound to idle and clear the temporary transform', async ({ kuiklyPage }) => {
+    const list = kuiklyPage.component('KRListView').first();
+
+    await expect(kuiklyPage.page.getByText('IDLE', { exact: true })).toBeVisible();
+    await dragDown(kuiklyPage.page, list, 70, 8, 60);
+    await kuiklyPage.page.waitForTimeout(120);
+
+    await expect(kuiklyPage.page.getByText('IDLE', { exact: true })).toBeVisible({ timeout: 3000 });
+    await expect.poll(async () => (await getListStyles(list)).transform).toBe('');
+    await expect.poll(async () => (await getListStyles(list)).overflowY).toBe('scroll');
     await expect(kuiklyPage.page.getByText('Item 1', { exact: true })).toBeVisible();
   });
 

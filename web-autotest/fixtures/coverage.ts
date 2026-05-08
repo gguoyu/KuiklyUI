@@ -4,6 +4,7 @@ import { join, resolve } from 'path';
 const webE2EConfig = require('../config/index.cjs');
 const { coverage: coverageConfig, reporting } = webE2EConfig;
 const V8_OUTPUT_DIR = resolve(__dirname, '..', reporting.v8TempDirName);
+const targetModuleSet = new Set<string>(Array.isArray(coverageConfig.targetModules) ? coverageConfig.targetModules : []);
 
 type V8CoverageSession = {
   context: any;
@@ -19,6 +20,26 @@ function getSafeTitle(testTitle?: string): string {
   return (testTitle || 'coverage')
     .replace(/[^a-zA-Z0-9-_]/g, '_')
     .slice(0, 60);
+}
+
+function getEntryFileName(url?: string): string {
+  if (typeof url !== 'string' || !url) {
+    return '';
+  }
+
+  try {
+    return decodeURIComponent(new URL(url).pathname.split('/').pop() || '');
+  } catch {
+    return '';
+  }
+}
+
+function sanitizeCoverageEntries(entries: any[]): any[] {
+  if (!targetModuleSet.size) {
+    return entries;
+  }
+
+  return entries.filter((entry) => targetModuleSet.has(getEntryFileName(entry?.url)));
 }
 
 async function startPageCoverage(page: any, trackedPages: Set<any>): Promise<void> {
@@ -126,7 +147,8 @@ export async function stopV8Coverage(
       }
 
       try {
-        const entries = await page.coverage.stopJSCoverage();
+        const rawEntries = await page.coverage.stopJSCoverage();
+        const entries = sanitizeCoverageEntries(rawEntries);
         if (!entries.length) {
           pageIndex += 1;
           continue;

@@ -7,6 +7,10 @@ async function getScrollTop(container: Locator): Promise<number> {
   });
 }
 
+function followingList(locator: Locator): Locator {
+  return locator.locator('xpath=following::*[@data-kuikly-component="KRListView"][1]');
+}
+
 async function fastDragInContainer(
   page: Page,
   container: Locator,
@@ -65,6 +69,44 @@ test.describe('NestedScrollTestPage functional', () => {
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 800, smooth: false });
     await expect(kuiklyPage.page.getByText('Section 3: SELF_ONLY', { exact: false })).toBeVisible();
+  });
+
+  test('PARENT_FIRST child should stay pinned until the SELF_FIRST parent reaches its boundary', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('NestedScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const outerList = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(outerList, { deltaY: 420, smooth: false });
+
+    const parentHeader = kuiklyPage.page.getByText('Section2 Nested Parent Host', { exact: true });
+    await expect(parentHeader).toBeVisible();
+
+    const parentList = followingList(kuiklyPage.page.getByText('Section 2: SELF_FIRST / SELF_FIRST (no bounce)', { exact: false }));
+    const childList = followingList(parentHeader);
+
+    const box = await childList.boundingBox();
+    expect(box).toBeTruthy();
+
+    const startX = box!.x + box!.width / 2;
+    const startY = box!.y + box!.height * 0.7;
+    const parentBefore = await getScrollTop(parentList);
+    const childBefore = await getScrollTop(childList);
+
+    await kuiklyPage.page.mouse.move(startX, startY);
+    await kuiklyPage.page.mouse.down();
+    await kuiklyPage.page.mouse.move(startX, startY - 120, { steps: 4 });
+    await kuiklyPage.page.waitForTimeout(80);
+
+    const parentAfterFirstMove = await getScrollTop(parentList);
+    const childAfterFirstMove = await getScrollTop(childList);
+    expect(parentAfterFirstMove).toBeGreaterThan(parentBefore);
+    expect(childAfterFirstMove).toBe(childBefore);
+
+    await kuiklyPage.page.mouse.move(startX, startY - 340, { steps: 10 });
+    await kuiklyPage.page.mouse.up();
+    await kuiklyPage.page.waitForTimeout(150);
+
+    expect(await getScrollTop(childList)).toBeGreaterThan(0);
   });
 
   test('mouse wheel in nested inner list should exercise nested scroll dispatch', async ({ kuiklyPage }) => {
@@ -180,6 +222,23 @@ test.describe('NestedScrollTestPage functional', () => {
       expect(await getScrollTop(innerList)).toBeGreaterThanOrEqual(beforeSecondDrag);
     }
     await expect(kuiklyPage.page.getByText('Nested Scroll Test Page', { exact: false })).toBeVisible();
+  });
+
+  test('fast downward drag at the SELF_ONLY top boundary should clamp inertia without negative scroll', async ({ kuiklyPage }) => {
+    await kuiklyPage.goto('NestedScrollTestPage');
+    await kuiklyPage.waitForRenderComplete();
+
+    const outerList = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(outerList, { deltaY: 820, smooth: false });
+
+    const selfOnlyList = followingList(kuiklyPage.page.getByText('Section 3: SELF_ONLY / SELF_ONLY', { exact: false }));
+    await expect(selfOnlyList).toBeVisible();
+    expect(await getScrollTop(selfOnlyList)).toBe(0);
+
+    await fastDragInContainer(kuiklyPage.page, selfOnlyList, 0, 220, 2);
+    await kuiklyPage.page.waitForTimeout(350);
+
+    expect(await getScrollTop(selfOnlyList)).toBe(0);
   });
 
   test('drag in nested list should exercise touch event nested scroll paths', async ({ kuiklyPage }) => {

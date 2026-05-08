@@ -29,6 +29,8 @@ internal class PageListWheelTestPage : Pager() {
     private var wheelEventCount by observable(0)
     private var nestedPageIndex by observable(0)
     private var nestedPageListRef: ViewRef<PageListView<*, *>>? = null
+    private var deepNestedPageIndex by observable(0)
+    private var deepNestedPageListRef: ViewRef<PageListView<*, *>>? = null
 
     override fun body(): ViewBuilder {
         val ctx = this
@@ -176,6 +178,94 @@ internal class PageListWheelTestPage : Pager() {
                                     marginTop(12f)
                                     marginLeft(16f)
                                     fontSize(14f)
+                                }
+                            }
+                            View {
+                                attr {
+                                    height(32f)
+                                    margin(left = 16f, right = 16f, top = 12f)
+                                    backgroundColor(0x33FFFFFF)
+                                    borderRadius(8f)
+                                    allCenter()
+                                }
+                                event {
+                                    click {
+                                        val targetIndex = if (ctx.deepNestedPageIndex == 0) 1 else 0
+                                        ctx.deepNestedPageIndex = targetIndex
+                                        ctx.deepNestedPageListRef?.view?.setContentOffset((ctx.pageData.pageViewWidth - 64f) * targetIndex, 0f, false)
+                                    }
+                                }
+                                Text {
+                                    attr {
+                                        text("deep:${ctx.deepNestedPageIndex}")
+                                        color(Color.WHITE)
+                                        fontSize(12f)
+                                        fontWeightBold()
+                                    }
+                                }
+                            }
+                            PageList {
+                                ref {
+                                    ctx.deepNestedPageListRef = it
+                                }
+                                attr {
+                                    height(100f)
+                                    margin(left = 16f, right = 16f, top = 12f)
+                                    pageDirection(true)
+                                    pageItemWidth(ctx.pageData.pageViewWidth - 64f)
+                                    pageItemHeight(100f)
+                                    showScrollerIndicator(false)
+                                    bouncesEnable(true)
+                                    keepItemAlive(true)
+                                }
+                                List {
+                                    attr { backgroundColor(Color(0xFF1976D2)) }
+                                    Text {
+                                        attr {
+                                            text("Deep Nested Page 0")
+                                            color(Color.WHITE)
+                                            marginTop(16f)
+                                            marginLeft(16f)
+                                            fontSize(16f)
+                                            fontWeightBold()
+                                        }
+                                    }
+                                    Text {
+                                        attr {
+                                            text("Deep Nested item A0")
+                                            color(Color.WHITE)
+                                            marginTop(8f)
+                                            marginLeft(16f)
+                                            fontSize(13f)
+                                        }
+                                    }
+                                }
+                                List {
+                                    attr { backgroundColor(Color(0xFF0B3C91)) }
+                                    Text {
+                                        attr {
+                                            text("Deep Nested Page 1")
+                                            color(Color.WHITE)
+                                            marginTop(16f)
+                                            marginLeft(16f)
+                                            fontSize(16f)
+                                            fontWeightBold()
+                                        }
+                                    }
+                                    Text {
+                                        attr {
+                                            text("Deep Nested item B1")
+                                            color(Color.WHITE)
+                                            marginTop(8f)
+                                            marginLeft(16f)
+                                            fontSize(13f)
+                                        }
+                                    }
+                                }
+                                event {
+                                    pageIndexDidChanged { params ->
+                                        ctx.deepNestedPageIndex = (params as JSONObject).optInt("index")
+                                    }
                                 }
                             }
                         }

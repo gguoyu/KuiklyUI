@@ -65,9 +65,9 @@ async function dragPageListByOffset(page: Page, container: Locator, deltaX: numb
   await page.waitForTimeout(waitMs);
 }
 
-async function wheelPageList(page: Page, container: Locator, deltaX: number, deltaY: number, waitMs = 500): Promise<void> {
-  await container.evaluate((element, payload) => {
-    element.dispatchEvent(new WheelEvent('wheel', {
+async function wheelPageList(page: Page, container: Locator, deltaX: number, deltaY: number, waitMs = 500): Promise<boolean> {
+  const dispatchResult = await container.evaluate((element, payload) => {
+    return element.dispatchEvent(new WheelEvent('wheel', {
       deltaX: payload.deltaX,
       deltaY: payload.deltaY,
       bubbles: true,
@@ -76,6 +76,7 @@ async function wheelPageList(page: Page, container: Locator, deltaX: number, del
   }, { deltaX, deltaY });
 
   await page.waitForTimeout(waitMs);
+  return dispatchResult;
 }
 
 test.describe('PageList functional 验证', () => {
@@ -238,6 +239,27 @@ test.describe('PageList functional 验证', () => {
     expect(await getLeft(page1Item)).toBe(initialPage1Left);
   });
 
+  test('dragging exactly at the page-switch threshold should stay on tab0 but 51px should switch', async ({ kuiklyPage }) => {
+    const pageList = kuiklyPage.component('KRListView').first();
+    const page0Item = kuiklyPage.page.getByText(PAGE_ZERO_ITEM, { exact: true });
+    const page1Item = kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true });
+    const initialPage0Left = await getLeft(page0Item);
+    const initialPage1Left = await getLeft(page1Item);
+
+    await dragPageListByOffset(kuiklyPage.page, pageList, -50, 0, 1500);
+
+    await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', INACTIVE_COLOR);
+    expect(await getLeft(page0Item)).toBe(initialPage0Left);
+    expect(await getLeft(page1Item)).toBe(initialPage1Left);
+
+    await dragPageListByOffset(kuiklyPage.page, pageList, -51, 0, 1500);
+
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+    expect(await getLeft(page1Item)).toBeGreaterThanOrEqual(0);
+    expect(await getLeft(page0Item)).toBeLessThan(0);
+  });
+
   test('clicking tab2 then tab1 should update the highlighted tab and visible page each time', async ({ kuiklyPage }) => {
     const page2Item = kuiklyPage.page.getByText(PAGE_TWO_ITEM, { exact: true });
     const page1Item = kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true });
@@ -289,6 +311,21 @@ test.describe('PageList functional 验证', () => {
     expect(await getLeft(page0Item)).toBeLessThan(0);
   });
 
+  test('clicking invalid-offset should exercise the zero-dimension setContentOffset path without breaking the main pagelist', async ({ kuiklyPage }) => {
+    const trigger = kuiklyPage.page.getByText('invalid-offset:0', { exact: true });
+    const page1Item = kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true });
+
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+    await expect(kuiklyPage.page.getByText('invalid-offset:1', { exact: true })).toBeVisible();
+
+    await kuiklyPage.page.getByText('tab1', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(500);
+
+    await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+    expect(await getLeft(page1Item)).toBeGreaterThanOrEqual(0);
+  });
+
   test('wheel scrolling should page forward and stop at the last page boundary', async ({ kuiklyPage }) => {
     const pageList = kuiklyPage.component('KRListView').first();
     const page3Item = kuiklyPage.page.getByText(PAGE_THREE_ITEM, { exact: true });
@@ -307,6 +344,21 @@ test.describe('PageList functional 验证', () => {
 
     await expect(kuiklyPage.page.getByText('tab3', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
     expect(await getLeft(page3Item)).toBe(boundaryLeft);
+  });
+
+  test('wheel events should be prevented while paging but allowed to bubble at the last-page boundary', async ({ kuiklyPage }) => {
+    const pageList = kuiklyPage.component('KRListView').first();
+
+    await kuiklyPage.page.getByText('tab2', { exact: true }).click();
+    await kuiklyPage.page.waitForTimeout(500);
+
+    const pagingDispatchResult = await wheelPageList(kuiklyPage.page, pageList, 500, 0, 600);
+    expect(pagingDispatchResult).toBe(false);
+    await expect(kuiklyPage.page.getByText('tab3', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
+
+    const boundaryDispatchResult = await wheelPageList(kuiklyPage.page, pageList, 500, 0, 400);
+    expect(boundaryDispatchResult).toBe(true);
+    await expect(kuiklyPage.page.getByText('tab3', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
   });
 
   test('wheel scrolling backward should page back and stop at the first page boundary', async ({ kuiklyPage }) => {

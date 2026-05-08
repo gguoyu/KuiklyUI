@@ -175,7 +175,61 @@ internal class NestedScrollTestPage : Pager() {
                         bouncesEnable(false)
                         nestedScroll(KRNestedScrollMode.SELF_FIRST, KRNestedScrollMode.SELF_FIRST)
                     }
-                    for (i in 1..30) {
+                    View {
+                        attr {
+                            height(188f)
+                            margin(left = 12f, top = 4f, right = 12f)
+                            backgroundColor(0xFF43A047)
+                            borderRadius(8f)
+                            padding(all = 8f)
+                        }
+                        Text {
+                            attr {
+                                text("Section2 Nested Parent Host")
+                                fontSize(13f)
+                                color(Color.WHITE)
+                                fontWeightBold()
+                            }
+                        }
+                        Text {
+                            attr {
+                                text("Parent is SELF_FIRST, child is PARENT_FIRST")
+                                fontSize(11f)
+                                color(Color(0xCCFFFFFF))
+                                marginTop(4f)
+                            }
+                        }
+                        List {
+                            attr {
+                                height(124f)
+                                margin(top = 8f)
+                                backgroundColor(0xFF2E7D32)
+                                borderRadius(6f)
+                                nestedScroll(KRNestedScrollMode.PARENT_FIRST, KRNestedScrollMode.PARENT_FIRST)
+                                bouncesEnable(false)
+                            }
+                            for (childIndex in 1..18) {
+                                View {
+                                    attr {
+                                        height(36f)
+                                        margin(left = 8f, top = 4f, right = 8f)
+                                        backgroundColor(if (childIndex % 2 == 0) 0xFF81C784 else 0xFFA5D6A7)
+                                        borderRadius(4f)
+                                        allCenter()
+                                    }
+                                    Text {
+                                        attr {
+                                            text("Section2 Child Item $childIndex")
+                                            fontSize(12f)
+                                            color(Color.WHITE)
+                                            fontWeightBold()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    for (i in 1..3) {
                         View {
                             attr {
                                 height(44f)
@@ -186,7 +240,7 @@ internal class NestedScrollTestPage : Pager() {
                             }
                             Text {
                                 attr {
-                                    text("Inner Item $i")
+                                    text("Section2 Tail Item $i")
                                     fontSize(14f)
                                     color(Color.WHITE)
                                     fontWeightBold()

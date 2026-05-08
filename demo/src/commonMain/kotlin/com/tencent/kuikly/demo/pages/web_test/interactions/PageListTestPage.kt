@@ -22,7 +22,9 @@ internal class PageListTestPage : Pager() {
     private var tabItems by observableList<PageTabItem>()
     private var pageItems by observableList<PageSectionItem>()
     private lateinit var pageListRef: ViewRef<PageListView<*, *>>
+    private var invalidOffsetPageListRef: ViewRef<PageListView<*, *>>? = null
     private var nonAnimScrollCount by observable(0)
+    private var invalidOffsetTriggerCount by observable(0)
 
     override fun created() {
         super.created()
@@ -101,6 +103,27 @@ internal class PageListTestPage : Pager() {
                         }
                     }
                 }
+                View {
+                    attr {
+                        allCenter()
+                        backgroundColor(0x335C6BC0)
+                        borderRadius(4f)
+                        padding(left = 8f, right = 8f, top = 4f, bottom = 4f)
+                    }
+                    event {
+                        click {
+                            ctx.invalidOffsetTriggerCount += 1
+                            ctx.invalidOffsetPageListRef?.view?.setContentOffset(ctx.pageData.pageViewWidth, 0f, true)
+                        }
+                    }
+                    Text {
+                        attr {
+                            text("invalid-offset:${ctx.invalidOffsetTriggerCount}")
+                            fontSize(10f)
+                            color(Color.WHITE)
+                        }
+                    }
+                }
             }
             PageList {
                 ref { ctx.pageListRef = it }
@@ -135,6 +158,24 @@ internal class PageListTestPage : Pager() {
                     }
                 }
                 event { pageIndexDidChanged { ctx.currentIndex = (it as JSONObject).optInt("index") } }
+            }
+            PageList {
+                ref { ctx.invalidOffsetPageListRef = it }
+                attr {
+                    width(0f)
+                    height(0f)
+                    pageDirection(true)
+                    pageItemWidth(ctx.pageData.pageViewWidth)
+                    pageItemHeight(0f)
+                    showScrollerIndicator(false)
+                    keepItemAlive(true)
+                }
+                List {
+                    attr { backgroundColor(Color.TRANSPARENT) }
+                }
+                List {
+                    attr { backgroundColor(Color.TRANSPARENT) }
+                }
             }
         }
     }

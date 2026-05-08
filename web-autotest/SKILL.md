@@ -48,6 +48,19 @@ node scripts/kuikly-test.mjs --full    # includes Gradle build + test + coverage
 
 Treat `web-autotest/scripts/kuikly-test.mjs --full` as the canonical execution entrypoint for the current repo. Do not recreate the build, test server, Playwright, and V8 coverage pipeline manually unless you are debugging the pipeline itself.
 
+## Long-running execution rule
+
+`web-autotest/scripts/kuikly-test.mjs --full` is a long-running command. Start it with a sustainable execution mode that can outlive short caller timeouts.
+
+Do:
+- use an explicit long-running shell/background task when the caller supports durable background jobs
+- or start it in the foreground and allow the caller to auto-background it after timeout
+
+Do not:
+- start `--full` with a direct background mode that is known to be cut off by the caller after about 2 minutes
+
+When a full run appears to stop mid-suite without `Tests completed` / `All tasks finished`, first suspect the execution mode before suspecting the test content.
+
 ## Apply Patch Constraints
 
 - Atomic edits only: never use `apply_patch` to replace more than 50 lines at once or to modify multiple logically independent code blocks in one patch.

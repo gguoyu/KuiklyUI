@@ -134,6 +134,69 @@ test.describe('CSSPropsTestPage functional', () => {
     await expect(kuiklyPage.page.getByText('click-with-double: 1', { exact: false })).toBeVisible();
   });
 
+  test('dragging beyond the move tolerance should not trigger the click callback', async ({ kuiklyPage }) => {
+    const target = kuiklyPage.page.getByText('touch-target-clicks: 0', { exact: false });
+    await expect(target).toBeVisible();
+
+    await target.evaluate((el) => {
+      const parent = el.closest('[data-kuikly-component="KRView"]') as HTMLElement | null;
+      if (!parent) {
+        throw new Error('click target parent view not found');
+      }
+      const rect = parent.getBoundingClientRect();
+      parent.dispatchEvent(new MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: rect.left + 20,
+        clientY: rect.top + 20,
+      }));
+      parent.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: rect.left + 40,
+        clientY: rect.top + 40,
+      }));
+    });
+
+    await kuiklyPage.page.waitForTimeout(120);
+    await expect(kuiklyPage.page.getByText('touch-target-clicks: 0', { exact: false })).toBeVisible();
+  });
+
+  test('selected text should not trigger the click callback', async ({ kuiklyPage }) => {
+    const target = kuiklyPage.page.getByText('touch-target-clicks: 0', { exact: false });
+    await expect(target).toBeVisible();
+
+    await target.evaluate((el) => {
+      const selection = window.getSelection();
+      if (!selection) {
+        throw new Error('selection api unavailable');
+      }
+      selection.removeAllRanges();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      selection.addRange(range);
+
+      const parent = el.closest('[data-kuikly-component="KRView"]') as HTMLElement | null;
+      if (!parent) {
+        throw new Error('click target parent view not found');
+      }
+      const rect = parent.getBoundingClientRect();
+      parent.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: rect.left + 24,
+        clientY: rect.top + 24,
+      }));
+      selection.removeAllRanges();
+    });
+
+    await kuiklyPage.page.waitForTimeout(120);
+    await expect(kuiklyPage.page.getByText('touch-target-clicks: 0', { exact: false })).toBeVisible();
+  });
+
   test('text shadow section should render styled text elements', async ({ kuiklyPage }) => {
     // Section 1: Text Shadow — exercises KuiklyRenderCSSKTX textShadow path
     await expect(kuiklyPage.page.getByText('1. Text Shadow', { exact: false })).toBeVisible();
@@ -181,6 +244,27 @@ test.describe('CSSPropsTestPage functional', () => {
       }
     }
     expect(hasGradient).toBe(true);
+  });
+
+  test('invalid gradient direction should fall back to a safe linear-gradient direction', async ({ kuiklyPage }) => {
+    const list = kuiklyPage.component('KRListView').first();
+    await kuiklyPage.scrollInContainer(list, { deltaY: 1900, smooth: false });
+    await expect(kuiklyPage.page.getByText('12. Invalid Gradient Fallback', { exact: false })).toBeVisible();
+
+    const toggle = kuiklyPage.page.getByText('invalid-gradient:off', { exact: true });
+    const target = kuiklyPage.page.getByText('invalid-gradient-target', { exact: true }).locator('..');
+
+    await expect(target).toBeVisible();
+    const validGradient = await target.evaluate((el) => window.getComputedStyle(el).backgroundImage);
+    expect(validGradient).toContain('linear-gradient');
+
+    await toggle.click();
+    await kuiklyPage.waitForRenderComplete();
+    await expect(kuiklyPage.page.getByText('invalid-gradient:on', { exact: true })).toBeVisible();
+
+    const fallbackGradient = await target.evaluate((el) => window.getComputedStyle(el).backgroundImage);
+    expect(fallbackGradient).toContain('linear-gradient');
+    expect(fallbackGradient).toContain('to top');
   });
 
   test('overflow hidden section should have overflow:hidden in computed style', async ({ kuiklyPage }) => {

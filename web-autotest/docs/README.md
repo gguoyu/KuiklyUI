@@ -35,6 +35,11 @@ npm run setup
 # 标准入口：本地一键完整闭环
 node scripts/kuikly-test.mjs --full
 
+# 长时间运行说明
+# `--full` 是长任务。在带有短超时的代理/调用环境里，
+# 请使用可持续执行方式启动（如显式长后台任务，或先前台启动再自动后台化），
+# 不要使用已知会在约 2 分钟处被外层截断的 direct background 方式。
+
 # 仅在本地调试单轮用例时，可直接运行 Playwright（不生成正式覆盖率报告）
 npm test
 
