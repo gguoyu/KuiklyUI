@@ -17,8 +17,8 @@ Phase 2（TypeScript 构建产物）已完成。
 ---
 
 Phase 3（消费方适配）已完成。
-
----
+Phase 4（SKILL.md 更新）已完成。
+Phase 5（npm 发布配置）已完成。
 
 ## Phase 3：消费方适配（最复杂，关键路径）
 
@@ -54,23 +54,23 @@ Phase 3（消费方适配）已完成。
 | `web-autotest/references/...` | `node_modules/@tencent/kuikly-web-aitest/references/` |
 | `web-autotest/experience/...` | `node_modules/@tencent/kuikly-web-aitest/experience/` |
 
-- [ ] 将所有 `node web-autotest/scripts/loop/run-autotest-loop.mjs` 等命令改为消费方友好形式
-  - 方案 A：通过 npm scripts 封装（消费方在自己的 `package.json` 里配置）
-  - 方案 B：通过 `npx kuikly-aitest <subcommand>` 封装（需扩展 CLI）
-  - 方案 C：保留绝对路径写法 `node node_modules/@tencent/kuikly-web-aitest/scripts/...`
-- [ ] 更新 `references/`、`rules/`、`experience/` 等引用路径
-- [ ] 可与 Phase 3 并行进行
+- [x] 在 SKILL.md 顶部新增"Usage modes"章节，说明源码模式与 npm 消费者模式的路径前缀规则
+- [x] 更新 SKILL.md 中所有命令，提供源码模式与 npm 消费者模式双版本
+- [x] 更新 `references/`、`rules/` 等引用路径说明，标注"路径前缀取决于使用模式"
+- [x] 修复 `run-autotest-loop.mjs` 中 AI 指令字符串的硬编码 `web-autotest/` 路径，改用 `packageRoot` 动态绝对路径
 
 ---
 
 ## Phase 5：npm 发布配置
 
-- [ ] 配置 registry：在 `package.json` 中添加 `"publishConfig": { "registry": "<内部源或 npmjs>" }`
-- [ ] 执行 `npm pack --dry-run` 验证 `files` 字段打包结果：
-  - 应包含：`bin/`、`config/`、`fixtures/`、`scripts/`、`rules/`、`references/`、`index.js`、`index.d.ts`、`kuikly.autotest.config.cjs`
-  - 不应包含：`tests/`（KuiklyUI 自身用例）、`reports/`、`node_modules/`、`*.log`
-- [ ] 确认版本管理策略（手动 bump + CHANGELOG，或 semantic-release）
-- [ ] 确认 `README.md` 和 `LICENSE` 存在（npm 发布推荐包含）
+- [x] 配置 registry：在 `package.json` 中添加 `"publishConfig": { "access": "restricted" }`（scoped 包默认 restricted，显式声明）
+- [x] 执行 `npm pack --dry-run` 验证 `files` 字段打包结果：
+  - ✅ 包含：`bin/`、`config/`、`fixtures/`、`scripts/`、`rules/`、`references/`、`index.js`、`index.d.ts`、`kuikly.autotest.config.cjs`、`README.md`、`LICENSE`
+  - ✅ 未包含：`tests/`（KuiklyUI 自身用例）、`reports/`、`node_modules/`、`*.log`
+  - 共 61 个文件，压缩包 122.5 kB，解压 562.8 kB
+- [x] 版本管理策略：手动 bump + CHANGELOG（当前 v1.0.0，发布前手动更新版本号）
+- [x] `README.md` 已创建（中文，包含安装、快速开始、环境变量等完整文档）
+- [x] `LICENSE` 已从仓库根目录复制到 `web-autotest/LICENSE`
 
 ---
 

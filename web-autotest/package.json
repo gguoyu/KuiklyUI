@@ -50,6 +50,9 @@
     "coverage:check": "node scripts/coverage-report.mjs --check",
     "kuikly-test": "node scripts/kuikly-test.mjs"
   },
+  "publishConfig": {
+    "access": "restricted"
+  },
   "keywords": [
     "playwright",
     "e2e",

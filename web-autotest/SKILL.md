@@ -5,7 +5,20 @@ description: Run and maintain the KuiklyUI web automated test closed loop. Use w
 
 # Kuikly Web Autotest
 
-Use this skill from the repository root.
+## Usage modes
+
+This skill supports two usage modes. Determine your mode first, then use the correct path prefix
+throughout all commands and file references in this document.
+
+| Mode | How to identify | Path prefix for scripts | Path prefix for references/rules/experience |
+|------|----------------|------------------------|---------------------------------------------|
+| **Source mode** | You are working inside the KuiklyUI repo itself (`web-autotest/` exists at the project root) | `web-autotest/scripts/` | `web-autotest/references/`, `web-autotest/rules/`, `web-autotest/experience/` |
+| **npm consumer mode** | You installed the package via `npm install @tencent/kuikly-web-aitest` (`web-autotest/` does NOT exist, only `node_modules/@tencent/kuikly-web-aitest/`) | `node_modules/@tencent/kuikly-web-aitest/scripts/` | `node_modules/@tencent/kuikly-web-aitest/references/`, etc. |
+
+**Quick rule for AI**: If `web-autotest/scripts/` does not exist under the current working directory,
+replace every `web-autotest/` prefix below with `node_modules/@tencent/kuikly-web-aitest/`.
+
+Use this skill from the project root (source mode) or from the consumer project root (npm consumer mode).
 
 ## Environment prerequisites
 
@@ -18,8 +31,8 @@ If any check fails, follow the fix command to resolve it automatically.
 |------|-----------------|---------------|-------------|
 | Node.js | >= 20.x | `node -v` | Install from https://nodejs.org/ or use nvm |
 | JDK | 11+ | `java -version` | Install JDK 11+ and ensure `JAVA_HOME` is set |
-| npm dependencies | (from package.json) | `ls web-autotest/node_modules/.package-lock.json` | `cd web-autotest && npm install` |
-| Playwright browser | chromium | `npx playwright install --dry-run` | `cd web-autotest && npx playwright install chromium` |
+| npm dependencies | (from package.json) | **Source**: `ls web-autotest/node_modules/.package-lock.json` / **npm consumer**: `ls node_modules/@tencent/kuikly-web-aitest` | **Source**: `cd web-autotest && npm install` / **npm consumer**: `npm install` in consumer project |
+| Playwright browser | chromium | `npx playwright install --dry-run` | `npx playwright install chromium` (run from `web-autotest/` in source mode, or consumer project root in npm mode) |
 
 ### Auto-fix rules for AI
 
@@ -27,7 +40,7 @@ When a command fails with one of these errors, apply the fix immediately without
 
 | Error pattern | Fix |
 |---------------|-----|
-| `Cannot find module` or `ERR_MODULE_NOT_FOUND` in web-autotest | `cd web-autotest && npm install` then retry |
+| `Cannot find module` or `ERR_MODULE_NOT_FOUND` in web-autotest | **Source mode**: `cd web-autotest && npm install` then retry / **npm consumer**: `npm install` in consumer project then retry |
 | `browserType.launch: Executable doesn't exist` | `cd web-autotest && npx playwright install chromium` then retry |
 | `JAVA_HOME is not set` or `No java installation found` | Stop and report — user must install JDK manually |
 | `BUILD FAILED` with `compileKotlinJs` error | Read the error, fix the `.kt` syntax issue, then retry build |
@@ -35,7 +48,7 @@ When a command fails with one of these errors, apply the fix immediately without
 
 ### First-run sequence
 
-On a fresh clone or new environment, run these commands in order:
+**Source mode** (working inside KuiklyUI repo):
 
 ```bash
 cd web-autotest
@@ -44,13 +57,26 @@ npx playwright install chromium
 node scripts/kuikly-test.mjs --full    # includes Gradle build + test + coverage
 ```
 
+**npm consumer mode** (installed via `npm install @tencent/kuikly-web-aitest`):
+
+```bash
+# In your consumer project root:
+npm install
+npx playwright install chromium
+node node_modules/@tencent/kuikly-web-aitest/scripts/kuikly-test.mjs --full
+```
+
 ## Core rule
 
-Treat `web-autotest/scripts/kuikly-test.mjs --full` as the canonical execution entrypoint for the current repo. Do not recreate the build, test server, Playwright, and V8 coverage pipeline manually unless you are debugging the pipeline itself.
+Treat the canonical execution entrypoint as:
+- **Source mode**: `node web-autotest/scripts/kuikly-test.mjs --full`
+- **npm consumer mode**: `node node_modules/@tencent/kuikly-web-aitest/scripts/kuikly-test.mjs --full`
+
+Do not recreate the build, test server, Playwright, and V8 coverage pipeline manually unless you are debugging the pipeline itself.
 
 ## Long-running execution rule
 
-`web-autotest/scripts/kuikly-test.mjs --full` is a long-running command. Start it with a sustainable execution mode that can outlive short caller timeouts.
+The canonical `--full` command is a long-running operation. Start it with a sustainable execution mode that can outlive short caller timeouts.
 
 Do:
 - use an explicit long-running shell/background task when the caller supports durable background jobs
@@ -76,7 +102,7 @@ This skill is the fixed project workflow for KuiklyUI web autotest.
 
 When extending tests or backfilling coverage, use the skill-owned references and rules below as the source of truth.
 
-Human-readable references:
+Human-readable references (path prefix depends on usage mode — see top of file):
 - `web-autotest/references/workflow.md`
 - `web-autotest/references/page-mapping.md`
 - `web-autotest/references/coverage-policy.md`
@@ -92,7 +118,7 @@ Human-readable references:
 - `web-autotest/references/spec-templates.md` → "Test file organization rules" section — mandatory check-before-create rules, one-page-one-spec principle, merging rules
 - `web-autotest/references/anti-patterns-catalog.md` → "Redundant spec file" / "Single-test page-load-only spec" / "Split functional specs" anti-patterns
 
-Accumulated experience (read before writing carrier pages or specs):
+Accumulated experience (path prefix depends on usage mode — read before writing carrier pages or specs):
 - `web-autotest/experience/carrier-page-pitfalls.md` — Kotlin DSL 坑、shared observable、动态模板字符串、styles category 交互覆盖等
 - `web-autotest/experience/playwright-kuikly-limits.md` — headless 下不可触发的事件、Modal/click 限制、KRListView 滚动、screenshot 更新等
 - `web-autotest/experience/coverage-report-guide.md` — 代码覆盖率全流程、Kotlin 后处理规则、promote/suppress 规则、行状态判定、HTML 报告补丁
@@ -102,7 +128,7 @@ Accumulated experience (read before writing carrier pages or specs):
 2. Add a new numbered section with: problem description, root cause, concrete fix or workaround, and a rule to follow next time.
 3. If it fits neither file, create a new `experience/<topic>.md`.
 
-Machine-readable rules consumed by the loop:
+Machine-readable rules consumed by the loop (path prefix depends on usage mode):
 - `web-autotest/rules/template-profiles.json`
 - `web-autotest/rules/interaction-protocol.json`
 - `web-autotest/rules/animation-strategy.json`
@@ -113,21 +139,24 @@ Machine-readable rules consumed by the loop:
 - `web-autotest/rules/anti-examples.json`
 
 - Default AI trigger: when the user asks to run or continue the web autotest closed loop, improve web coverage, or inspect web autotest results, use this skill directly.
-- Primary machine-readable output: `web-autotest/reports/autotest/loop-report.json`
-- User-facing quick reference: `web-autotest/docs/QUICKSTART.md`
+- Primary machine-readable output: `web-autotest/reports/autotest/loop-report.json` (in consumer's `web-autotest/` scaffold)
+- User-facing quick reference: `web-autotest/docs/QUICKSTART.md` (source mode) or `node_modules/@tencent/kuikly-web-aitest/docs/QUICKSTART.md` (npm consumer mode)
 
 ## Build vs skip-build — decide first
 
 **Before running any loop command, answer: have any `.kt` files under `web_test/` been added or changed since the last successful build?**
 
-| Situation | Command |
-|-----------|---------|
-| First run, or any new/modified Kotlin carrier page since last build | `node web-autotest/scripts/loop/run-autotest-loop.mjs --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan` |
-| Only spec (`.ts`) or rules (`.json`) changes, build artifacts are current | `node web-autotest/scripts/loop/run-autotest-loop.mjs --skip-build --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan` |
+| Situation | Source mode command | npm consumer mode command |
+|-----------|---------------------|--------------------------|
+| First run, or any new/modified Kotlin carrier page since last build | `node web-autotest/scripts/loop/run-autotest-loop.mjs --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan` | `node node_modules/@tencent/kuikly-web-aitest/scripts/loop/run-autotest-loop.mjs --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan` |
+| Only spec (`.ts`) or rules (`.json`) changes, build artifacts are current | `node web-autotest/scripts/loop/run-autotest-loop.mjs --skip-build --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan` | `node node_modules/@tencent/kuikly-web-aitest/scripts/loop/run-autotest-loop.mjs --skip-build --max-rounds 3 --max-new-specs 20 --allow-incomplete-scan` |
 
 **Default focused rerun (spec iteration only):**
 ```bash
+# Source mode:
 node web-autotest/scripts/kuikly-test.mjs --skip-build --test <spec>
+# npm consumer mode:
+node node_modules/@tencent/kuikly-web-aitest/scripts/kuikly-test.mjs --skip-build --test <spec>
 ```
 
 Why this matters: `--skip-build` reuses the last compiled JS bundle. A new Kotlin carrier page that has not been compiled will not be loadable by Playwright — the loop will generate a spec for it, the focused verification will immediately fail ("page not found"), and the spec will be rolled back. Always build first when Kotlin files change.
@@ -168,17 +197,20 @@ If the second case is confirmed, create a minimal carrier page — see **Carrier
 1. Use the loop entrypoint as the primary command.
 
 ```bash
+# Source mode:
 node web-autotest/scripts/loop/run-autotest-loop.mjs
+# npm consumer mode:
+node node_modules/@tencent/kuikly-web-aitest/scripts/loop/run-autotest-loop.mjs
 ```
 
 Default behavior:
 - runs page/spec completeness scan first (including `sourceFilesWithoutPage` detection)
-- runs the canonical `web-autotest/scripts/kuikly-test.mjs --full` flow
+- runs the canonical kuikly-test.mjs `--full` flow
 - analyzes Playwright failures and coverage results
 - auto-generates managed `auto-*.spec.ts` files for missing pages and low-coverage candidate pages
 - auto-regenerates previously generated managed specs when those generated specs fail with stale locators or stale assertions
 - retries one extra canonical pass when the first pass only indicates a coverage threshold failure
-- writes a machine-readable loop report to `web-autotest/reports/autotest/loop-report.json`
+- writes a machine-readable loop report to `reports/autotest/loop-report.json` (in consumer's `web-autotest/` scaffold)
 
 Useful flags:
 - `--dry-run`: only analyze existing reports without rerunning tests
@@ -198,7 +230,7 @@ Automatic mutation scope:
 - when a legacy spec points at a non-`web_test` page, delete or migrate that spec only after recreating the capability under `web_test`
 - **generate carrier pages for source files that have no `web_test` page yet** — see below
 - do not generate a new managed coverage spec for a page that is already fully represented by a handwritten blocker spec with only skipped or pending tests; treat that page as a blocker and stop
-- after a handwritten migration or repair, immediately rerun the affected spec with `web-autotest/scripts/kuikly-test.mjs --skip-build --test <spec>` to verify the result
+- after a handwritten migration or repair, immediately rerun the affected spec with the focused rerun command (see **Build vs skip-build** section) to verify the result
 - if that targeted rerun still fails, automatically roll back the handwritten patch and emit a manual-review warning in the loop report
 - execute multiple full rounds, re-reading failure analysis and coverage after each round, and keep applying safe managed-spec repairs until the round budget is exhausted or the suite converges
 - do not rewrite handwritten non-managed specs outside those narrow safe rules unless a future deterministic repair rule is added
@@ -207,8 +239,8 @@ Automatic mutation scope:
 
 - Keep new or repaired specs aligned with semantic assertion intent: `tests/static` for deterministic non-screenshot assertions, `tests/functional` for interaction-driven node / attribute / state changes, and `tests/visual` for screenshot-judged visual outcomes.
 - Treat `hybrid` as paired functional + visual coverage for the same scenario; do not collapse ordinary single-intent specs into `hybrid`.
-- Most newly added handwritten specs do **not** require changes to `web-autotest/scripts/lib/classification-policy.mjs`; placing the file under the correct semantic directory is enough.
-- Update `web-autotest/scripts/lib/classification-policy.mjs` only when CLI `--level static|functional|visual|hybrid` routing changes, when managed page-category routing changes (`CATEGORY_TARGET_SEGMENTS` / `MANAGED_TARGET_CLASSIFICATION`), or when a new paired scenario must be added to `HYBRID_TARGETS`.
+- Most newly added handwritten specs do **not** require changes to `scripts/lib/classification-policy.mjs` (under the package root); placing the file under the correct semantic directory is enough.
+- Update `scripts/lib/classification-policy.mjs` only when CLI `--level static|functional|visual|hybrid` routing changes, when managed page-category routing changes (`CATEGORY_TARGET_SEGMENTS` / `MANAGED_TARGET_CLASSIFICATION`), or when a new paired scenario must be added to `HYBRID_TARGETS`.
 - Use stable, repeatable observable results as test oracles, such as text, DOM nodes, `data-kuikly-component`, stable attributes, bounding boxes, and screenshots.
 - Use `feature-completeness.md` and `classification-upgrade-rules.md` together when deciding whether a generated spec is worth keeping.
 - Do not use runtime artifacts, build artifacts, obfuscated export names, internal method names, or temporary injected objects as assertions or generated-oracle inputs.
@@ -216,7 +248,10 @@ Automatic mutation scope:
 2. Scan page and spec completeness directly when you need detailed raw data.
 
 ```bash
+# Source mode:
 node web-autotest/scripts/loop/scan-web-test-pages.mjs
+# npm consumer mode:
+node node_modules/@tencent/kuikly-web-aitest/scripts/loop/scan-web-test-pages.mjs
 ```
 
 Use the result to detect:
@@ -229,7 +264,10 @@ Use the result to detect:
 3. Run the canonical test and coverage flow directly only when you are debugging the pipeline.
 
 ```bash
+# Source mode:
 node web-autotest/scripts/kuikly-test.mjs --full
+# npm consumer mode:
+node node_modules/@tencent/kuikly-web-aitest/scripts/kuikly-test.mjs --full
 ```
 
 If you only need a subset while iterating, use `--level`, `--test`, or `--skip-build`, but return to `--full` before closing the task.
@@ -237,7 +275,10 @@ If you only need a subset while iterating, use `--level`, `--test`, or `--skip-b
 4. Analyze Playwright execution results.
 
 ```bash
+# Source mode:
 node web-autotest/scripts/loop/analyze-playwright-results.mjs
+# npm consumer mode:
+node node_modules/@tencent/kuikly-web-aitest/scripts/loop/analyze-playwright-results.mjs
 ```
 
 Use the output to classify failures into:
@@ -251,8 +292,12 @@ Use the output to classify failures into:
 5. Summarize coverage and low-coverage files.
 
 ```bash
+# Source mode:
 node web-autotest/scripts/loop/summarize-coverage.mjs
 node web-autotest/scripts/loop/suggest-test-targets.mjs
+# npm consumer mode:
+node node_modules/@tencent/kuikly-web-aitest/scripts/loop/summarize-coverage.mjs
+node node_modules/@tencent/kuikly-web-aitest/scripts/loop/suggest-test-targets.mjs
 ```
 
 Use the results to find:
@@ -290,17 +335,23 @@ The warning contains:
    grep -n "fun editable\|fun placeholder\|fun maxText" core/src/commonMain/kotlin/com/tencent/kuikly/core/views/InputView.kt
    ```
    A compile error (`Unresolved reference`) means the method name is wrong. Fix it before running the build.
-3. **Read `web-autotest/references/page-generation-guide.md`** for the Kotlin DSL patterns appropriate for `warning.suggestedCategory`.
+3. **Read `references/page-generation-guide.md`** (under `web-autotest/` in source mode, or `node_modules/@tencent/kuikly-web-aitest/` in npm consumer mode) for the Kotlin DSL patterns appropriate for `warning.suggestedCategory`.
 4. **Generate the Kotlin carrier page** following the state-driven text pattern — every testable behavior must have a stable text oracle (a label whose text changes with state). Do not generate placeholder pages.
 5. **Write the file** to `warning.targetPath`.
 6. **Run the generator script** to update `interaction-protocol.json` with the new page's `actionScripts`:
    ```bash
+   # Source mode:
    node web-autotest/scripts/loop/generate-carrier-page.mjs <source-file> --write
+   # npm consumer mode:
+   node node_modules/@tencent/kuikly-web-aitest/scripts/loop/generate-carrier-page.mjs <source-file> --write
    ```
    The `--write` flag updates `interaction-protocol.json` **and** writes a scaffold Kotlin file only if the target path does not already exist. If you already wrote the Kotlin file manually (recommended), the script will skip the Kotlin write and only update the JSON — this is the correct behavior. Do not delete your handwritten Kotlin file before running this command.
 7. **Run a full build** — new Kotlin carrier pages must be compiled into the JS bundle before they can be loaded by Playwright. Never use `--skip-build` after adding a new carrier page:
    ```bash
+   # Source mode:
    node web-autotest/scripts/loop/run-autotest-loop.mjs --max-rounds 1
+   # npm consumer mode:
+   node node_modules/@tencent/kuikly-web-aitest/scripts/loop/run-autotest-loop.mjs --max-rounds 1
    ```
    If you use `--skip-build` when a new carrier page exists but has not yet been built, the loop will generate a spec for the page, the focused verification will fail (page not found), and the spec will be rolled back.
 

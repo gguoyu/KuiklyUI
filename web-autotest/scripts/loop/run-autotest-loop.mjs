@@ -1761,10 +1761,10 @@ function tryGenerateCarrierPages(scan, context, warnings) {
       action: 'AI_GENERATE_CARRIER_PAGE',
       instructions: [
         `Read the source file at ${candidate.file}`,
-        `Read web-autotest/references/page-generation-guide.md for Kotlin DSL patterns`,
+        `Read ${join(packageRoot, 'references', 'page-generation-guide.md').replace(/\\/g, '/')} for Kotlin DSL patterns`,
         `Generate a carrier page with state-driven text for each testable behavior`,
         `Write the Kotlin file to the targetPath above`,
-        `Run node web-autotest/scripts/loop/generate-carrier-page.mjs ${candidate.file} --write to update interaction-protocol.json`,
+        `Run node ${join(packageRoot, 'scripts', 'loop', 'generate-carrier-page.mjs').replace(/\\/g, '/')} ${candidate.file} --write to update interaction-protocol.json`,
       ],
     });
     signaled += 1;
