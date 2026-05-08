@@ -3,9 +3,9 @@
  * 一键发布脚本
  *
  * 用法:
- *   node scripts/release.mjs           # 默认 patch（0.0.1 → 0.0.2）
- *   node scripts/release.mjs minor     # minor（0.0.1 → 0.1.0）
- *   node scripts/release.mjs major     # major（0.0.1 → 1.0.0）
+ *   node release.mjs           # 默认 patch（0.0.1 → 0.0.2）
+ *   node release.mjs minor     # minor（0.0.1 → 0.1.0）
+ *   node release.mjs major     # major（0.0.1 → 1.0.0）
  *
  * 等效 npm scripts（在 web-autotest/ 目录执行）:
  *   npm run release          # patch
@@ -26,7 +26,7 @@ import { fileURLToPath } from 'url';
 import { spawnSync, execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkgDir = join(__dirname, '..');
+const pkgDir = __dirname;  // release.mjs 就在 web-autotest/ 根目录
 const pkgPath = join(pkgDir, 'package.json');
 
 // ── 参数解析 ─────────────────────────────────────────────────────────────────
