@@ -24,6 +24,8 @@
     "kuikly.autotest.config.cjs"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
     "setup": "node scripts/setup-fonts.mjs",
     "serve": "node scripts/serve.cjs",
     "serve:dev": "BUILD_TYPE=developmentExecutable node scripts/serve.cjs",
@@ -58,6 +60,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
+    "@types/node": "^25.6.2",
     "monocart-coverage-reports": "^2.12.10",
     "typescript": "^5.3.0"
   }

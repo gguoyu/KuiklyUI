@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "target": "ES2019",
+    "lib": ["ES2019", "DOM", "DOM.Iterable"],
+    "declaration": true,
+    "noEmit": false,
+    "types": ["node", "@playwright/test"],
+    "rootDir": ".",
+    "outDir": "."
+  },
+  "include": [
+    "index.ts",
+    "fixtures/test-base.ts",
+    "fixtures/kuikly-page.ts",
+    "fixtures/coverage.ts"
+  ]
+}
