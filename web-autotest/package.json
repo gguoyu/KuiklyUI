@@ -7,6 +7,9 @@
     ".": {
       "types": "./index.d.ts",
       "default": "./index.js"
+    },
+    "./config/playwright-factory": {
+      "default": "./config/playwright-factory.cjs"
     }
   },
   "bin": {

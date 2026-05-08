@@ -1,1 +1,2 @@
-module.exports = require('../kuikly.autotest.config.cjs').coverage;
+const { loadAutotestConfig } = require('./load-autotest-config.cjs');
+module.exports = loadAutotestConfig().coverage;

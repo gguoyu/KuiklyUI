@@ -14,7 +14,7 @@
  */
 
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, isAbsolute } from 'path';
 import { fileURLToPath } from 'url';
 import { createWriteStream } from 'fs';
 import { get as httpsGet } from 'https';
@@ -25,9 +25,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const _require = createRequire(import.meta.url);
-const autotestConfig = _require(join(__dirname, '..', 'kuikly.autotest.config.cjs'));
-
-const E2E_ROOT  = join(__dirname, '..');
+const projectRoot = process.env.KUIKLY_PROJECT_ROOT || process.cwd();
+const autotestDirEnv = process.env.KUIKLY_AUTOTEST_DIR;
+const E2E_ROOT = autotestDirEnv
+  ? (isAbsolute(autotestDirEnv) ? autotestDirEnv : join(projectRoot, autotestDirEnv))
+  : join(projectRoot, 'web-autotest');
+const configPath = process.env.KUIKLY_AUTOTEST_CONFIG
+  || join(E2E_ROOT, 'kuikly.autotest.config.cjs');
+const autotestConfig = _require(configPath);
 const FONTS_DIR = join(E2E_ROOT, autotestConfig.build.fontsDirName || 'fonts');
 const FONT_FILE = join(FONTS_DIR, autotestConfig.build.fontFileName || 'NotoSansSC-Regular.woff2');
 

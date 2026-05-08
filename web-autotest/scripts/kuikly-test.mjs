@@ -3,14 +3,18 @@
 import { spawn } from 'child_process';
 import { existsSync, rmSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, isAbsolute } from 'path';
 import webE2EConfig from '../config/index.cjs';
 import { resolvePlaywrightTargets } from './lib/classification-policy.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const projectRoot = join(__dirname, '../..');
-const e2eRoot = join(__dirname, '..');
+const packageRoot = join(__dirname, '..');   // scripts/ 上溯一级 → 包根目录
+const projectRoot = process.env.KUIKLY_PROJECT_ROOT || process.cwd();
+const autotestDirEnv = process.env.KUIKLY_AUTOTEST_DIR;
+const e2eRoot = autotestDirEnv
+  ? (isAbsolute(autotestDirEnv) ? autotestDirEnv : join(projectRoot, autotestDirEnv))
+  : join(projectRoot, 'web-autotest');
 const { build, coverage, reporting, runtime } = webE2EConfig;
 const defaultPort = String(runtime.resolvePort());
 // Gradle wrapper selection:
@@ -200,14 +204,14 @@ async function generateCoverageReport() {
   }
 
   console.log('\nGenerating Kotlin coverage report with Monocart (V8 data)...');
-  await execCommand('node scripts/coverage-report.mjs', e2eRoot);
+  await execCommand(`node "${join(packageRoot, 'scripts', 'coverage-report.mjs')}"`, e2eRoot);
   console.log('Kotlin coverage report generated');
   console.log(`Report: ${join(e2eRoot, reporting.coverageIndexFile)}`);
 }
 
 async function checkCoverageThresholds() {
   console.log('\nChecking V8 Kotlin coverage thresholds...');
-  await execCommand('node scripts/coverage-report.mjs --check', e2eRoot);
+  await execCommand(`node "${join(packageRoot, 'scripts', 'coverage-report.mjs')}" --check`, e2eRoot);
   console.log('Coverage thresholds passed');
 }
 

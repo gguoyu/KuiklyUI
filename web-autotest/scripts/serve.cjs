@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Kuikly Web E2E ²âÊÔ±¾µØ·þÎñ½Å±¾
+ * Kuikly Web E2E ï¿½ï¿½ï¿½Ô±ï¿½ï¿½Ø·ï¿½ï¿½ï¿½Å±ï¿½
  */
 
 const http = require('http');
@@ -10,10 +10,11 @@ const { existsSync, readdirSync, statSync } = require('fs');
 const { build, coverage, runtime } = require('../config/index.cjs');
 const { findFirstFile, handleNetworkMock, sendFile } = require('./serve-common.cjs');
 
+const { getAutotestDir } = require('../config/load-autotest-config.cjs');
 const PORT = runtime.resolvePort();
 const BUILD_TYPE = process.env.BUILD_TYPE || build.defaultBuildType;
-const PROJECT_ROOT = path.join(__dirname, '..', '..');
-const E2E_ROOT = path.join(__dirname, '..');
+const PROJECT_ROOT = process.env.KUIKLY_PROJECT_ROOT || process.cwd();
+const E2E_ROOT = getAutotestDir();
 const BUILD_DIR = path.join(PROJECT_ROOT, build.processedResourcesDir);
 const DIST_DIR = path.join(PROJECT_ROOT, build.demoDistBaseDir, BUILD_TYPE);
 const DIST_DEV_DIR = path.join(PROJECT_ROOT, build.demoDistBaseDir, build.developmentDistSubdir);

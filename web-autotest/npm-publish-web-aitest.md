@@ -16,43 +16,30 @@ Phase 2（TypeScript 构建产物）已完成。
 
 ---
 
-## Phase 3：消费方适配（最复杂，关键路径）
+Phase 3（消费方适配）已完成。
 
-有两个文件在 npm 模式下路径假设会失效：
+---
+
+## Phase 3：消费方适配（最复杂，关键路径）
 
 ### 3-a：`scripts/serve.cjs`
 
-当前写法：
-```js
-const PROJECT_ROOT = path.join(__dirname, '..', '..');
-```
-在 npm 模式下上溯两级会到 `node_modules/@tencent/`，而不是消费方项目根。
-
-- [ ] 改为从 `process.cwd()` 或环境变量推导 `PROJECT_ROOT`
-- [ ] 同步排查 `serve.cjs` 中所有依赖 `PROJECT_ROOT` 的路径（BUILD_DIR、DIST_DIR、WEBPACK_DIR 等）
-- [ ] 确认消费方能通过 `node node_modules/@tencent/kuikly-web-aitest/scripts/serve.cjs` 正常启动测试服务器
+- [x] 改为从 `process.cwd()` 或环境变量推导 `PROJECT_ROOT`
+- [x] 新建 `config/load-autotest-config.cjs` 统一加载消费方配置；`E2E_ROOT` 改用 `getAutotestDir()`
+- [x] 确认消费方能通过 `node node_modules/@tencent/kuikly-web-aitest/scripts/serve.cjs` 正常启动测试服务器
 
 ### 3-b：`playwright.config.js`
 
-当前是 KuiklyUI 专用的硬编码配置，消费方无法直接复用。
-
-- [ ] 改造为工厂函数，新增 `config/playwright-factory.cjs`：
-  ```js
-  function createPlaywrightConfig(overrides) { ... }
-  module.exports = { createPlaywrightConfig };
-  ```
-- [ ] 消费方用法：
-  ```js
-  // web-autotest/playwright.config.js（由 kuikly-aitest init 生成）
-  const { createPlaywrightConfig } = require('@tencent/kuikly-web-aitest/config/playwright-factory');
-  module.exports = createPlaywrightConfig({ testDir: './tests' });
-  ```
-- [ ] 将工厂函数路径添加到 `package.json` 的 `exports` 字段
+- [x] 改造为工厂函数，新增 `config/playwright-factory.cjs`
+- [x] `bin/kuikly-aitest.mjs` init 生成的 `playwright.config.js` 使用 `@tencent/kuikly-web-aitest/config/playwright-factory`
+- [x] 将工厂函数路径添加到 `package.json` 的 `exports` 字段
 
 ### 3-c：其他脚本排查
 
-- [ ] 全量扫描 `scripts/` 下是否还有硬编码 `web-autotest/` 或 `__dirname` 相对路径问题
-- [ ] 重点检查：`kuikly-test.mjs`、`coverage-report.mjs`、`setup-fonts.mjs`
+- [x] `kuikly-test.mjs`：`projectRoot`/`e2eRoot` 改为 `process.cwd()` + 环境变量推导；`coverage-report.mjs` 调用改用绝对路径
+- [x] `coverage-report.mjs`：`e2eRoot`/`projectRoot` 改为 `process.cwd()` + 环境变量推导
+- [x] `setup-fonts.mjs`：`E2E_ROOT`/`autotestConfig` 改为 `process.cwd()` + 环境变量推导
+- [x] `config/build.cjs`、`config/coverage.cjs`：改用 `loadAutotestConfig()` 加载消费方配置
 
 ---
 

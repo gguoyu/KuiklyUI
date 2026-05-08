@@ -4,7 +4,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs';
-import { dirname, join, normalize, relative, resolve } from 'path';
+import { dirname, isAbsolute, join, normalize, relative, resolve } from 'path';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import webE2EConfig from '../config/index.cjs';
@@ -18,8 +18,11 @@ const istanbulLibReport = require('istanbul-lib-report');
 const istanbulReports = require('istanbul-reports');
 
 const { coverage: coverageConfig, reporting } = webE2EConfig;
-const e2eRoot = join(__dirname, '..');
-const projectRoot = join(e2eRoot, '..');
+const projectRoot = process.env.KUIKLY_PROJECT_ROOT || process.cwd();
+const autotestDirEnv = process.env.KUIKLY_AUTOTEST_DIR;
+const e2eRoot = autotestDirEnv
+  ? (isAbsolute(autotestDirEnv) ? autotestDirEnv : join(projectRoot, autotestDirEnv))
+  : join(projectRoot, 'web-autotest');
 const v8OutputDir = join(e2eRoot, reporting.v8TempDirName);
 const reportDir = join(e2eRoot, reporting.coverageDir);
 const generatedKotlinOutputDir = normalize(join(projectRoot, coverageConfig.generatedKotlinOutputDir));
