@@ -1,0 +1,2 @@
+# 开发者工具，不应发布到 npm
+scripts/release.mjs
