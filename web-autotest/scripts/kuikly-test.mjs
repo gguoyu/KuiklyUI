@@ -248,14 +248,20 @@ async function generateCoverageReport() {
   }
 
   console.log('\nGenerating Kotlin coverage report with Monocart (V8 data)...');
-  await execCommand(`node "${join(packageRoot, 'scripts', 'coverage-report.mjs')}"`, e2eRoot);
+  await execCommand(`node "${join(packageRoot, 'scripts', 'coverage-report.mjs')}"`, e2eRoot, {
+    KUIKLY_PROJECT_ROOT: projectRoot,
+    KUIKLY_AUTOTEST_DIR: e2eRoot,
+  });
   console.log('Kotlin coverage report generated');
   console.log(`Report: ${join(e2eRoot, reporting.coverageIndexFile)}`);
 }
 
 async function checkCoverageThresholds() {
   console.log('\nChecking V8 Kotlin coverage thresholds...');
-  await execCommand(`node "${join(packageRoot, 'scripts', 'coverage-report.mjs')}" --check`, e2eRoot);
+  await execCommand(`node "${join(packageRoot, 'scripts', 'coverage-report.mjs')}" --check`, e2eRoot, {
+    KUIKLY_PROJECT_ROOT: projectRoot,
+    KUIKLY_AUTOTEST_DIR: e2eRoot,
+  });
   console.log('Coverage thresholds passed');
 }
 
