@@ -1,6 +1,6 @@
 {
   "name": "@tencent/kuikly-web-aitest",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Kuikly Web E2E AI automated test framework",
   "main": "index.js",
   "exports": {
