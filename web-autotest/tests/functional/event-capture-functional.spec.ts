@@ -85,12 +85,6 @@ test.describe('事件捕获 functional 验证', () => {
   });
 
   test('long press 应更新 long-press 状态文本', async ({ kuiklyPage }) => {
-    // LongPress via mouse.down+wait+up fails on this page because the target View
-    // uses absolutePosition(bottom=60f). The Kuikly layout causes the element's actual
-    // position to differ from the bounding box reported by the browser, leading to
-    // mouseleave events firing during the 700ms wait period.
-    test.skip(true, '[KNOWN: longPress in absolute-positioned View — element position mismatch causes mouseleave]');
-
     await kuiklyPage.goto('EventCaptureTestPage');
     await kuiklyPage.waitForRenderComplete();
 

@@ -1,14 +1,12 @@
 import { test, expect } from '../../../fixtures/test-base';
 
 test.describe('CSSAnimationTestPage functional', () => {
-  // animationCompletion callback does not reliably fire in headless Chromium —
-  // the CSS animationend event chain through Kuikly is timing-sensitive.
-  test.skip('should trigger animation completion callback [KNOWN: animationCompletion unreliable in headless]', async ({ kuiklyPage }) => {
+  test('should trigger animation completion callback', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('CSSAnimationTestPage');
     await kuiklyPage.waitForRenderComplete();
 
     // Click frame animation toggle
-    const frameBtn = kuiklyPage.page.getByText('Frame', { exact: false }).first();
+    const frameBtn = kuiklyPage.page.getByText('Frame', { exact: true });
     await frameBtn.click();
 
     // Wait for animation to complete and callback to fire (observable update + re-render)

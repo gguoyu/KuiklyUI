@@ -90,12 +90,6 @@ test.describe('CSSPropsTestPage functional', () => {
   });
 
   test('long press should update long-press count', async ({ kuiklyPage }) => {
-    // The longPress handler is on a View inside a KRListView. The list's own
-    // mousedown handler sets isClickEvent=true and starts a click detection timer,
-    // which interferes with the longPress timer — the list consumes the mouseup
-    // before the longPress threshold (700ms) is reached.
-    test.skip(true, '[KNOWN: longPress inside KRListView — list mouse handler interferes with long press timer]');
-
     const list = kuiklyPage.component('KRListView').first();
     await kuiklyPage.scrollInContainer(list, { deltaY: 1500, smooth: false });
     await expect(kuiklyPage.page.getByText('10. Long Press', { exact: false })).toBeVisible();

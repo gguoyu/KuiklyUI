@@ -262,7 +262,11 @@ class TouchEventHandlers {
             /**
              * Cancel listener
              */
-            element.addEventListener("mouseleave", { _ ->
+            element.addEventListener("mouseleave", { event ->
+                event as MouseEvent
+                if (isMouseDown && event.buttons.toInt() != 0) {
+                    return@addEventListener
+                }
                 isMouseDown = false
                 cancelTimer()
             })

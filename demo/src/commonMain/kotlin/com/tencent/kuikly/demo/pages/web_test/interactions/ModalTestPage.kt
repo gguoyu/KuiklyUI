@@ -19,6 +19,7 @@ import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.base.Color
 import com.tencent.kuikly.core.base.ViewBuilder
 import com.tencent.kuikly.core.pager.Pager
+import com.tencent.kuikly.core.directives.vif
 import com.tencent.kuikly.core.reactive.handler.observable
 import com.tencent.kuikly.core.views.ActionSheet
 import com.tencent.kuikly.core.views.AlertDialog
@@ -265,7 +266,7 @@ internal class ModalTestPage : Pager() {
             }
 
             // Custom Modal
-            if (ctx.showCustomModal) {
+            vif({ ctx.showCustomModal }) {
                 Modal {
                     View {
                         attr {

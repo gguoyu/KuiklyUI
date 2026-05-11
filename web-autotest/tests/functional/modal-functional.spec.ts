@@ -49,11 +49,7 @@ test.describe('Modal functional', () => {
     await expect(kuiklyPage.page.getByText('action-sheet-result: selected: from-album', { exact: false })).toBeVisible();
   });
 
-  // NOTE: Kuikly's custom Modal component (if/Modal DSL) does not render in
-  // Playwright headless mode — this is a known product-level limitation.
-  // The show-custom-modal button click does not produce a visible modal overlay
-  // in headless Chromium. Tracked as a code warning; test is skipped until fixed.
-  test.skip('Custom Modal: show-custom-modal → confirm → custom-modal-result: confirmed [KNOWN: Modal headless rendering issue]', async ({ kuiklyPage }) => {
+  test('Custom Modal: show-custom-modal → confirm → custom-modal-result: confirmed', async ({ kuiklyPage }) => {
     await kuiklyPage.goto('ModalTestPage');
     await kuiklyPage.waitForRenderComplete();
 

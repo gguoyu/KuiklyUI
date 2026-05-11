@@ -28,34 +28,6 @@ async function dragInContainer(
   await page.waitForTimeout(220);
 }
 
-async function installCoarsePointerMode(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const createMediaQueryList = (matches: boolean, media: string) => ({
-      matches,
-      media,
-      onchange: null,
-      addListener() {},
-      removeListener() {},
-      addEventListener() {},
-      removeEventListener() {},
-      dispatchEvent() {
-        return false;
-      },
-    });
-
-    const originalMatchMedia = window.matchMedia.bind(window);
-    window.matchMedia = (query: string) => {
-      if (query === '(pointer: coarse)') {
-        return createMediaQueryList(true, query) as MediaQueryList;
-      }
-      if (query === '(pointer: fine)') {
-        return createMediaQueryList(false, query) as MediaQueryList;
-      }
-      return originalMatchMedia(query);
-    };
-  });
-}
-
 async function touchDragInContainer(
   page: Page,
   container: Locator,
@@ -216,7 +188,7 @@ test.describe('KRScrollContentView functional 验证', () => {
   });
 
   test('touch dragging upward in the self-first nested column should scroll in coarse pointer mode', async ({ kuiklyPage }) => {
-    await installCoarsePointerMode(kuiklyPage.page);
+    await kuiklyPage.installCoarsePointerMode();
     await kuiklyPage.goto('KRScrollContentViewTestPage');
     await kuiklyPage.waitForRenderComplete();
 
@@ -230,10 +202,8 @@ test.describe('KRScrollContentView functional 验证', () => {
     await expect(kuiklyPage.page.getByText('L8', { exact: true })).toBeVisible();
   });
 
-  // NOTE: KRScrollContentViewTestPage causes a page crash when navigated to in
-  // certain test configurations. This is a known product-level issue.
-  test.skip('touch dragging downward at the top of the self-first nested column should stay pinned in coarse pointer mode [KNOWN: PAGE_CRASH]', async ({ kuiklyPage }) => {
-    await installCoarsePointerMode(kuiklyPage.page);
+  test('touch dragging downward at the top of the self-first nested column should stay pinned in coarse pointer mode', async ({ kuiklyPage }) => {
+    await kuiklyPage.installCoarsePointerMode();
     await kuiklyPage.goto('KRScrollContentViewTestPage');
     await kuiklyPage.waitForRenderComplete();
 

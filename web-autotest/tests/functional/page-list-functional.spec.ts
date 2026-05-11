@@ -79,6 +79,35 @@ async function wheelPageList(page: Page, container: Locator, deltaX: number, del
   return dispatchResult;
 }
 
+async function touchSwipePageList(page: Page, container: Locator, startRatio: number, endRatio: number, steps = 8, waitMs = 600): Promise<void> {
+  const box = await container.boundingBox();
+  expect(box).toBeTruthy();
+
+  const startX = Math.round(box!.x + box!.width * startRatio);
+  const endX = Math.round(box!.x + box!.width * endRatio);
+  const y = Math.round(box!.y + box!.height / 2);
+
+  const client = await page.context().newCDPSession(page);
+  await client.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+
+  await client.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: startX, y, id: 1, radiusX: 5, radiusY: 5, force: 1 }],
+  });
+
+  for (let index = 1; index <= steps; index += 1) {
+    const x = Math.round(startX + (endX - startX) * (index / steps));
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x, y, id: 1, radiusX: 5, radiusY: 5, force: 1 }],
+    });
+    await page.waitForTimeout(16);
+  }
+
+  await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.waitForTimeout(waitMs);
+}
+
 test.describe('PageList functional 验证', () => {
   test.beforeEach(async ({ kuiklyPage }) => {
     await kuiklyPage.goto('PageListTestPage');
@@ -411,74 +440,27 @@ test.describe('PageList functional 验证', () => {
   });
 
   test('touch swipe left should advance to the next page', async ({ kuiklyPage }) => {
-    // [KNOWN: H5ListPagingHelper touch events (handlePagerTouchStart/Move/End) are only registered
-    // when matchMedia('(pointer: coarse)') matches — i.e., mobile devices. In headless Chromium
-    // (desktop), these touch paths are not reachable. This test exercises the CDP touch dispatch
-    // infrastructure but cannot assert paging result in headless.]
-    test.skip(true, '[KNOWN: H5ListPagingHelper touch paths only available on coarse-pointer devices]');
+    await kuiklyPage.installCoarsePointerMode();
+    await kuiklyPage.goto('PageListTestPage');
+    await kuiklyPage.waitForRenderComplete();
 
-    const pageList = kuiklyPage.component('KRListView').first();
-    const box = await pageList.boundingBox();
-    expect(box).toBeTruthy();
-
-    const startX = box!.x + box!.width * 0.75;
-    const endX = startX - box!.width * 0.6;
-    const y = box!.y + box!.height / 2;
-
-    const client = await kuiklyPage.page.context().newCDPSession(kuiklyPage.page);
-    await client.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
-
-    await client.send('Input.dispatchTouchEvent', {
-      type: 'touchStart',
-      touchPoints: [{ x: startX, y, id: 1, radiusX: 5, radiusY: 5, force: 1 }],
-    });
-    for (let i = 1; i <= 8; i++) {
-      const cx = startX + (endX - startX) * (i / 8);
-      await client.send('Input.dispatchTouchEvent', {
-        type: 'touchMove',
-        touchPoints: [{ x: cx, y, id: 1, radiusX: 5, radiusY: 5, force: 1 }],
-      });
-      await kuiklyPage.page.waitForTimeout(16);
-    }
-    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await kuiklyPage.page.waitForTimeout(600);
+    const page0Item = kuiklyPage.page.getByText(PAGE_ZERO_ITEM, { exact: true });
+    await touchSwipePageList(kuiklyPage.page, page0Item, 0.75, 0.15);
 
     await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
   });
 
   test('touch swipe right from page 1 should go back to page 0', async ({ kuiklyPage }) => {
-    // [KNOWN: H5ListPagingHelper touch events only available on coarse-pointer devices]
-    test.skip(true, '[KNOWN: H5ListPagingHelper touch paths only available on coarse-pointer devices]');
+    await kuiklyPage.installCoarsePointerMode();
+    await kuiklyPage.goto('PageListTestPage');
+    await kuiklyPage.waitForRenderComplete();
 
-    await kuiklyPage.page.getByText('tab1', { exact: true }).click();
-    await kuiklyPage.page.waitForTimeout(400);
+    const page0Item = kuiklyPage.page.getByText(PAGE_ZERO_ITEM, { exact: true });
+    await touchSwipePageList(kuiklyPage.page, page0Item, 0.75, 0.15);
     await expect(kuiklyPage.page.getByText('tab1', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
 
-    const pageList = kuiklyPage.component('KRListView').first();
-    const box = await pageList.boundingBox();
-    expect(box).toBeTruthy();
-
-    const startX = box!.x + box!.width * 0.25;
-    const endX = startX + box!.width * 0.6;
-    const y = box!.y + box!.height / 2;
-
-    const client = await kuiklyPage.page.context().newCDPSession(kuiklyPage.page);
-    await client.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
-
-    await client.send('Input.dispatchTouchEvent', {
-      type: 'touchStart',
-      touchPoints: [{ x: startX, y, id: 1, radiusX: 5, radiusY: 5, force: 1 }],
-    });
-    for (let i = 1; i <= 8; i++) {
-      const cx = startX + (endX - startX) * (i / 8);
-      await client.send('Input.dispatchTouchEvent', {
-        type: 'touchMove',
-        touchPoints: [{ x: cx, y, id: 1, radiusX: 5, radiusY: 5, force: 1 }],
-      });
-      await kuiklyPage.page.waitForTimeout(16);
-    }
-    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await kuiklyPage.page.waitForTimeout(600);
+    const page1Item = kuiklyPage.page.getByText(PAGE_ONE_ITEM, { exact: true });
+    await touchSwipePageList(kuiklyPage.page, page1Item, 0.25, 0.85);
 
     await expect(kuiklyPage.page.getByText('tab0', { exact: true })).toHaveCSS('color', ACTIVE_COLOR);
   });

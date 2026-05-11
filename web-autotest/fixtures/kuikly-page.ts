@@ -207,6 +207,59 @@ export class KuiklyPage {
   }
 
   /**
+   * Clear an input/textarea element.
+   *
+   * Playwright's fill('') is the most reliable clear path in the current
+   * Kuikly web test setup and correctly propagates the empty value.
+   *
+   * @param locator - Locator for the input or textarea element
+   */
+  async clearInput(locator: Locator): Promise<void> {
+    await locator.fill('');
+    await this.page.waitForTimeout(100);
+  }
+
+  /**
+   * Make subsequent navigations report coarse pointer media queries.
+   *
+   * Call this before goto()/reload() when a test needs the touch-specific
+   * runtime branch guarded by matchMedia('(pointer: coarse)').
+   */
+  async installCoarsePointerMode(): Promise<void> {
+    await this.page.addInitScript(() => {
+      const globalWindow = window as Window & {
+        __kuiklyOriginalMatchMedia?: typeof window.matchMedia;
+      };
+      if (!globalWindow.__kuiklyOriginalMatchMedia) {
+        globalWindow.__kuiklyOriginalMatchMedia = window.matchMedia.bind(window);
+      }
+      const originalMatchMedia = globalWindow.__kuiklyOriginalMatchMedia;
+      const createMediaQueryList = (matches: boolean, media: string): MediaQueryList => ({
+        matches,
+        media,
+        onchange: null,
+        addListener() {},
+        removeListener() {},
+        addEventListener() {},
+        removeEventListener() {},
+        dispatchEvent() {
+          return false;
+        },
+      } as MediaQueryList);
+
+      window.matchMedia = (query: string): MediaQueryList => {
+        if (query === '(pointer: coarse)') {
+          return createMediaQueryList(true, query);
+        }
+        if (query === '(pointer: fine)') {
+          return createMediaQueryList(false, query);
+        }
+        return originalMatchMedia(query);
+      };
+    });
+  }
+
+  /**
    * Force-click an element by dispatching a MouseEvent directly on the DOM.
    * Useful when Playwright's click() fails due to element occlusion or
    * Kuikly layout quirks where the computed click target is wrong.
@@ -256,7 +309,7 @@ export class KuiklyPage {
         }
       }
       return true;
-    }, { timeout: 5000 }).catch(() => {
+    }, undefined, { timeout: 5000 }).catch(() => {
       // Fallback: just wait a fixed time
       return this.page.waitForTimeout(1000);
     });

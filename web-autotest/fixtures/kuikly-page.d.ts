@@ -80,6 +80,22 @@ export declare class KuiklyPage {
      */
     fillInput(locator: Locator, text: string): Promise<void>;
     /**
+     * Clear an input/textarea element.
+     *
+     * Playwright's fill('') is the most reliable clear path in the current
+     * Kuikly web test setup and correctly propagates the empty value.
+     *
+     * @param locator - Locator for the input or textarea element
+     */
+    clearInput(locator: Locator): Promise<void>;
+    /**
+     * Make subsequent navigations report coarse pointer media queries.
+     *
+     * Call this before goto()/reload() when a test needs the touch-specific
+     * runtime branch guarded by matchMedia('(pointer: coarse)').
+     */
+    installCoarsePointerMode(): Promise<void>;
+    /**
      * Force-click an element by dispatching a MouseEvent directly on the DOM.
      * Useful when Playwright's click() fails due to element occlusion or
      * Kuikly layout quirks where the computed click target is wrong.

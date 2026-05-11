@@ -144,15 +144,14 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                if (ctx.nameError.isNotEmpty()) {
-                    Text {
-                        attr {
-                            text(ctx.nameError)
-                            fontSize(12f)
-                            marginTop(4f)
-                            marginLeft(16f)
-                            color(Color(0xFFE53935))
-                        }
+                Text {
+                    attr {
+                        text(ctx.nameError)
+                        fontSize(12f)
+                        height(if (ctx.nameError.isNotEmpty()) 16f else 0f)
+                        marginTop(if (ctx.nameError.isNotEmpty()) 4f else 0f)
+                        marginLeft(16f)
+                        color(Color(0xFFE53935))
                     }
                 }
 
@@ -205,15 +204,14 @@ internal class FormTestPage : Pager() {
                     }
                 }
 
-                if (ctx.emailError.isNotEmpty()) {
-                    Text {
-                        attr {
-                            text(ctx.emailError)
-                            fontSize(12f)
-                            marginTop(4f)
-                            marginLeft(16f)
-                            color(Color(0xFFE53935))
-                        }
+                Text {
+                    attr {
+                        text(ctx.emailError)
+                        fontSize(12f)
+                        height(if (ctx.emailError.isNotEmpty()) 16f else 0f)
+                        marginTop(if (ctx.emailError.isNotEmpty()) 4f else 0f)
+                        marginLeft(16f)
+                        color(Color(0xFFE53935))
                     }
                 }
 

@@ -294,7 +294,6 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   });
 
   test('toggles translate and spring animations on ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    test.skip(true, '[KNOWN: PropertyAnimTestPage page crash during RAF animation in headless mode]');
     await kuiklyPage.goto("PropertyAnimTestPage");
     await kuiklyPage.waitForRenderComplete();
 
@@ -302,6 +301,7 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
     await waitForAnimationStrategy(kuiklyPage);
     await waitForText(kuiklyPage.page, RESTORE_POSITION);
     await kuiklyPage.page.getByText(RESTORE_POSITION, { exact: true }).first().click();
+    await waitForAnimationStrategy(kuiklyPage);
     await waitForText(kuiklyPage.page, PLAY_TRANSLATE);
 
     await kuiklyPage.page.getByText(SPRING_ACTION, { exact: true }).click();
@@ -310,7 +310,6 @@ test.describe('Auto generated smoke for ' + PAGE_NAME, () => {
   });
 
   test('toggles color and combo animations on ' + PAGE_NAME, async ({ kuiklyPage }) => {
-    test.skip(true, '[KNOWN: PropertyAnimTestPage page crash during RAF animation in headless mode]');
     await kuiklyPage.goto("PropertyAnimTestPage");
     await kuiklyPage.waitForRenderComplete();
 
