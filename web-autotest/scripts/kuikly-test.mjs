@@ -5,7 +5,7 @@ import { existsSync, rmSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join, isAbsolute } from 'path';
 import webE2EConfig from '../config/index.cjs';
-import { resolvePlaywrightTargets } from './lib/classification-policy.mjs';
+import { resolvePlaywrightTargets, resolveBusinessTargets, resolveBusinessLevelTargets } from './lib/classification-policy.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,6 +17,21 @@ const e2eRoot = autotestDirEnv
   : join(projectRoot, 'web-autotest');
 const { build, coverage, reporting, runtime } = webE2EConfig;
 const defaultPort = String(runtime.resolvePort());
+
+// Business mode detection
+let _autotestConfig;
+let _isBusinessMode = false;
+try {
+  // Dynamic import of CJS module helpers for business mode
+  const { createRequire } = await import('module');
+  const _require = createRequire(import.meta.url);
+  const { loadAutotestConfig, isBusinessMode } = _require(join(packageRoot, 'config', 'load-autotest-config.cjs'));
+  _autotestConfig = loadAutotestConfig();
+  _isBusinessMode = isBusinessMode(_autotestConfig);
+} catch (e) {
+  // Config not found — framework mode fallback
+}
+
 // Gradle wrapper selection:
 // - In a MSYS/Git-Bash shell on Windows, spawn with shell:true uses cmd.exe which cannot
 //   run ./gradlew or gradlew.bat directly. We invoke bash explicitly instead.
@@ -37,7 +52,7 @@ if (isWin && isMsysShell) {
 const gradleBuildArgs = build.gradleBuildArgs;
 
 const args = process.argv.slice(2);
-const valueFlags = ['--level', '--test'];
+const valueFlags = ['--level', '--test', '--biz', '--biz-type'];
 const booleanFlags = new Set([
   '--full',
   '--update-snapshots',
@@ -88,6 +103,8 @@ const options = {
   full: args.includes('--full'),
   level: getArg('--level'),
   test: getArg('--test'),
+  biz: getArg('--biz'),
+  bizType: getArg('--biz-type'),
   updateSnapshots: args.includes('--update-snapshots'),
   coverageOnly: args.includes('--coverage-only'),
   skipBuild: args.includes('--skip-build'),
@@ -151,6 +168,15 @@ async function buildProject() {
     return;
   }
 
+  if (_isBusinessMode && options.biz && _autotestConfig) {
+    const biz = _autotestConfig.businesses && _autotestConfig.businesses.find(b => b.name === options.biz);
+    if (biz && biz.buildCommand) {
+      console.log(`\n[kuikly-test] Building business: ${biz.displayName || biz.name}...`);
+      await execCommand(biz.buildCommand, projectRoot);
+      return;
+    }
+  }
+
   console.log('\nBuilding h5App compileSync modules and demo bundle with Gradle...');
   await execCommand(`${gradleWrapper} ${gradleBuildArgs}`, projectRoot, { KUIKLY_USE_LOCAL_KSP: 'false' });
   console.log('Build completed');
@@ -162,7 +188,20 @@ async function runTests({ collectCoverage = false } = {}) {
   let cmd = 'npx playwright test';
   const levelResolution = options.level ? resolvePlaywrightTargets(options.level) : null;
 
-  if (levelResolution?.targets?.length) {
+  if (_isBusinessMode && options.biz) {
+    // Business mode: target = tests/<biz>/[<bizType>/]
+    const resolved = resolveBusinessTargets(options.biz, options.bizType || null);
+    if (resolved && resolved.targets.length) {
+      cmd += ' ' + resolved.targets.map(quoteArg).join(' ');
+    }
+  } else if (_isBusinessMode && options.level) {
+    // Business mode + level without biz: run across all businesses
+    const resolved = resolveBusinessLevelTargets(options.level);
+    if (resolved && resolved.targets.length) {
+      cmd += ' ' + resolved.targets.map(quoteArg).join(' ');
+    }
+  } else if (levelResolution?.targets?.length) {
+    // Framework mode (existing logic)
     cmd += ' ' + levelResolution.targets.map(quoteArg).join(' ');
   } else if (options.level) {
     console.warn(`[kuikly-test] Unknown level: ${options.level}, running full suite`);

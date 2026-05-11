@@ -51,7 +51,9 @@
     "install:browsers": "playwright install",
     "coverage": "node scripts/coverage-report.mjs",
     "coverage:check": "node scripts/coverage-report.mjs --check",
-    "kuikly-test": "node scripts/kuikly-test.mjs"
+    "kuikly-test": "node scripts/kuikly-test.mjs",
+    "test:biz": "node scripts/kuikly-test.mjs --skip-build --biz",
+    "loop:biz": "node scripts/loop/run-biz-autotest-loop.mjs"
   },
   "publishConfig": {
     "access": "restricted"

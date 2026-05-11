@@ -15,6 +15,7 @@ const path = require('path');
 
 // __dirname = config/，上溯一级得到包根目录
 const packageRoot = path.join(__dirname, '..');
+const { loadAutotestConfig, isBusinessMode } = require('./load-autotest-config.cjs');
 
 /**
  * @param {object} [overrides]  覆盖默认 Playwright 配置的字段（同 defineConfig 参数）
@@ -22,17 +23,48 @@ const packageRoot = path.join(__dirname, '..');
  */
 function createPlaywrightConfig(overrides = {}) {
   const { runtime, reporting } = require('./index.cjs');
-  const port = runtime.resolvePort();
 
-  // 将解析后的端口号透传给所有 spec 文件，避免 spec 直接 require CJS 模块
+  // Load consumer config for business mode detection
+  let autotestConfig;
+  try { autotestConfig = loadAutotestConfig(); } catch (e) { autotestConfig = {}; }
+  const businessMode = isBusinessMode(autotestConfig);
+
+  const port = businessMode && autotestConfig.server && autotestConfig.server.port
+    ? autotestConfig.server.port
+    : runtime.resolvePort();
   process.env.KUIKLY_PORT = String(port);
 
-  const skipWebServer = process.env.KUIKLY_SKIP_WEBSERVER === 'true';
+  const baseURL = businessMode && autotestConfig.server && autotestConfig.server.baseURL
+    ? autotestConfig.server.baseURL
+    : `http://localhost:${port}`;
+
+  // Inject business URL patterns for KuiklyPage fixture (via env → worker processes)
+  if (businessMode && Array.isArray(autotestConfig.businesses)) {
+    const patterns = {};
+    autotestConfig.businesses.forEach(function (b) {
+      if (b.name && b.urlPattern) patterns[b.name] = b.urlPattern;
+    });
+    process.env.KUIKLY_BUSINESS_URL_PATTERNS = JSON.stringify(patterns);
+  }
+
+  const skipWebServer = businessMode
+    ? (autotestConfig.server ? autotestConfig.server.skipBuiltinServer !== false : true)
+    : process.env.KUIKLY_SKIP_WEBSERVER === 'true';
   const resolvedWorkers = runtime.resolvePlaywrightWorkers();
   const resolvedRetries = runtime.resolvePlaywrightRetries();
 
   // overrides 中的 webServer / projects 等字段可以完全替换默认值
   const { webServer: overrideWebServer, ...restOverrides } = overrides;
+
+  // Consumer-provided webServer (business mode)
+  const consumerWebServer = (businessMode && !skipWebServer && autotestConfig.server && autotestConfig.server.startCommand)
+    ? {
+        command: autotestConfig.server.startCommand,
+        port: port,
+        reuseExistingServer: true,
+        timeout: runtime.webServerTimeoutMs,
+      }
+    : undefined;
 
   return defineConfig({
     testDir: './tests',
@@ -45,7 +77,7 @@ function createPlaywrightConfig(overrides = {}) {
       ['json', { outputFile: reporting.jsonOutputFile }],
     ],
     use: {
-      baseURL: `http://localhost:${port}`,
+      baseURL: baseURL,
       viewport: { width: 375, height: 812 },
       trace: 'on-first-retry',
       screenshot: 'only-on-failure',
@@ -76,14 +108,16 @@ function createPlaywrightConfig(overrides = {}) {
     // webServer：使用包内绝对路径，确保 npm 模式下也能找到 serve.cjs
     webServer: overrideWebServer !== undefined
       ? overrideWebServer
-      : skipWebServer
-        ? undefined
-        : {
-            command: `node "${path.join(packageRoot, 'scripts', 'serve.cjs')}"`,
-            port,
-            reuseExistingServer: true,
-            timeout: runtime.webServerTimeoutMs,
-          },
+      : consumerWebServer !== undefined
+        ? consumerWebServer
+        : skipWebServer
+          ? undefined
+          : {
+              command: `node "${path.join(packageRoot, 'scripts', 'serve.cjs')}"`,
+              port,
+              reuseExistingServer: true,
+              timeout: runtime.webServerTimeoutMs,
+            },
     ...restOverrides,
   });
 }

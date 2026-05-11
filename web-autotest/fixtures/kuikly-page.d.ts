@@ -1,17 +1,44 @@
 import { Page, Locator } from '@playwright/test';
 /**
+ * Options for navigating to a business page.
+ * Used in business mode where pages are accessed by bundle URL pattern.
+ */
+export interface BusinessGotoOptions {
+    /** Business bundle name, maps to urlPattern in config */
+    bundle: string;
+    /** Optional page_name parameter appended to URL */
+    pageName?: string;
+    /** Explicit path override (e.g., '/gamecenter_qq_gift/index.html') */
+    path?: string;
+    /** Wait for render completion after navigation (default: true) */
+    waitForRender?: boolean;
+}
+/** Options passed to KuiklyPage constructor */
+export interface KuiklyPageOptions {
+    /** URL patterns keyed by business name, from config.businesses[].urlPattern */
+    businessURLPatterns?: Record<string, string>;
+}
+/**
  * KuiklyPage Fixture - Core utility class for Kuikly Web E2E testing
  * Encapsulates Kuikly-specific operations and interactions
  */
 export declare class KuiklyPage {
     readonly page: Page;
-    constructor(page: Page);
+    private businessURLPatterns?;
+    constructor(page: Page, options?: KuiklyPageOptions);
     /**
-     * Navigate to a test page using page_name parameter
-     * @param pageName - Test page name, e.g., 'KRListViewTestPage'
-     * @example await kuiklyPage.goto('?page_name=KRListViewTestPage')
+     * Navigate to a test page.
+     *
+     * Framework mode (backward compatible):
+     *   await kuiklyPage.goto('KRListViewTestPage')
+     *   await kuiklyPage.goto('?page_name=KRListViewTestPage')
+     *
+     * Business mode:
+     *   await kuiklyPage.goto({ bundle: 'gamecenter_jcc_weekly_report' })
+     *   await kuiklyPage.goto({ bundle: 'qq_gift', pageName: 'qq_gift_detail' })
+     *   await kuiklyPage.goto({ path: '/gamecenter_qq_gift/index.html' })
      */
-    goto(pageName: string): Promise<void>;
+    goto(target: string | BusinessGotoOptions): Promise<void>;
     /**
      * Wait for Kuikly render to complete
      * Monitors for specific flags or idle state

@@ -11,7 +11,10 @@ import { startV8Coverage, stopV8Coverage } from './coverage';
 export const test = base.extend<{ kuiklyPage: KuiklyPage }>({
   kuiklyPage: async ({ page }, use, testInfo) => {
     const coverageSession = await startV8Coverage(page);
-    const kuiklyPage = new KuiklyPage(page);
+    const businessURLPatterns = process.env.KUIKLY_BUSINESS_URL_PATTERNS
+      ? JSON.parse(process.env.KUIKLY_BUSINESS_URL_PATTERNS)
+      : undefined;
+    const kuiklyPage = new KuiklyPage(page, { businessURLPatterns });
 
     await use(kuiklyPage);
 

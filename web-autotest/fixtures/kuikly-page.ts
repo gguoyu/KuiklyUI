@@ -1,23 +1,81 @@
 import { Page, Locator, expect } from '@playwright/test';
 
 /**
+ * Options for navigating to a business page.
+ * Used in business mode where pages are accessed by bundle URL pattern.
+ */
+export interface BusinessGotoOptions {
+  /** Business bundle name, maps to urlPattern in config */
+  bundle: string;
+  /** Optional page_name parameter appended to URL */
+  pageName?: string;
+  /** Explicit path override (e.g., '/gamecenter_qq_gift/index.html') */
+  path?: string;
+  /** Wait for render completion after navigation (default: true) */
+  waitForRender?: boolean;
+}
+
+/** Options passed to KuiklyPage constructor */
+export interface KuiklyPageOptions {
+  /** URL patterns keyed by business name, from config.businesses[].urlPattern */
+  businessURLPatterns?: Record<string, string>;
+}
+
+/**
  * KuiklyPage Fixture - Core utility class for Kuikly Web E2E testing
  * Encapsulates Kuikly-specific operations and interactions
  */
 export class KuiklyPage {
-  constructor(public readonly page: Page) {}
+  private businessURLPatterns?: Record<string, string>;
+
+  constructor(public readonly page: Page, options?: KuiklyPageOptions) {
+    this.businessURLPatterns = options?.businessURLPatterns;
+  }
 
   // ==================== Navigation & Waiting ====================
 
   /**
-   * Navigate to a test page using page_name parameter
-   * @param pageName - Test page name, e.g., 'KRListViewTestPage'
-   * @example await kuiklyPage.goto('?page_name=KRListViewTestPage')
+   * Navigate to a test page.
+   *
+   * Framework mode (backward compatible):
+   *   await kuiklyPage.goto('KRListViewTestPage')
+   *   await kuiklyPage.goto('?page_name=KRListViewTestPage')
+   *
+   * Business mode:
+   *   await kuiklyPage.goto({ bundle: 'gamecenter_jcc_weekly_report' })
+   *   await kuiklyPage.goto({ bundle: 'qq_gift', pageName: 'qq_gift_detail' })
+   *   await kuiklyPage.goto({ path: '/gamecenter_qq_gift/index.html' })
    */
-  async goto(pageName: string): Promise<void> {
-    // Ensure pageName starts with ?page_name= or is a full query string
-    const url = pageName.startsWith('?') ? pageName : `?page_name=${pageName}`;
+  async goto(target: string | BusinessGotoOptions): Promise<void> {
+    if (typeof target === 'string') {
+      // Framework mode (backward compatible)
+      const url = target.startsWith('?') || target.startsWith('/') || target.startsWith('http')
+        ? target
+        : `?page_name=${target}`;
+      await this.page.goto(url);
+      return;
+    }
+
+    // Business mode
+    const { bundle, pageName, path: explicitPath, waitForRender = true } = target;
+
+    let url: string;
+    if (explicitPath) {
+      url = explicitPath;
+    } else if (bundle) {
+      const pattern = this.businessURLPatterns?.[bundle];
+      url = pattern || `/${bundle}/index.html`;
+      if (pageName) {
+        url += (url.includes('?') ? '&' : '?') + `page_name=${pageName}`;
+      }
+    } else {
+      throw new Error('goto() requires either a pageName string, bundle, or path');
+    }
+
     await this.page.goto(url);
+    if (waitForRender) {
+      await this.waitForRenderComplete();
+    }
   }
 
   /**

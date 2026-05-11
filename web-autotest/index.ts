@@ -7,3 +7,4 @@
 export { test, expect } from './fixtures/test-base';
 export { KuiklyPage } from './fixtures/kuikly-page';
 export type { ComponentNode } from './fixtures/kuikly-page';
+export type { BusinessGotoOptions, KuiklyPageOptions } from './fixtures/kuikly-page';

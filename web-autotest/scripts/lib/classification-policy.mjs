@@ -128,3 +128,32 @@ export function detectClassificationUpgradeOpportunity({ currentClassification =
   return null;
 }
 
+/**
+ * Resolve Playwright test targets for a specific business.
+ * @param {string} biz - Business name
+ * @param {string|null} [type] - Test type filter (visual/functional) or null for all
+ */
+export function resolveBusinessTargets(biz, type = null) {
+  if (type) {
+    return { targets: [`tests/${biz}/${type}`] };
+  }
+  return { targets: [`tests/${biz}`] };
+}
+
+/**
+ * Resolve Playwright test targets across all businesses for a given level/type.
+ * Used when --level is provided in business mode without --biz (runs all businesses).
+ * @param {string} level - Test type (visual/functional)
+ */
+export function resolveBusinessLevelTargets(level) {
+  const normalized = normalizeLevelInput(level);
+  if (!normalized || normalized === 'hybrid' || normalized === 'static') {
+    return null;
+  }
+  return {
+    requestedLevel: String(level),
+    normalizedLevel: normalized,
+    targets: [`tests/*/${normalized}`],
+  };
+}
+
