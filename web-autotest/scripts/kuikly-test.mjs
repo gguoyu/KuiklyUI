@@ -228,8 +228,13 @@ async function runTests({ collectCoverage = false } = {}) {
     ? {
         KUIKLY_COLLECT_V8_COVERAGE: 'true',
         KUIKLY_PORT: String(defaultPort),
+        KUIKLY_PROJECT_ROOT: projectRoot,
+        KUIKLY_AUTOTEST_DIR: e2eRoot,
       }
-    : {};
+    : {
+        KUIKLY_PROJECT_ROOT: projectRoot,
+        KUIKLY_AUTOTEST_DIR: e2eRoot,
+      };
 
   await execCommand(cmd, e2eRoot, extraEnv);
   console.log('Tests completed');
