@@ -3,7 +3,7 @@
 /**
  * Playwright 配置工厂函数
  *
- * 消费方用法（由 npx kuikly-aitest init 生成到 web-autotest/playwright.config.js）：
+ * 消费方用法（由 npx @tencent/kuikly-web-aitest init 生成到 web-autotest/playwright.config.js）：
  *   const { createPlaywrightConfig } = require('@tencent/kuikly-web-aitest/config/playwright-factory');
  *   module.exports = createPlaywrightConfig({ testDir: './tests' });
  *

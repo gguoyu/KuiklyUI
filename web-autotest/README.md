@@ -13,7 +13,7 @@ npm install @tencent/kuikly-web-aitest
 安装后初始化脚手架目录：
 
 ```bash
-npx kuikly-aitest init
+npx @tencent/kuikly-web-aitest init
 ```
 
 ## 快速开始
@@ -36,7 +36,7 @@ npx playwright install chromium
 
 ```bash
 # 在消费方项目根目录执行：
-npx kuikly-aitest init
+npx @tencent/kuikly-web-aitest init
 ```
 
 这会在当前目录下创建 `web-autotest/` 脚手架，包含：
@@ -73,7 +73,7 @@ import type { KuiklyPage } from '@tencent/kuikly-web-aitest';
 ## Playwright 配置工厂
 
 ```javascript
-// web-autotest/playwright.config.js（由 npx kuikly-aitest init 自动生成）
+// web-autotest/playwright.config.js（由 npx @tencent/kuikly-web-aitest init 自动生成）
 const { createPlaywrightConfig } = require('@tencent/kuikly-web-aitest/config/playwright-factory');
 module.exports = createPlaywrightConfig({ testDir: './tests' });
 ```
@@ -90,7 +90,7 @@ module.exports = createPlaywrightConfig({ testDir: './tests' });
 
 ## Claude Code 集成
 
-执行 `npx kuikly-aitest init` 后，会在 `.claude/commands/kuikly-web-autotest.md` 创建一个 skill stub，让 Claude Code 能通过 `/kuikly-web-autotest` 触发完整的测试闭环 AI 技能。
+执行 `npx @tencent/kuikly-web-aitest init` 后，会在 `.claude/commands/kuikly-web-autotest.md` 创建一个 skill stub，让 Claude Code 能通过 `/kuikly-web-autotest` 触发完整的测试闭环 AI 技能。
 
 ## License
 
